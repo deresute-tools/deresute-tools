@@ -1,7 +1,7 @@
 import pandas as pd
 
 from src.db import db
-from logic.search import card_query
+from src.logic.search import card_query
 
 chara_dict = card_query.get_chara_dict()
 

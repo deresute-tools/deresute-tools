@@ -9,8 +9,6 @@ from src import customlogger as logger
 from src.db import db
 from src.network.meta_updater import get_masterdb_path
 
-
-
 KEYWORD_KEYS_STR_ONLY = ["short", "chara", "rarity", "color", "skill", "leader", "time_prob_key"]
 KEYWORD_KEYS = KEYWORD_KEYS_STR_ONLY + ["owned", "idolized"]
 

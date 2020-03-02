@@ -1,7 +1,7 @@
 import numpy as np
 
-from exceptions import InvalidUnit
-from logic.search import card_query
+from src.exceptions import InvalidUnit
+from src.logic.search import card_query
 from src.db import db
 from src.logic.card import Card
 

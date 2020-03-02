@@ -1,8 +1,8 @@
 import atexit
 import sys
 
-import initializer
 from src import customlogger as logger
+from src import initializer
 
 logger.log_to_file()
 
@@ -12,11 +12,11 @@ def main_cleanup():
     logger.info("Virtual Chihiro going to sleep...")
 
 
-if __name__ == "__main__":
+def main():
     logger.info("Starting virtual Chihiro...")
 
     initializer.setup(True)
-    from gui.main import setup_gui
+    from src.gui.main import setup_gui
 
     app, main = setup_gui(sys.argv)
     main.show()

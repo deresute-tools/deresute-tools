@@ -1,9 +1,9 @@
 from PyQt5.QtWidgets import QTableWidget, QAbstractItemView
 
-from exceptions import InvalidUnit
-from gui.viewmodels.utils import NumericalTableWidgetItem, ImageWidget
-from logic.live import Live
-from logic.unit import Unit
+from src.exceptions import InvalidUnit
+from src.gui.viewmodels.utils import NumericalTableWidgetItem, ImageWidget
+from src.logic.live import Live
+from src.logic.unit import Unit
 from settings import IMAGE_PATH64
 
 

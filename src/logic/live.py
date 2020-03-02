@@ -4,7 +4,7 @@ from collections import OrderedDict
 import numpy as np
 import pandas as pd
 
-from logic.search import card_query
+from src.logic.search import card_query
 from settings import MUSICSCORES_PATH
 from src import customlogger as logger
 from src.db import db

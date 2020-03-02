@@ -1,7 +1,6 @@
 from PyQt5 import QtWidgets
 from PyQt5.QtGui import QIntValidator
 
-from logic.live import Live
 from src import customlogger as logger
 
 

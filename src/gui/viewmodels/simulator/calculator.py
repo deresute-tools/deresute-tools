@@ -3,8 +3,8 @@ import ast
 from PyQt5.QtCore import QSize, Qt
 from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QAbstractItemView, QTableWidget
 
-from gui.viewmodels.unit import UnitWidget
-from gui.viewmodels.utils import NumericalTableWidgetItem
+from src.gui.viewmodels.unit import UnitWidget
+from src.gui.viewmodels.utils import NumericalTableWidgetItem
 from src import customlogger as logger
 
 

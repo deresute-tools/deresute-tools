@@ -3,16 +3,19 @@ from PyQt5.QtGui import QIntValidator
 from PyQt5.QtWidgets import QWidget, QGridLayout, QVBoxLayout, QHBoxLayout, QTabWidget, QPushButton, QMenuBar, \
     QMenu, QStatusBar, QAction, QApplication, QMainWindow, QLineEdit
 
-from gui.viewmodels.card import CardView, CardModel, IconLoaderView, IconLoaderModel
-from gui.viewmodels.quicksearch import QuickSearchView, QuickSearchModel
-from gui.viewmodels.simulator.wide_smart import MainView, MainModel
-from gui.viewmodels.song import SongListView, SongListModel, SongView, SongModel
-from gui.viewmodels.unit import UnitView, UnitModel
-from logic.profile import profile_manager
+from src.gui.viewmodels.card import CardView, CardModel, IconLoaderView, IconLoaderModel
+from src.gui.viewmodels.quicksearch import QuickSearchView, QuickSearchModel
+from src.gui.viewmodels.simulator.wide_smart import MainView, MainModel
+from src.gui.viewmodels.song import SongListView, SongListModel, SongView, SongModel
+from src.gui.viewmodels.unit import UnitView, UnitModel
+from src.logic.profile import profile_manager
 from src import customlogger as logger
 
 
 # noinspection PyAttributeOutsideInit
+from src.logic.search import indexer
+
+
 class UiMainWindow:
     def __init__(self, main):
         self.main = main

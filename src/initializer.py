@@ -2,7 +2,7 @@
 Import all modules in the correct order
 """
 from settings import MANIFEST_PATH, MASTERDB_PATH
-from utils import storage
+from src.utils import storage
 
 
 def setup(update=False):

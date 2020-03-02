@@ -4,8 +4,6 @@ from src import customlogger as logger
 from src.db import db
 
 
-
-
 class Color(Enum):
     CUTE = 0
     COOL = 1

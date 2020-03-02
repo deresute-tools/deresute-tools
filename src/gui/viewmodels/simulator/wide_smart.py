@@ -2,14 +2,14 @@ import numpy as np
 from PyQt5 import QtWidgets
 from PyQt5.QtGui import QIntValidator
 
-from exceptions import InvalidUnit
-from gui.viewmodels.simulator.calculator import CalculatorView, CalculatorModel
-from gui.viewmodels.simulator.custom_bonus import CustomBonusView, CustomBonusModel
-from gui.viewmodels.simulator.custom_settings import CustomSettingsView, CustomSettingsModel
-from gui.viewmodels.simulator.support import SupportView, SupportModel
-from logic.live import Live
-from logic.unit import Unit
-from simulator import Simulator
+from src.exceptions import InvalidUnit
+from src.gui.viewmodels.simulator.calculator import CalculatorView, CalculatorModel
+from src.gui.viewmodels.simulator.custom_bonus import CustomBonusView, CustomBonusModel
+from src.gui.viewmodels.simulator.custom_settings import CustomSettingsView, CustomSettingsModel
+from src.gui.viewmodels.simulator.support import SupportView, SupportModel
+from src.logic.live import Live
+from src.logic.unit import Unit
+from src.simulator import Simulator
 from src import customlogger as logger
 
 

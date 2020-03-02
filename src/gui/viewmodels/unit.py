@@ -3,7 +3,7 @@ from PyQt5.QtGui import QDrag
 from PyQt5.QtWidgets import QListWidget, QWidget, QHBoxLayout, QVBoxLayout, QListWidgetItem, QLineEdit, QPushButton, \
     QApplication
 
-from logic.profile import unit_storage
+from src.logic.profile import unit_storage
 from settings import IMAGE_PATH64, IMAGE_PATH32, IMAGE_PATH
 from src.db import db
 from src.gui.viewmodels.utils import ImageWidget

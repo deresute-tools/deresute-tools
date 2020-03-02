@@ -1,7 +1,4 @@
-import os
-from pathlib import Path
-
-ROOT_DIR = Path(os.path.dirname(os.path.abspath(__file__)))
+from main import ROOT_DIR
 
 LOGGER_NAME = "chihiro"
 LOG_DIR = ROOT_DIR / "logs"
@@ -20,10 +17,8 @@ MASTERDB_PATH = DB_PATH / "master.db"
 
 PROFILE_PATH = DATA_PATH / "profiles"
 
-STATIC_PATH = ROOT_DIR / "src" / "static"
+STATIC_PATH = ROOT_DIR
 TOOL_EXE = STATIC_PATH / "tool.exe"
 TEMP_PATH = STATIC_PATH / "temppp"
-
-DIFFICULTY_NAMES_PATH = STATIC_PATH / "difficulty_names.json"
 
 INDEX_PATH = DATA_PATH / "index"

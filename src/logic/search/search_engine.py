@@ -1,7 +1,7 @@
 from whoosh import scoring
 from whoosh.qparser import QueryParser
 
-from logic.search import indexer
+from src.logic.search import indexer
 from src import customlogger as logger
 
 

@@ -1,7 +1,7 @@
 from src.db import db
 from src.logic.leader import Leader
 from src.logic.skill import Skill
-from logic.search import card_query
+from src.logic.search import card_query
 from src.static.color import Color
 
 

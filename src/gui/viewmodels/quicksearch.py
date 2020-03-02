@@ -1,7 +1,7 @@
 from PyQt5.QtCore import QSize
 from PyQt5.QtWidgets import QPlainTextEdit, QCheckBox
 
-from logic.search import search_engine
+from src.logic.search import search_engine
 from src import customlogger as logger
 
 

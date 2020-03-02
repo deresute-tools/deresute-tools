@@ -6,8 +6,7 @@ from concurrent.futures.thread import ThreadPoolExecutor
 import requests
 from PIL import Image
 
-import settings
-from settings import IMAGE_PATH, IMAGE_PATH32, IMAGE_PATH64, ZIP_PATH
+from settings import IMAGE_PATH, IMAGE_PATH32, IMAGE_PATH64, ZIP_PATH, MAX_WORKERS
 from src import customlogger as logger
 from src.network.kirara_query import _base_query
 from src.utils import storage
@@ -45,7 +44,7 @@ def update_all(sleep=0.1):
     logger.debug("Getting icons for {} cards".format(len(card_data)))
     card_ids = [int(card['id']) for card in card_data]
     card_ids_plus = [_ + 1 for _ in card_ids]
-    with ThreadPoolExecutor(max_workers=settings.MAX_WORKERS) as executor:
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         for card_id in card_ids + card_ids_plus:
             executor.submit(update_image, card_id, sleep)
 

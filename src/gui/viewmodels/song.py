@@ -5,10 +5,10 @@ import pandas as pd
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QTableWidget, QAbstractItemView, QTableWidgetItem
 
-from db import db
-from gui.viewmodels.utils import NumericalTableWidgetItem
-from logic.live import classify_note
-from network import meta_updater
+from src.db import db
+from src.gui.viewmodels.utils import NumericalTableWidgetItem
+from src.logic.live import classify_note
+from src.network import meta_updater
 from settings import MUSICSCORES_PATH
 from src import customlogger as logger
 from src.static.note_type import NoteType
