@@ -18,7 +18,7 @@ kaede2_guest = Card.from_query("kaede2", custom_pots=(10, 10, 10, 0, 5))
 unit = Unit.from_list([sae4, chieri4, yoshino3, rika4, mio4, kaede2_guest])
 
 live = Live()
-live.set_music("印象", Difficulty.MPLUS)
+live.set_music(music_name="印象", difficulty=Difficulty.MPLUS)
 live.set_unit(unit)
 sim = Simulator(live)
 assert sim.simulate(times=100, appeals=270000)[0] == 1736810
@@ -28,7 +28,7 @@ unitB = Unit.from_query("sae4 kozue2 momoka3 frederica3 sachiko4")
 unitC = Unit.from_query("atsumi2 anzu3 anzu3u miku4 miku3")
 gu = GrandUnit(unitA, unitB, unitC)
 live = GrandLive()
-live.set_music("Starry-Go-Round", Difficulty.PIANO)
+live.set_music(music_name="Starry-Go-Round", difficulty=Difficulty.PIANO)
 live.set_unit(gu)
 sim = Simulator(live)
 assert sim.simulate(times=10, appeals=490781)[0] == 3424303
@@ -52,7 +52,7 @@ for unit in unit_list:
     unit.update_card(5, guest_cool_ens)
 
     live = Live()
-    live.set_music("バベル", Difficulty.MPLUS)
+    live.set_music(music_name="バベル", difficulty=Difficulty.MPLUS)
     live.set_unit(unit)
     sim = Simulator(live)
     print(unit)

@@ -1,8 +1,8 @@
 import unittest
 
 from src.db import db
-from logic.profile import potential
-from logic.profile.profile_manager import pm
+from src.logic.profile import potential
+from src.logic.profile.profile_manager import pm
 
 
 class TestProfile(unittest.TestCase):

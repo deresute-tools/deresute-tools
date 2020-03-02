@@ -18,11 +18,10 @@ class TestLive(unittest.TestCase):
         unit = Unit.from_list([c1, c2, c3, c4, c5, cg])
 
         live = Live()
-        live.set_music("印象", Difficulty.MASTER)
+        live.set_music(music_name="印象", difficulty=Difficulty.MASTER)
         live.set_unit(unit)
         self.assertEqual(live.get_appeals(), 38965)
         self.assertEqual(live.get_life(), 272)
-        self.assertEqual(live.get_support(), 111470)
 
     def test_mplus(self):
         c1 = Card.from_query("sae4", custom_pots=(10, 10, 10, 10, 10))
@@ -34,12 +33,12 @@ class TestLive(unittest.TestCase):
         unit = Unit.from_list([c1, c2, c3, c4, c5, cg])
 
         live = Live()
-        live.set_music("EVERMORE", Difficulty.MPLUS)
+        live.set_music(music_name="EVERMORE", difficulty=Difficulty.MPLUS)
         live.set_unit(unit)
         self.assertEqual(live.get_appeals(), 134140)
         self.assertEqual(live.get_life(), 394)
 
     def test_music_not_found(self):
         live = Live()
-        self.assertRaises(NoLiveFoundException, lambda: live.set_music("印象", Difficulty.TRICK))
-        self.assertRaises(NoLiveFoundException, lambda: live.set_music("not found", Difficulty.REGULAR))
+        self.assertRaises(NoLiveFoundException, lambda: live.set_music(music_name="印象", difficulty=Difficulty.TRICK))
+        self.assertRaises(NoLiveFoundException, lambda: live.set_music(music_name="not found", difficulty=Difficulty.REGULAR))

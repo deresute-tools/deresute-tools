@@ -1,8 +1,9 @@
 from PyQt5.QtCore import QMetaObject, QRect, QCoreApplication
-from PyQt5.QtGui import QIntValidator
+from PyQt5.QtGui import QIntValidator, QIcon
 from PyQt5.QtWidgets import QWidget, QGridLayout, QVBoxLayout, QHBoxLayout, QTabWidget, QPushButton, QMenuBar, \
     QMenu, QStatusBar, QAction, QApplication, QMainWindow, QLineEdit
 
+from main import ROOT_DIR
 from src.gui.viewmodels.card import CardView, CardModel, IconLoaderView, IconLoaderModel
 from src.gui.viewmodels.quicksearch import QuickSearchView, QuickSearchModel
 from src.gui.viewmodels.simulator.wide_smart import MainView, MainModel
@@ -172,6 +173,7 @@ class UiMainWindow:
 def setup_gui(*args):
     app = QApplication(*args)
     app.setApplicationName("Chihiro")
+    app.setWindowIcon(QIcon(str(ROOT_DIR / 'icon.png')))
     MainWindow = QMainWindow()
     ui = UiMainWindow(MainWindow)
     ui.setup_ui()
