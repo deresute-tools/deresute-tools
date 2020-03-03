@@ -5,13 +5,13 @@ import subprocess
 import traceback
 from collections import defaultdict
 
+from settings import PROFILE_PATH, TOOL_EXE, TEMP_PATH
+from src import customlogger as logger
+from src.db import db
 from src.logic.profile import card_storage, potential
 from src.logic.profile import unit_storage
 from src.logic.search import card_query
 from src.network import kirara_query
-from settings import PROFILE_PATH, TOOL_EXE, TEMP_PATH
-from src import customlogger as logger
-from src.db import db
 from src.utils import storage
 
 keys = ["chara_id", "vo", "vi", "da", "li", "sk"]
@@ -30,16 +30,17 @@ def import_from_gameid(game_id):
         for card in cards:
             card_dict[card] += 1
         for card_id, number in card_dict.items():
-            z = db.cachedb.execute_and_fetchone("SELECT 1 FROM owned_card WHERE card_id = ?", [card_id])
+            z = db.cachedb.execute_and_fetchone("SELECT number FROM owned_card WHERE card_id = ?", [card_id])
             if z[0] < number:
                 db.cachedb.execute("""
                     INSERT OR REPLACE INTO owned_card (card_id, number)
                     VALUES (?,?)
                 """, [card_id, number])
         db.cachedb.commit()
-        logger.info("Imported cards successfully")
+        logger.info("Imported {} cards successfully".format(len(card_dict)))
+        return list(card_dict.keys())
     except:
-        traceback.print_exc()
+        logger.debug(traceback.print_exc())
         logger.info("Failed to import cards")
 
 

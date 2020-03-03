@@ -34,6 +34,7 @@ class MainView:
         self._setup_support()
 
         self.calculator_table_view.set_support_model(self.support_model)
+        self.calculator_table_view.attach_custom_settings_model(self.custom_settings_model)
 
         self.main_layout.addLayout(self.calculator_and_custom_setting_layout)
         self.main_layout.addLayout(self.custom_appeal_and_support_layout)
@@ -48,6 +49,8 @@ class MainView:
     def _setup_support(self):
         self.support_view = SupportView(self.widget)
         self.support_model = SupportModel(self.support_view)
+        self.support_model.attach_custom_bonus_model(self.custom_bonus_model)
+        self.support_model.attach_custom_settings_model(self.custom_settings_model)
         self.support_view.set_model(self.support_model)
         self.custom_appeal_and_support_layout.addWidget(self.support_view.widget)
 
@@ -162,11 +165,12 @@ class MainModel:
 
     def process_results(self, results, row=None):
         # ["Perfect", "Mean", "Max", "Min", "Skill Off", "1%", "5%", "25%", "50%", "75%"])
-        # results: perfect_score, skill_off, base, deltas
+        # results: appeals, perfect_score, skill_off, base, deltas
         res = list()
         for result in results:
             temp = list()
-            perfect_score, skill_off, base, deltas = result
+            appeals, perfect_score, skill_off, base, deltas = result
+            temp.append(appeals)
             temp.append(perfect_score)
             temp.append(base)
             temp.append(base + deltas.max())

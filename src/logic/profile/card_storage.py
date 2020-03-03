@@ -1,4 +1,6 @@
+from src import customlogger as logger
 from src.db import db
+from src.logic.search import indexer
 
 
 def initialize_owned_cards():
@@ -13,8 +15,17 @@ def initialize_owned_cards():
     db.cachedb.commit()
 
 
-def update_owned_cards(card_id, number):
-    db.cachedb.execute("""
-        INSERT OR REPLACE INTO owned_card (card_id, number)
-        VALUES (?,?)
-    """, [card_id, number])
+def update_owned_cards(card_ids, numbers):
+    logger.info("Updating cards: {}".format(card_ids))
+    if not isinstance(card_ids, list) or not isinstance(numbers, list):
+        card_ids = [card_ids]
+        numbers = [numbers]
+    assert len(card_ids) == len(numbers)
+    for card_id, number in zip(card_ids, numbers):
+        db.cachedb.execute("""
+            INSERT OR REPLACE INTO owned_card (card_id, number)
+            VALUES (?,?)
+        """, [card_id, number])
+    db.cachedb.commit()
+    indexer.im.initialize_index_db(card_ids)
+    indexer.im.reindex(card_ids)

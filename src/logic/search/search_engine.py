@@ -1,13 +1,16 @@
 from whoosh import scoring
 from whoosh.qparser import QueryParser
 
-from src.logic.search import indexer
 from src import customlogger as logger
+from src.logic.search import indexer
 
 
 class SearchEngine:
 
     def __init__(self):
+        self.refresh_searcher()
+
+    def refresh_searcher(self):
         self._ix = indexer.im.get_index()
         self._searcher = self._ix.searcher(weighting=scoring.TF_IDF())
 

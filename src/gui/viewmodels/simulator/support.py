@@ -1,10 +1,10 @@
 from PyQt5.QtWidgets import QTableWidget, QAbstractItemView
 
+from settings import IMAGE_PATH64
 from src.exceptions import InvalidUnit
 from src.gui.viewmodels.utils import NumericalTableWidgetItem, ImageWidget
 from src.logic.live import Live
 from src.logic.unit import Unit
-from settings import IMAGE_PATH64
 
 
 class SupportView:
@@ -26,6 +26,7 @@ class SupportView:
         self.model = model
 
     def display_support(self, support):
+        support[:, [2, 3]] = support[:, [3, 2]]
         for r in range(len(support)):
             card_id = support[r][0]
             image = ImageWidget(str(IMAGE_PATH64 / "{:06d}.jpg".format(card_id)), self.widget)
@@ -40,10 +41,17 @@ class SupportModel:
         self.live = Live()
         self.card_ids = None
 
+    def attach_custom_bonus_model(self, custom_bonus_model):
+        self.custom_bonus_model = custom_bonus_model
+
+    def attach_custom_settings_model(self, custom_settings_model):
+        self.custom_settings_model = custom_settings_model
+
     def set_cards(self, cards_ids):
         self.card_ids = cards_ids
         try:
-            unit = Unit.from_list(self.card_ids)
+            custom_pots = self.custom_settings_model.get_custom_pots()
+            unit = Unit.from_list(self.card_ids, custom_pots)
         except InvalidUnit:
             return
         self.live.set_unit(unit)
@@ -54,5 +62,7 @@ class SupportModel:
     def generate_support(self):
         if self.live.unit is None:
             return
+        self.live.set_extra_bonus(self.custom_bonus_model.get_bonus())
         self.live.get_support()
         self.view.display_support(self.live.support)
+        return self.live.get_appeals(), self.live.get_support()

@@ -4,17 +4,15 @@ from PyQt5.QtWidgets import QWidget, QGridLayout, QVBoxLayout, QHBoxLayout, QTab
     QMenu, QStatusBar, QAction, QApplication, QMainWindow, QLineEdit
 
 from main import ROOT_DIR
+from src import customlogger as logger
 from src.gui.viewmodels.card import CardView, CardModel, IconLoaderView, IconLoaderModel
 from src.gui.viewmodels.quicksearch import QuickSearchView, QuickSearchModel
 from src.gui.viewmodels.simulator.wide_smart import MainView, MainModel
 from src.gui.viewmodels.song import SongListView, SongListModel, SongView, SongModel
 from src.gui.viewmodels.unit import UnitView, UnitModel
 from src.logic.profile import profile_manager
-from src import customlogger as logger
-
-
 # noinspection PyAttributeOutsideInit
-from src.logic.search import indexer
+from src.logic.search import indexer, search_engine
 
 
 class UiMainWindow:
@@ -58,12 +56,7 @@ class UiMainWindow:
         import_text = QLineEdit(self.main)
         import_text.setValidator(QIntValidator(0, 999999999, None))  # Only number allowed
         import_button = QPushButton("Import from ID", self.main)
-
-        def import_from_id():
-            profile_manager.import_from_gameid(import_text.text())
-            self.card_model.initialize_cards()
-
-        import_button.pressed.connect(lambda: import_from_id())
+        import_button.pressed.connect(lambda: self.import_from_id(import_text.text()))
         self.import_layout.addWidget(import_text)
         self.import_layout.addWidget(import_button)
         self.song_layout.addLayout(self.import_layout)
@@ -99,16 +92,17 @@ class UiMainWindow:
         self.quicksearch_layout = QHBoxLayout()
 
         # Set up card MV first
-        card_view = CardView(self.central_widget)
-        self.card_model = CardModel(card_view)
-        card_view.set_model(self.card_model)
+        self.card_view = CardView(self.central_widget)
+        self.card_model = CardModel(self.card_view)
+        self.card_view.set_model(self.card_model)
         self.card_model.initialize_cards()
-        card_view.initialize_pics()
-        self.card_layout.addWidget(card_view.widget)
+        self.card_view.initialize_pics()
+        self.card_view.connect_cell_change()
+        self.card_layout.addWidget(self.card_view.widget)
 
         # Need card view
         quicksearch_view = QuickSearchView(self.central_widget)
-        quicksearch_model = QuickSearchModel(quicksearch_view, card_view)
+        quicksearch_model = QuickSearchModel(quicksearch_view, self.card_view)
         quicksearch_view.set_model(quicksearch_model)
         self.card_quicksearch_layout.addLayout(self.quicksearch_layout)
         self.quicksearch_layout.addWidget(quicksearch_view.widget)
@@ -124,7 +118,6 @@ class UiMainWindow:
         self.card_layout.addLayout(self.card_quicksearch_layout)
 
         self.card_layout.setStretch(1, 1)
-        self.card_unit_layout.addLayout(self.card_layout)
 
         self.unit_layout = QVBoxLayout()
         unit_view = UnitView(self.central_widget)
@@ -132,7 +125,9 @@ class UiMainWindow:
         unit_view.set_model(unit_model)
         unit_model.initialize_units()
         self.unit_layout.addWidget(unit_view.widget)
+
         self.card_unit_layout.addLayout(self.unit_layout)
+        self.card_unit_layout.addLayout(self.card_layout)
 
         self.add_unit_button = QPushButton()
         self.add_unit_button.setText("Add unit")
@@ -143,12 +138,12 @@ class UiMainWindow:
         self.add_unit_button.clicked.connect(lambda: unit_view.add_empty_widget())
         self.unit_layout.addWidget(self.add_unit_button)
 
-        self.card_unit_layout.setStretch(0, 2)
-        self.card_unit_layout.setStretch(1, 1)
+        self.card_unit_layout.setStretch(0, 1)
+        self.card_unit_layout.setStretch(1, 2)
         self.main_layout.addLayout(self.card_unit_layout)
         self.grid_layout.addLayout(self.main_layout, 0, 0, 1, 1)
 
-        card_view.toggle_auto_resize(False)
+        self.card_view.toggle_auto_resize(False)
 
     def setup_menu_bar(self):
         logger.info("Setting up menu bar")
@@ -162,6 +157,18 @@ class UiMainWindow:
         self.actionExit = QAction(self.main)
         self.menuMenu.addAction(self.actionExit)
         self.menubar.addAction(self.menuMenu.menuAction())
+
+    def import_from_id(self, game_id):
+        self.card_view.disconnect_cell_change()
+        updated_card_ids = profile_manager.import_from_gameid(game_id)
+        if updated_card_ids is None:
+            self.card_view.connect_cell_change()
+            return
+        indexer.im.initialize_index_db(updated_card_ids)
+        indexer.im.reindex(updated_card_ids)
+        search_engine.engine.refresh_searcher()
+        self.card_model.initialize_cards(updated_card_ids)
+        self.card_view.connect_cell_change()
 
     def retranslate_ui(self, MainWindow):
         _translate = QCoreApplication.translate

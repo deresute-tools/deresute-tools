@@ -1,4 +1,5 @@
 import time
+from random import random
 
 import numpy as np
 
@@ -101,7 +102,7 @@ class Simulator:
         logger.debug("Max: {}".format(int(base + deltas.max())))
         logger.debug("Min: {}".format(int(base + deltas.min())))
         logger.debug("Deviation: {}".format(int(np.round(np.std(deltas)))))
-        return perfect_score, skill_off, base, deltas
+        return self.total_appeal, perfect_score, skill_off, base, deltas
 
     def _simulate_internal(self, grand, times, fail_simulate=False, time_offset=0.0):
         results = self._helper_initialize_skill_activations(times=times, grand=grand,
@@ -292,14 +293,14 @@ class Simulator:
                             rep_rolls = rep_rolls * np.arange(1, 1 + times) - 1
                             rep_rolls = rep_rolls[rep_rolls != -1]
                             self.notes_data.loc[
-                                (self.notes_data.sec > left)
-                                & (self.notes_data.sec < right)
+                                (self.notes_data.sec > left - 0.3 + 0.6 * random())
+                                & (self.notes_data.sec < right - 0.3 + 0.6 * random())
                                 & (self.notes_data.rep.isin(rep_rolls)),
                                 'skill_{}{}'.format(unit_idx, card_idx)] = 1
                         else:
                             # Save a bit more time
                             self.notes_data.loc[
-                                (self.notes_data.sec > left)
-                                & (self.notes_data.sec < right),
+                                (self.notes_data.sec > left - 0.3 + 0.6 * random())
+                                & (self.notes_data.sec < right - 0.3 + 0.6 * random()),
                                 'skill_{}{}'.format(unit_idx, card_idx)] = 1
         return has_sparkle, has_support

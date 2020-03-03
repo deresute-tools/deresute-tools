@@ -6,10 +6,11 @@ from settings import IMAGE_PATH64, IMAGE_PATH, IMAGE_PATH32
 from src import customlogger as logger
 from src.db import db
 from src.gui.viewmodels.utils import ImageWidget, NumericalTableWidgetItem
+from src.logic.profile import card_storage
 from src.network import meta_updater
 
 
-class DragableCardTable(QTableWidget):
+class CustomCardTable(QTableWidget):
     def __init__(self, *args):
         super().__init__(*args)
 
@@ -47,7 +48,7 @@ class DragableCardTable(QTableWidget):
 class CardView:
 
     def __init__(self, main):
-        self.widget = DragableCardTable(main)
+        self.widget = CustomCardTable(main)
         self.widget.setVerticalScrollMode(1)  # Smooth scroll
         self.widget.setHorizontalScrollMode(1)  # Smooth scroll
         self.widget.setDragEnabled(True)
@@ -60,7 +61,12 @@ class CardView:
 
     def set_model(self, model):
         self.model = model
+
+    def connect_cell_change(self):
         self.widget.cellChanged.connect(lambda r, c: self.model.handle_cell_change(r, c))
+
+    def disconnect_cell_change(self):
+        self.widget.cellChanged.disconnect()
 
     def initialize_pics(self):
         for r_idx in range(self.widget.rowCount()):
@@ -76,12 +82,28 @@ class CardView:
             self.widget.horizontalHeader().setSectionResizeMode(0)  # Resize
             self.widget.setColumnWidth(3, name_col_width)
 
-    def load_data(self, data):
-        self.widget.setColumnCount(len(data[0]) + 1)
-        self.widget.horizontalHeader().setSectionResizeMode(0, 2)  # Not allow change icon column size
-        self.widget.setRowCount(len(data))
-        self.widget.setHorizontalHeaderLabels([''] + list(data[0].keys()))
-        for r_idx, card_data in enumerate(data):
+    def load_data(self, data, card_list=None):
+        if card_list is None:
+            self.widget.setColumnCount(len(data[0]) + 1)
+            self.widget.horizontalHeader().setSectionResizeMode(0, 2)  # Not allow change icon column size
+            self.widget.setRowCount(len(data))
+            self.widget.setHorizontalHeaderLabels([''] + list(data[0].keys()))
+            rows = range(len(data))
+        else:
+            data_dict = {int(_['ID']): _ for _ in data}
+            rows = dict()
+            for r_idx in range(self.widget.rowCount()):
+                card_id = int(self.widget.item(r_idx, 1).text())
+                if card_id not in data_dict:
+                    continue
+                else:
+                    rows[card_id] = r_idx
+            rows = [rows[card_id] for card_id in map(int, card_list)]
+            data = [data_dict[card_id] for card_id in map(int, card_list)]
+
+        # Turn off sorting to avoid indices changing mid-update
+        self.widget.setSortingEnabled(False)
+        for r_idx, card_data in zip(rows, data):
             for c_idx, (key, value) in enumerate(card_data.items()):
                 if isinstance(value, int):
                     item = NumericalTableWidgetItem(value)
@@ -91,10 +113,14 @@ class CardView:
                     item = QTableWidgetItem(str(value))
                 if c_idx != 1:
                     item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+                else:
+                    item = QTableWidgetItem()
+                    item.setData(Qt.EditRole, value)
                 self.widget.setItem(r_idx, c_idx + 1, item)
         logger.info("Loaded {} cards".format(len(data)))
+        self.widget.setSortingEnabled(True)
         # Turn on auto fit once to make it look better then turn it off to render faster during resize
-        self.toggle_auto_resize(True)
+        self.toggle_auto_resize(card_list is None)
 
     def show_only_ids(self, card_ids):
         if not card_ids:
@@ -152,41 +178,46 @@ class CardModel:
                 self.images[image_path.name.split(".")[0]] = image_path
             self.view.draw_icons(self.images, size)
 
-    def initialize_cards(self):
+    def initialize_cards(self, card_list=None):
         db.cachedb.execute("""ATTACH DATABASE "{}" AS masterdb""".format(meta_updater.get_masterdb_path()))
         db.cachedb.commit()
-        data = db.cachedb.execute_and_fetchall("""
-                    SELECT  cdc.id as ID,
-                            oc.number as Owned,
-                            cdc.name as Name,
-                            cc.full_name as Character,
-                            REPLACE(UPPER(rt.text) || "+", "U+", "") as Rarity,
-                            ct.text as Color,
-                            sk.skill_name as Skill,
-                            lk.keywords as Leader,
-                            sd.condition as Interval,
-                            pk.keywords as Prob,
-                            CAST(cdc.vocal_max + cdc.bonus_vocal AS INTEGER) as Vocal,
-                            CAST(cdc.visual_max + cdc.bonus_visual AS INTEGER) as Visual,
-                            CAST(cdc.dance_max + cdc.bonus_dance AS INTEGER) as Dance,
-                            CAST(cdc.hp_max + cdc.bonus_hp AS INTEGER) as Life
-                    FROM card_data_cache as cdc
-                    INNER JOIN chara_cache cc on cdc.chara_id = cc.chara_id
-                    INNER JOIN rarity_text rt on cdc.rarity = rt.id
-                    INNER JOIN color_text ct on cdc.attribute = ct.id
-                    LEFT JOIN owned_card oc on cdc.id = oc.card_id
-                    LEFT JOIN masterdb.skill_data sd on cdc.skill_id = sd.id
-                    LEFT JOIN probability_keywords pk on pk.id = sd.probability_type
-                    LEFT JOIN skill_keywords sk on sd.skill_type = sk.id
-                    LEFT JOIN leader_keywords lk on cdc.leader_skill_id = lk.id
-                """, out_dict=True)
+        query = """
+            SELECT  cdc.id as ID,
+                    oc.number as Owned,
+                    cdc.name as Name,
+                    cc.full_name as Character,
+                    REPLACE(UPPER(rt.text) || "+", "U+", "") as Rarity,
+                    ct.text as Color,
+                    sk.skill_name as Skill,
+                    lk.keywords as Leader,
+                    sd.condition as Interval,
+                    pk.keywords as Prob,
+                    CAST(cdc.vocal_max + cdc.bonus_vocal AS INTEGER) as Vocal,
+                    CAST(cdc.visual_max + cdc.bonus_visual AS INTEGER) as Visual,
+                    CAST(cdc.dance_max + cdc.bonus_dance AS INTEGER) as Dance,
+                    CAST(cdc.hp_max + cdc.bonus_hp AS INTEGER) as Life
+            FROM card_data_cache as cdc
+            INNER JOIN chara_cache cc on cdc.chara_id = cc.chara_id
+            INNER JOIN rarity_text rt on cdc.rarity = rt.id
+            INNER JOIN color_text ct on cdc.attribute = ct.id
+            LEFT JOIN owned_card oc on cdc.id = oc.card_id
+            LEFT JOIN masterdb.skill_data sd on cdc.skill_id = sd.id
+            LEFT JOIN probability_keywords pk on pk.id = sd.probability_type
+            LEFT JOIN skill_keywords sk on sd.skill_type = sk.id
+            LEFT JOIN leader_keywords lk on cdc.leader_skill_id = lk.id
+        """
+        if card_list is not None:
+            query += "WHERE cdc.id IN ({})".format(','.join(['?'] * len(card_list)))
+            data = db.cachedb.execute_and_fetchall(query, card_list, out_dict=True)
+        else:
+            data = db.cachedb.execute_and_fetchall(query, out_dict=True)
         db.cachedb.execute("DETACH DATABASE masterdb")
         db.cachedb.commit()
         for card in data:
             if card['Owned'] is None:
                 card['Owned'] = 0
             self.owned[int(card['ID'])] = int(card['Owned'])
-        self.view.load_data(data)
+        self.view.load_data(data, card_list)
 
     def handle_cell_change(self, r_idx, c_idx):
         if c_idx != 2:
@@ -202,6 +233,7 @@ class CardModel:
             self.view.widget.item(r_idx, c_idx).setData(2, self.owned[card_id])
             return
         self.owned[card_id] = new_value
+        card_storage.update_owned_cards(card_id, new_value)
 
 
 class IconLoaderView:

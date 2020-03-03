@@ -73,8 +73,8 @@ class CustomSettingsModel:
             return None
         results = list()
         results.append(self.view.custom_vocal.currentIndex())
-        results.append(self.view.custom_dance.currentIndex())
         results.append(self.view.custom_visual.currentIndex())
+        results.append(self.view.custom_dance.currentIndex())
         results.append(self.view.custom_life.currentIndex())
         results.append(self.view.custom_skill.currentIndex())
         return results

@@ -20,9 +20,9 @@ class IndexManager:
             INDEX_PATH.mkdir()
         self.index = None
 
-    def initialize_index_db(self):
+    def initialize_index_db(self, card_list=None):
         db.cachedb.execute("""ATTACH DATABASE "{}" AS masterdb""".format(get_masterdb_path()))
-        data = db.cachedb.execute_and_fetchall("""
+        query = """
             SELECT  cdc.id,
                     LOWER(cnc.card_short_name) as short,
                     oc.number as owned,
@@ -48,22 +48,29 @@ class IndexManager:
             LEFT JOIN probability_keywords pk on pk.id = sd.probability_type
             LEFT JOIN skill_keywords sk on sd.skill_type = sk.id
             LEFT JOIN leader_keywords lk on cdc.leader_skill_id = lk.id
-        """, out_dict=True)
-        db.cachedb.execute("DROP TABLE IF EXISTS card_index_keywords")
-        db.cachedb.execute("""
-            CREATE TABLE IF NOT EXISTS card_index_keywords (
-                "card_id" INTEGER UNIQUE PRIMARY KEY,
-                "fields" BLOB
-            )
-        """)
+        """
+        if card_list is not None:
+            query += "WHERE cdc.id IN ({})".format(','.join(['?'] * len(card_list)))
+            data = db.cachedb.execute_and_fetchall(query, card_list, out_dict=True)
+        else:
+            data = db.cachedb.execute_and_fetchall(query, out_dict=True)
+            db.cachedb.execute("DROP TABLE IF EXISTS card_index_keywords")
+            db.cachedb.execute("""
+                CREATE TABLE IF NOT EXISTS card_index_keywords (
+                    "card_id" INTEGER UNIQUE PRIMARY KEY,
+                    "fields" BLOB
+                )
+            """)
+        logger.debug("Initializing quicksearch db for {} cards".format(len(data)))
         for card in data:
             card_id = card['id']
             fields = {_: card[_] for _ in KEYWORD_KEYS}
             db.cachedb.execute("""
-                    INSERT OR IGNORE INTO card_index_keywords ("card_id", "fields")
+                    INSERT OR REPLACE INTO card_index_keywords ("card_id", "fields")
                     VALUES (?,?)
                 """, [card_id, str(fields)])
         db.cachedb.commit()
+        logger.debug("Quicksearch db transaction for {} cards completed".format(len(data)))
         db.cachedb.execute("DETACH DATABASE masterdb")
 
     def initialize_index(self):
@@ -81,6 +88,7 @@ class IndexManager:
                         content=TEXT)
         ix = create_in(INDEX_PATH, schema)
         writer = ix.writer()
+        logger.debug("Initializing quicksearch index for {} cards".format(len(results)))
         for result in results:
             fields = ast.literal_eval(result[1])
             content = " ".join([fields[key] for key in KEYWORD_KEYS_STR_ONLY])
@@ -89,16 +97,27 @@ class IndexManager:
                                 **fields)
         writer.commit()
         self.index = ix
+        logger.debug("Quicksearch index initialized for {} cards".format(len(results)))
 
-    def reindex(self):
-        results = db.cachedb.execute_and_fetchall("SELECT card_id, fields FROM card_index_keywords")
+    def reindex(self, card_ids=None):
+        logger.debug("Reindexing for {} cards".format(len(card_ids)))
+        if card_ids is not None:
+            results = db.cachedb.execute_and_fetchall(
+                """
+                SELECT card_id, fields 
+                FROM card_index_keywords 
+                WHERE card_id IN ({})
+                """.format(','.join(['?'] * len(card_ids))), card_ids)
+        else:
+            results = db.cachedb.execute_and_fetchall("SELECT card_id, fields FROM card_index_keywords")
         writer = self.index.writer()
         for result in results:
             fields = ast.literal_eval(result[1])
             content = " ".join([fields[key] for key in KEYWORD_KEYS_STR_ONLY])
-            writer.update_document(title=str(result[0]),
-                                   content=content,
-                                   **fields)
+            writer.delete_by_term('title', str(result[0]))
+            writer.add_document(title=str(result[0]),
+                                content=content,
+                                **fields)
         writer.commit()
 
     def get_index(self):
@@ -111,8 +130,8 @@ class IndexManager:
         try:
             if INDEX_PATH.exists():
                 shutil.rmtree(str(INDEX_PATH))
-            return True
             logger.debug("Index cleaned up.")
+            return True
         except PermissionError:
             return False
 

@@ -3,9 +3,9 @@ import ast
 from PyQt5.QtCore import QSize, Qt
 from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QAbstractItemView, QTableWidget
 
+from src import customlogger as logger
 from src.gui.viewmodels.unit import UnitWidget
 from src.gui.viewmodels.utils import NumericalTableWidgetItem
-from src import customlogger as logger
 
 
 class CalculatorUnitWidget(UnitWidget):
@@ -68,13 +68,13 @@ class CalculatorView:
         self.widget = DroppableCalculatorWidget(self, main)
         self.widget.setHorizontalScrollMode(1)  # Smooth scroll
         self.widget.setVerticalScrollMode(1)  # Smooth scroll
-        self.widget.setColumnCount(11)
+        self.widget.setColumnCount(12)
         self.widget.setRowCount(1)
         self.widget.verticalHeader().setDefaultSectionSize(50)
         self.widget.verticalHeader().setSectionResizeMode(2)
         self.widget.horizontalHeader().setSectionResizeMode(3)  # Auto fit
         self.widget.setHorizontalHeaderLabels(
-            ["Unit", "Perfect", "Mean", "Max", "Min", "Skill Off", "1%", "5%", "25%", "50%", "75%"])
+            ["Unit", "Appeals", "Perfect", "Mean", "Max", "Min", "Skill Off", "1%", "5%", "25%", "50%", "75%"])
         self.widget.setColumnWidth(0, 40 * 6)
 
         simulator_unit_widget = CalculatorUnitWidget(self, self.widget, size=32)
@@ -85,6 +85,9 @@ class CalculatorView:
 
     def set_support_model(self, support_model):
         self.support_model = support_model
+
+    def attach_custom_settings_model(self, custom_settings_model):
+        self.custom_settings_model = custom_settings_model
 
     def set_model(self, model):
         self.model = model
@@ -123,7 +126,13 @@ class CalculatorView:
 
     def create_support_team(self, r):
         self.support_model.set_cards(self.widget.cellWidget(r, 0).card_ids)
-        self.support_model.generate_support()
+        appeals, support = self.support_model.generate_support()
+        if self.custom_settings_model.get_appeals() is not None:
+            self.widget.setItem(r, 1, NumericalTableWidgetItem(int(self.custom_settings_model.get_appeals())))
+            return
+        if self.custom_settings_model.get_support() is not None:
+            support = int(self.custom_settings_model.get_support())
+        self.widget.setItem(r, 1, NumericalTableWidgetItem(int(appeals + support)))
 
     def display_results(self, results, row):
         if row is not None:
