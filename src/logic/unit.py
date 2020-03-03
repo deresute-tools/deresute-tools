@@ -20,11 +20,11 @@ class Unit:
             self.resonance = self._resonance_check()
 
     @classmethod
-    def from_query(cls, query):
+    def from_query(cls, query, custom_pots=None):
         card_ids = card_query.convert_short_name_to_id(query)
         if len(card_ids) < 5 or len(card_ids) > 6:
             raise ValueError("Invalid number of cards in query: {}".format(query))
-        return cls.from_list(card_ids)
+        return cls.from_list(card_ids, custom_pots)
 
     @classmethod
     def from_list(cls, cards, custom_pots=None):
