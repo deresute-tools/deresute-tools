@@ -1,5 +1,6 @@
 import atexit
 import sys
+import traceback
 
 from src import customlogger as logger
 from src import initializer
@@ -15,9 +16,13 @@ def main_cleanup():
 def main():
     logger.info("Starting virtual Chihiro...")
 
-    initializer.setup(True)
-    from src.gui.main import setup_gui
+    try:
+        initializer.setup(True)
+        from src.gui.main import setup_gui
 
-    app, main = setup_gui(sys.argv)
-    main.show()
-    sys.exit(app.exec_())
+        app, main = setup_gui(sys.argv)
+        main.show()
+        sys.exit(app.exec_())
+    except:
+        logger.critical("ERROR!")
+        logger.critical(traceback.print_exc())
