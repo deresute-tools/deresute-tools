@@ -32,7 +32,7 @@ class CustomCardTable(QTableWidget):
             return
         drag = QDrag(self)
         card_row = self.row(self.selected[0])
-        card_id = self.item(card_row, 1).text()
+        card_id = self.item(card_row, 2).text()
         card_img = self.cellWidget(card_row, 0).picture
         mimedata = QMimeData()
         mimedata.setText(CARD + card_id)
@@ -72,29 +72,29 @@ class CardView:
     def initialize_pics(self):
         for r_idx in range(self.widget.rowCount()):
             image = ImageWidget(None, self.widget)
-            self.widget.setCellWidget(r_idx, 0, image)
+            self.widget.setCellWidget(r_idx, 1, image)
 
     def toggle_auto_resize(self, on=False):
         if on:
-            self.widget.horizontalHeader().setSectionResizeMode(3)  # Auto fit
-            self.widget.horizontalHeader().setSectionResizeMode(3, 1)  # Auto fit
+            self.widget.horizontalHeader().setSectionResizeMode(4)  # Auto fit
+            self.widget.horizontalHeader().setSectionResizeMode(4, 1)  # Auto fit
         else:
-            name_col_width = self.widget.columnWidth(3)
+            name_col_width = self.widget.columnWidth(4)
             self.widget.horizontalHeader().setSectionResizeMode(0)  # Resize
-            self.widget.setColumnWidth(3, name_col_width)
+            self.widget.setColumnWidth(4, name_col_width)
 
     def load_data(self, data, card_list=None):
         if card_list is None:
-            self.widget.setColumnCount(len(data[0]) + 1)
-            self.widget.horizontalHeader().setSectionResizeMode(0, 2)  # Not allow change icon column size
+            self.widget.setColumnCount(len(data[0]) + 2)
+            self.widget.horizontalHeader().setSectionResizeMode(1, 2)  # Not allow change icon column size
             self.widget.setRowCount(len(data))
-            self.widget.setHorizontalHeaderLabels([''] + list(data[0].keys()))
+            self.widget.setHorizontalHeaderLabels(['#', ''] + list(data[0].keys()))
             rows = range(len(data))
         else:
             data_dict = {int(_['ID']): _ for _ in data}
             rows = dict()
             for r_idx in range(self.widget.rowCount()):
-                card_id = int(self.widget.item(r_idx, 1).text())
+                card_id = int(self.widget.item(r_idx, 2).text())
                 if card_id not in data_dict:
                     continue
                 else:
@@ -105,6 +105,9 @@ class CardView:
         # Turn off sorting to avoid indices changing mid-update
         self.widget.setSortingEnabled(False)
         for r_idx, card_data in zip(rows, data):
+            row_count_item = NumericalTableWidgetItem(r_idx + 1)
+            row_count_item.setFlags(row_count_item.flags() & ~Qt.ItemIsEditable)
+            self.widget.setItem(r_idx, 0, row_count_item)
             for c_idx, (key, value) in enumerate(card_data.items()):
                 if isinstance(value, int):
                     item = NumericalTableWidgetItem(value)
@@ -117,7 +120,7 @@ class CardView:
                 else:
                     item = QTableWidgetItem()
                     item.setData(Qt.EditRole, value)
-                self.widget.setItem(r_idx, c_idx + 1, item)
+                self.widget.setItem(r_idx, c_idx + 2, item)
         logger.info("Loaded {} cards".format(len(data)))
         self.widget.setSortingEnabled(True)
         # Turn on auto fit once to make it look better then turn it off to render faster during resize
@@ -128,9 +131,12 @@ class CardView:
             card_ids = set()
         else:
             card_ids = set(card_ids)
+        count = 1
         for r_idx in range(self.widget.rowCount()):
-            if int(self.widget.item(r_idx, 1).text()) in card_ids:
+            if int(self.widget.item(r_idx, 2).text()) in card_ids:
                 self.widget.setRowHidden(r_idx, False)
+                self.widget.item(r_idx, 0).setData(2, str(count))
+                count += 1
             else:
                 self.widget.setRowHidden(r_idx, True)
         self.refresh_spacing()
@@ -142,15 +148,15 @@ class CardView:
             self.size = size
         for r_idx in range(self.widget.rowCount()):
             if icons:
-                card_id = self.widget.item(r_idx, 1).text()
-                self.widget.cellWidget(r_idx, 0).set_path(icons[card_id])
+                card_id = self.widget.item(r_idx, 2).text()
+                self.widget.cellWidget(r_idx, 1).set_path(icons[card_id])
             else:
-                self.widget.cellWidget(r_idx, 0).set_path(None)
+                self.widget.cellWidget(r_idx, 1).set_path(None)
         self.refresh_spacing()
 
     def refresh_spacing(self):
         self.widget.verticalHeader().setDefaultSectionSize(self.size + 10)
-        self.widget.setColumnWidth(0, self.size + 10)
+        self.widget.setColumnWidth(1, self.size + 10)
 
 
 class CardModel:
@@ -160,6 +166,9 @@ class CardModel:
         self.view = view
         self.images = dict()
         self.owned = dict()
+
+    def attach_calculator_view(self, calculator_view):
+        self.calculator_view = calculator_view
 
     def load_images(self, size=None):
         logger.info("Change card list image size to {}".format(size))
@@ -221,9 +230,9 @@ class CardModel:
         self.view.load_data(data, card_list)
 
     def handle_cell_change(self, r_idx, c_idx):
-        if c_idx != 2:
+        if c_idx != 3:
             return
-        card_id = int(self.view.widget.item(r_idx, 1).text())
+        card_id = int(self.view.widget.item(r_idx, 2).text())
         new_value = self.view.widget.item(r_idx, c_idx).text()
         try:
             new_value = int(new_value)
@@ -235,6 +244,22 @@ class CardModel:
             return
         self.owned[card_id] = new_value
         card_storage.update_owned_cards(card_id, new_value)
+
+    def push_card(self, idx):
+        count = 0
+        cell_widget = None
+        for row in range(self.view.widget.rowCount()):
+            if self.view.widget.isRowHidden(row):
+                continue
+            if count == idx:
+                cell_widget = self.view.widget.item(row, 2)
+                break
+            else:
+                count += 1
+        if cell_widget is None:
+            logger.info("No card at index {}".format(idx))
+            return
+        self.calculator_view.push_card(int(cell_widget.text()))
 
 
 class IconLoaderView:

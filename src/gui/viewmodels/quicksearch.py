@@ -1,13 +1,39 @@
-from PyQt5.QtCore import QSize
-from PyQt5.QtWidgets import QPlainTextEdit, QCheckBox, QLineEdit
+from PyQt5.QtCore import QSize, Qt
+from PyQt5.QtWidgets import QCheckBox, QLineEdit, QApplication
 
-from src.logic.search import search_engine
 from src import customlogger as logger
+from src.logic.search import search_engine
+
+
+class ShortcutQuickSearchWidget(QLineEdit):
+    def __init__(self, parent, card_model, *__args):
+        super().__init__(parent, *__args)
+        self.card_model = card_model
+
+    def keyPressEvent(self, event):
+        key = event.key()
+        match_dict = {
+            Qt.Key_1: 0,
+            Qt.Key_2: 1,
+            Qt.Key_3: 2,
+            Qt.Key_4: 3,
+            Qt.Key_5: 4,
+            Qt.Key_6: 5,
+            Qt.Key_7: 6,
+            Qt.Key_8: 7,
+            Qt.Key_9: 8,
+            Qt.Key_0: 9
+        }
+        if QApplication.keyboardModifiers() == Qt.ControlModifier:
+            if key in match_dict:
+                self.card_model.push_card(match_dict[key])
+                return
+        super().keyPressEvent(event)
 
 
 class QuickSearchView:
-    def __init__(self, main):
-        self.widget = QLineEdit(main)
+    def __init__(self, main, card_model):
+        self.widget = ShortcutQuickSearchWidget(main, card_model)
         self.widget.setMaximumSize(QSize(2000, 25))
         self.model = None
 
@@ -18,6 +44,9 @@ class QuickSearchView:
 
     def trigger(self):
         self.model.call_searchengine(self.widget.text().strip())
+
+    def focus(self):
+        self.widget.setFocus()
 
 
 class QuickSearchModel:

@@ -125,6 +125,16 @@ class CalculatorView:
         for i in reversed(range(self.widget.rowCount())):
             self.widget.removeRow(i)
 
+    def push_card(self, card_id):
+        for row in range(self.widget.rowCount()):
+            cell_widget = self.widget.cellWidget(row, 0)
+            card_ids = cell_widget.card_ids
+            for c_idx, card in enumerate(card_ids):
+                if card is None:
+                    cell_widget.set_card(idx=c_idx, card_id=card_id)
+                    return
+        self.add_unit([card_id, None, None, None, None, None])
+
     def set_unit(self, cards, row=None):
         if row is None:
             row = self.widget.rowCount() - 1

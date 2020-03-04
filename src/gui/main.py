@@ -1,4 +1,4 @@
-from PyQt5.QtCore import QMetaObject, QRect, QCoreApplication
+from PyQt5.QtCore import QMetaObject, QRect, QCoreApplication, Qt
 from PyQt5.QtGui import QIntValidator, QIcon
 from PyQt5.QtWidgets import QWidget, QGridLayout, QVBoxLayout, QHBoxLayout, QTabWidget, QPushButton, QMenuBar, \
     QMenu, QStatusBar, QAction, QApplication, QMainWindow, QLineEdit
@@ -11,10 +11,23 @@ from src.gui.viewmodels.simulator.wide_smart import MainView, MainModel
 from src.gui.viewmodels.song import SongListView, SongListModel, SongView, SongModel
 from src.gui.viewmodels.unit import UnitView, UnitModel
 from src.logic.profile import profile_manager
-# noinspection PyAttributeOutsideInit
 from src.logic.search import indexer, search_engine
 
 
+class CustomMainWindow(QMainWindow):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def setui(self, ui):
+        self.ui = ui
+
+    def keyPressEvent(self, event):
+        key = event.key()
+        if QApplication.keyboardModifiers() == Qt.ControlModifier and key == Qt.Key_F:
+            self.ui.quicksearch_view.focus()
+
+
+# noinspection PyAttributeOutsideInit
 class UiMainWindow:
     def __init__(self, main):
         self.main = main
@@ -42,38 +55,38 @@ class UiMainWindow:
 
         self.calculator_song_layout = QHBoxLayout()
         self.calculator = QTabWidget(self.central_widget)
-        non_grand_tab_view = MainView()
-        non_grand_tab_model = MainModel(non_grand_tab_view)
-        non_grand_tab_view.set_model(non_grand_tab_model)
-        non_grand_tab_view.setup()
+        self.non_grand_tab_view = MainView()
+        self.non_grand_tab_model = MainModel(self.non_grand_tab_view)
+        self.non_grand_tab_view.set_model(self.non_grand_tab_model)
+        self.non_grand_tab_view.setup()
         self.grand_tab = QWidget()  # TODO
-        self.calculator.addTab(non_grand_tab_view.widget, "WIDE/SMART")
+        self.calculator.addTab(self.non_grand_tab_view.widget, "WIDE/SMART")
         self.calculator.addTab(self.grand_tab, "GRAND")
         self.calculator_song_layout.addWidget(self.calculator)
         self.song_layout = QVBoxLayout()
 
         self.import_layout = QHBoxLayout()
-        import_text = QLineEdit(self.main)
-        import_text.setValidator(QIntValidator(0, 999999999, None))  # Only number allowed
-        import_button = QPushButton("Import from ID", self.main)
-        import_button.pressed.connect(lambda: self.import_from_id(import_text.text()))
-        self.import_layout.addWidget(import_text)
-        self.import_layout.addWidget(import_button)
+        self.import_text = QLineEdit(self.main)
+        self.import_text.setValidator(QIntValidator(0, 999999999, None))  # Only number allowed
+        self.import_button = QPushButton("Import from ID", self.main)
+        self.import_button.pressed.connect(lambda: self.import_from_id(self.import_text.text()))
+        self.import_layout.addWidget(self.import_text)
+        self.import_layout.addWidget(self.import_button)
         self.song_layout.addLayout(self.import_layout)
 
-        song_view = SongView(self.central_widget)
-        song_model = SongModel(song_view)
-        song_view.set_model(song_model)
-        self.song_layout.addWidget(song_view.widget)
+        self.song_view = SongView(self.central_widget)
+        self.song_model = SongModel(self.song_view)
+        self.song_view.set_model(self.song_model)
+        self.song_layout.addWidget(self.song_view.widget)
 
-        non_grand_tab_view.attach_song_view(song_view)
-        song_view.attach_support_model(non_grand_tab_view.support_model)
+        self.non_grand_tab_view.attach_song_view(self.song_view)
+        self.song_view.attach_support_model(self.non_grand_tab_view.support_model)
 
-        song_list_view = SongListView(self.central_widget, song_model)
-        song_list_model = SongListModel(song_list_view)
-        song_list_view.set_model(song_list_model)
-        song_list_model.initialize_songs()
-        self.song_layout.addWidget(song_list_view.widget)
+        self.song_list_view = SongListView(self.central_widget, self.song_model)
+        self.song_list_model = SongListModel(self.song_list_view)
+        self.song_list_view.set_model(self.song_list_model)
+        self.song_list_model.initialize_songs()
+        self.song_layout.addWidget(self.song_list_view.widget)
 
         self.calculator_song_layout.addLayout(self.song_layout)
         self.calculator_song_layout.setStretch(0, 0)
@@ -95,36 +108,37 @@ class UiMainWindow:
         self.card_view = CardView(self.central_widget)
         self.card_model = CardModel(self.card_view)
         self.card_view.set_model(self.card_model)
+        self.card_model.attach_calculator_view(self.non_grand_tab_view.calculator_table_view)
         self.card_model.initialize_cards()
         self.card_view.initialize_pics()
         self.card_view.connect_cell_change()
         self.card_layout.addWidget(self.card_view.widget)
 
         # Need card view
-        quicksearch_view = QuickSearchView(self.central_widget)
-        quicksearch_model = QuickSearchModel(quicksearch_view, self.card_view)
-        quicksearch_view.set_model(quicksearch_model)
+        self.quicksearch_view = QuickSearchView(self.central_widget, self.card_model)
+        self.quicksearch_model = QuickSearchModel(self.quicksearch_view, self.card_view)
+        self.quicksearch_view.set_model(self.quicksearch_model)
         self.card_quicksearch_layout.addLayout(self.quicksearch_layout)
-        self.quicksearch_layout.addWidget(quicksearch_view.widget)
-        quicksearch_model.add_options(self.quicksearch_layout, self.central_widget)
+        self.quicksearch_layout.addWidget(self.quicksearch_view.widget)
+        self.quicksearch_model.add_options(self.quicksearch_layout, self.central_widget)
 
         # Then icon loader MV since it makes use of the card model
-        icon_loader_view = IconLoaderView(self.central_widget)
-        icon_loader_model = IconLoaderModel(icon_loader_view, self.card_model)
-        icon_loader_view.set_model(icon_loader_model)
-        icon_loader_view.widget.setToolTip("Larger icons require more RAM to run.")
-        icon_loader_model.load_image(0)
-        self.card_quicksearch_layout.addWidget(icon_loader_view.widget)
+        self.icon_loader_view = IconLoaderView(self.central_widget)
+        self.icon_loader_model = IconLoaderModel(self.icon_loader_view, self.card_model)
+        self.icon_loader_view.set_model(self.icon_loader_model)
+        self.icon_loader_view.widget.setToolTip("Larger icons require more RAM to run.")
+        self.icon_loader_model.load_image(0)
+        self.card_quicksearch_layout.addWidget(self.icon_loader_view.widget)
         self.card_layout.addLayout(self.card_quicksearch_layout)
 
         self.card_layout.setStretch(1, 1)
 
         self.unit_layout = QVBoxLayout()
-        unit_view = UnitView(self.central_widget)
-        unit_model = UnitModel(unit_view)
-        unit_view.set_model(unit_model)
-        unit_model.initialize_units()
-        self.unit_layout.addWidget(unit_view.widget)
+        self.unit_view = UnitView(self.central_widget)
+        self.unit_model = UnitModel(self.unit_view)
+        self.unit_view.set_model(self.unit_model)
+        self.unit_model.initialize_units()
+        self.unit_layout.addWidget(self.unit_view.widget)
 
         self.card_unit_layout.addLayout(self.unit_layout)
         self.card_unit_layout.addLayout(self.card_layout)
@@ -135,7 +149,7 @@ class UiMainWindow:
             "Add an untitled unit. Untitled units are not saved upon exit!\n"
             "Make sure to give your units a name. Unit names must be different.\n"
             "First/Red card is the leader, last/blue card is the guest.")
-        self.add_unit_button.clicked.connect(lambda: unit_view.add_empty_widget())
+        self.add_unit_button.clicked.connect(lambda: self.unit_view.add_empty_widget())
         self.unit_layout.addWidget(self.add_unit_button)
 
         self.card_unit_layout.setStretch(0, 1)
@@ -181,8 +195,9 @@ def setup_gui(*args):
     app = QApplication(*args)
     app.setApplicationName("Chihiro")
     app.setWindowIcon(QIcon(str(ROOT_DIR / 'icon.png')))
-    MainWindow = QMainWindow()
+    MainWindow = CustomMainWindow()
     ui = UiMainWindow(MainWindow)
+    MainWindow.setui(ui)
     ui.setup_ui()
     logger.info("GUI setup successfully")
     return app, MainWindow
