@@ -9,27 +9,27 @@ from src.static.song_difficulty import Difficulty
 
 logger.print_debug()
 
-unit = Unit.from_query("sae4 rika4 chieri4 yoshino3 mio4 kaede2", custom_pots=(10,10,10,10,10))
-
-live = Live()
-live.set_music(music_name="Trust me", difficulty=Difficulty.MPLUS)
-live.set_unit(unit)
-sim = Simulator(live)
-print(sim.simulate(times=10, appeals=270000))
-
-# sae4 = Card.from_query("sae4", custom_pots=(2, 10, 0, 0, 10))
-# chieri4 = Card.from_query("chieri4", custom_pots=(0, 10, 9, 0, 10))
-# yoshino3 = Card.from_query("yoshino3", custom_pots=(8, 10, 0, 0, 10))
-# rika4 = Card.from_query("rika4", custom_pots=(8, 10, 0, 0, 10))
-# mio4 = Card.from_query("mio4", custom_pots=(0, 5, 0, 0, 10))
-# kaede2_guest = Card.from_query("kaede2", custom_pots=(10, 10, 10, 0, 5))
-# unit = Unit.from_list([sae4, chieri4, yoshino3, rika4, mio4, kaede2_guest])
+# unit = Unit.from_query("karen4 sae3 miho4 momoka4 nagi2", custom_pots=(0,0,0,0,10))
 #
 # live = Live()
-# live.set_music(music_name="印象", difficulty=Difficulty.MPLUS)
+# live.set_music(music_name="あいくるしい", difficulty=Difficulty.REGULAR)
 # live.set_unit(unit)
 # sim = Simulator(live)
-# assert sim.simulate(times=100, appeals=270000)[0] == 1736810
+# print(sim.simulate(perfect_play=True, appeals=170901))
+
+sae4 = Card.from_query("sae4", custom_pots=(2, 10, 0, 0, 10))
+chieri4 = Card.from_query("chieri4", custom_pots=(0, 10, 9, 0, 10))
+yoshino3 = Card.from_query("yoshino3", custom_pots=(8, 10, 0, 0, 10))
+rika4 = Card.from_query("rika4", custom_pots=(8, 10, 0, 0, 10))
+mio4 = Card.from_query("mio4", custom_pots=(0, 5, 0, 0, 10))
+kaede2_guest = Card.from_query("kaede2", custom_pots=(10, 10, 10, 0, 5))
+unit = Unit.from_list([sae4, chieri4, yoshino3, rika4, mio4, kaede2_guest])
+
+live = Live()
+live.set_music(music_name="印象", difficulty=Difficulty.MPLUS)
+live.set_unit(unit)
+sim = Simulator(live)
+assert sim.simulate(times=10, appeals=270000)[0] == 1736810
 
 # unitA = Unit.from_query("kaede2 chieri4 kyoko4 rika4 rika4u")
 # unitB = Unit.from_query("sae4 kozue2 momoka3 frederica3 sachiko4")

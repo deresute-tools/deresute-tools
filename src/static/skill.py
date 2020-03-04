@@ -1,7 +1,6 @@
 from src import customlogger as logger
 from src.db import db
 
-
 SKILL_BASE = {
     1: {"id": 1, "name": "SCORE Bonus", "keywords": ["su"]},
     2: {"id": 2, "name": "SCORE Bonus", "keywords": ["su"]},
@@ -34,6 +33,7 @@ SKILL_BASE = {
     36: {"id": 36, "name": "Dance Motif"},
     37: {"id": 37, "name": "Visual Motif"},
     38: {"id": 38, "name": "Tricolor Symphony"},
+    39: {"id": 39, "name": "Alternate"},
 }
 
 logger.debug("Creating chihiro.skill_keywords...")

@@ -9,7 +9,7 @@ from src import customlogger as logger
 from src.db import db
 from src.network.meta_updater import get_masterdb_path
 
-KEYWORD_KEYS_STR_ONLY = ["short", "chara", "rarity", "color", "skill", "leader", "time_prob_key"]
+KEYWORD_KEYS_STR_ONLY = ["short", "chara", "rarity", "color", "skill", "leader", "time_prob_key", "fes"]
 KEYWORD_KEYS = KEYWORD_KEYS_STR_ONLY + ["owned", "idolized"]
 
 
@@ -21,6 +21,8 @@ class IndexManager:
         self.index = None
 
     def initialize_index_db(self, card_list=None):
+        logger.info("Building quicksearch index, please wait...")
+
         db.cachedb.execute("""ATTACH DATABASE "{}" AS masterdb""".format(get_masterdb_path()))
         query = """
             SELECT  cdc.id,
@@ -37,7 +39,10 @@ class IndexManager:
                         WHEN pk.id IS NOT NULL THEN sd.condition || pk.short ELSE '' 
                     END time_prob_key, 
                     IFNULL(LOWER(sk.keywords), "") as skill,
-                    IFNULL(LOWER(lk.keywords), "") as leader
+                    IFNULL(LOWER(lk.keywords), "") as leader,
+                    CASE
+                        WHEN cdc.leader_skill_id IN (70,71,72,73,81,82,83,84,104,105,106,113) THEN "fes" ELSE ""
+                    END fes
             FROM card_data_cache as cdc
             INNER JOIN card_name_cache cnc on cdc.id = cnc.card_id
             INNER JOIN owned_card oc on oc.card_id = cnc.card_id
@@ -84,6 +89,7 @@ class IndexManager:
                         color=TEXT,
                         skill=TEXT,
                         leader=TEXT,
+                        fes=TEXT,
                         time_prob_key=TEXT,
                         content=TEXT)
         ix = create_in(INDEX_PATH, schema)

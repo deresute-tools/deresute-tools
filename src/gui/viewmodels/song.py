@@ -52,8 +52,8 @@ class SongListView:
         self.widget.horizontalHeader().setSectionResizeMode(1, 1)  # Auto fit
 
     def handle_double_click(self, r):
-        music_id = int(self.widget.item(r, 4).text())
-        self.song_model.get_charts(music_id)
+        chart_id = int(self.widget.item(r, 4).text())
+        self.song_model.get_charts(chart_id)
 
 
 class SongListModel:
@@ -89,8 +89,10 @@ class SongListModel:
             cloned[value['Name']] = value
         data = list(sorted(cloned.values(), key=lambda value: value['_sort']))
         for idx, value in enumerate(data):
-            value.pop('_sort')
+            _sort = value.pop('_sort')
+            value['_sort'] = _sort
             value.pop('_end_date')
+            value.pop('id')
         self.view.load_data(data)
 
 
@@ -189,7 +191,7 @@ class SongModel:
                 dt.text AS difficulty_text 
             FROM live_data, live_detail live
             INNER JOIN cachedb.difficulty_text dt ON dt.id = live.difficulty_type
-            WHERE live_data.music_data_id = ? AND live.live_data_id = live_data.id AND sort_key <> 21 AND sort_key <> 22
+            WHERE live_data.sort = ? AND live.live_data_id = live_data.id AND sort_key <> 21 AND sort_key <> 22
             ORDER BY sort_key
             """,
             [music_id], out_dict=True

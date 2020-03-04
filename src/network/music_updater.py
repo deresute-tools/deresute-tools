@@ -9,8 +9,6 @@ from src.utils import storage
 from src.utils.misc import decompress
 
 
-
-
 def _score_cache_db_exists():
     return db.cachedb.execute_and_fetchone("""
         SELECT name FROM sqlite_master WHERE type='table' AND name='score_cache'
@@ -61,6 +59,9 @@ def update_musicscores():
     logger.info(
         "Found {} musicscores, {} of them are new, {} are updated...".format(len(all_musicscores), len(new_scores),
                                                                              len(updated_scores)))
+
+    if len(new_scores) + len(updated_scores) > 50:
+        logger.info("It will take some time to download, please wait...")
 
     for musicscore_name in set(new_scores).union(set(updated_scores)):
         musicscore_hash = all_musicscores[musicscore_name]

@@ -28,6 +28,14 @@ class Skill:
         self.skill_type = skill_type
 
     @property
+    def is_alternate(self):
+        return self.skill_type == 39
+
+    @property
+    def is_support(self):
+        return self.skill_type in SUPPORT_TYPES
+
+    @property
     def values(self):
         return [self.v0, self.v1, self.v2, self.v3]
 
@@ -84,6 +92,9 @@ class Skill:
             values[2] = skill_values[1]
         elif skill_type == 17:  # Healer
             values[2] = skill_values[0]
+        elif skill_type == 39:
+            values[0] = 1
+            values[1] = skill_values[0]
         else:
             values = [skill_values[0], skill_values[1], skill_values[2], 0]
         return values
