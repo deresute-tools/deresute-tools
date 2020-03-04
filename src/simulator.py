@@ -336,7 +336,7 @@ class Simulator:
                         left, right = skill_range
                         self.notes_data.loc[
                             (note_times > left)
-                            & (note_times < right),
+                            & (note_times <= right),
                             'skill_{}'.format(unit_idx * 5 + card_idx)] = 1
                         self.notes_data.loc[
                             (note_times > left)
@@ -344,7 +344,7 @@ class Simulator:
                             'skill_{}_l'.format(unit_idx * 5 + card_idx)] = left
                         self.notes_data.loc[
                             (note_times > left)
-                            & (note_times < right),
+                            & (note_times <= right),
                             'skill_{}_r'.format(unit_idx * 5 + card_idx)] = right
                 else:
                     self.notes_data['skill_{}{}'.format(unit_idx, card_idx)] = 0
@@ -356,13 +356,13 @@ class Simulator:
                             rep_rolls = rep_rolls[rep_rolls != -1]
                             self.notes_data.loc[
                                 (self.notes_data.sec > left)
-                                & (self.notes_data.sec < right)
+                                & (self.notes_data.sec <= right)
                                 & (self.notes_data.rep.isin(rep_rolls)),
                                 'skill_{}{}'.format(unit_idx, card_idx)] = 1
                         else:
                             # Save a bit more time
                             self.notes_data.loc[
                                 (self.notes_data.sec > left)
-                                & (self.notes_data.sec < right),
+                                & (self.notes_data.sec <= right),
                                 'skill_{}{}'.format(unit_idx, card_idx)] = 1
         return has_sparkle, has_support, has_alternate
