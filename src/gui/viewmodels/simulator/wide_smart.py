@@ -169,6 +169,9 @@ class MainModel:
         res = list()
         for result in results:
             temp = list()
+            if result is None:
+                temp.append(None)
+                continue
             appeals, perfect_score, skill_off, base, deltas = result
             temp.append(appeals)
             temp.append(perfect_score)

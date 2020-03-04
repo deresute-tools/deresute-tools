@@ -137,11 +137,13 @@ class CalculatorView:
         self.widget.setItem(r, 1, NumericalTableWidgetItem(int(appeals + support)))
 
     def display_results(self, results, row):
-        if row is not None:
+        if row is not None and results[0] is not None:
             for c, value in enumerate(results[0]):
                 self.widget.setItem(row, c + 1, NumericalTableWidgetItem(value))
             return
         for r, data in enumerate(results):
+            if data is None:
+                continue
             for c, value in enumerate(data):
                 self.widget.setItem(r, c + 1, NumericalTableWidgetItem(value))
 

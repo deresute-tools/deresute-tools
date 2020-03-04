@@ -239,11 +239,11 @@ class Simulator:
             for skill_idx in alternates:
                 fail_alternate_notes = self.notes_data[self.notes_data.sec < first_score_note][
                     "skill_{}_l".format(skill_idx)].max()
-                remove_index = self.notes_data[
-                    self.notes_data["skill_{}_l".format(skill_idx)] <= fail_alternate_notes].index.max()
-                # Test with 4s later
-                # Negate where skill not activated
-                np_v[:remove_index + 1, 0:2, skill.color.value, skill_idx] = 0
+                if not np.isnan(fail_alternate_notes):
+                    remove_index = self.notes_data[
+                        self.notes_data["skill_{}_l".format(skill_idx)] <= fail_alternate_notes].index.max()
+                    # Negate where skill not activated
+                    np_v[:remove_index + 1, 0:2, skill.color.value, skill_idx] = 0
                 np_v[:, 0, skill.color.value, skill_idx] = np_v[:, 0, skill.color.value, skill_idx] * alternate_value
 
         def null_deactivated_skills():
