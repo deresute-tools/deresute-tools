@@ -9,7 +9,8 @@ from src import customlogger as logger
 from src.db import db
 from src.network.meta_updater import get_masterdb_path
 
-KEYWORD_KEYS_STR_ONLY = ["short", "chara", "rarity", "color", "skill", "leader", "time_prob_key", "fes"]
+KEYWORD_KEYS_STR_ONLY = ["short", "chara", "rarity", "color", "skill", "leader", "time_prob_key", "fes",
+                         "main_attribute"]
 KEYWORD_KEYS = KEYWORD_KEYS_STR_ONLY + ["owned", "idolized"]
 
 
@@ -41,8 +42,20 @@ class IndexManager:
                     IFNULL(LOWER(sk.keywords), "") as skill,
                     IFNULL(LOWER(lk.keywords), "") as leader,
                     CASE
-                        WHEN cdc.leader_skill_id IN (70,71,72,73,81,82,83,84,104,105,106,113) THEN "fes" ELSE ""
-                    END fes
+                        WHEN cdc.leader_skill_id IN (70,71,72,73,81,82,83,84,104,105,106,113) 
+                        AND cdc.rarity > 6 
+                        THEN "fes" 
+                        ELSE ""
+                    END fes,
+                    CASE
+                        WHEN 1.0 * cdc.vocal_min / (cdc.vocal_min + cdc.visual_min + cdc.dance_min) > 0.39 
+                        THEN "vocal" 
+                        WHEN 1.0 * cdc.visual_min / (cdc.vocal_min + cdc.visual_min + cdc.dance_min) > 0.39 
+                        THEN "visual"
+                        WHEN 1.0 * cdc.dance_min / (cdc.vocal_min + cdc.visual_min + cdc.dance_min) > 0.39 
+                        THEN "dance"
+                        ELSE "balance"
+                    END main_attribute
             FROM card_data_cache as cdc
             INNER JOIN card_name_cache cnc on cdc.id = cnc.card_id
             INNER JOIN owned_card oc on oc.card_id = cnc.card_id
@@ -90,6 +103,7 @@ class IndexManager:
                         skill=TEXT,
                         leader=TEXT,
                         fes=TEXT,
+                        main_attribute=TEXT,
                         time_prob_key=TEXT,
                         content=TEXT)
         ix = create_in(INDEX_PATH, schema)
