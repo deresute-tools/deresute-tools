@@ -15,7 +15,7 @@ live = Live()
 live.set_music(music_name="あいくるしい", difficulty=Difficulty.REGULAR)
 live.set_unit(unit)
 sim = Simulator(live)
-assert sim.simulate(perfect_play=True, appeals=170901)[0] == 544321
+assert sim.simulate(perfect_play=True, appeals=170901)[1] == 544321
 
 sae4 = Card.from_query("sae4", custom_pots=(2, 10, 0, 0, 10))
 chieri4 = Card.from_query("chieri4", custom_pots=(0, 10, 9, 0, 10))
