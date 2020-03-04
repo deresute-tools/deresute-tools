@@ -1,9 +1,11 @@
 import ast
 
-from PyQt5.QtCore import QSize, Qt
-from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QAbstractItemView, QTableWidget
+from PyQt5.QtCore import QSize, Qt, QMimeData
+from PyQt5.QtGui import QDrag
+from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QAbstractItemView, QTableWidget, QApplication
 
 from src import customlogger as logger
+from src.gui.viewmodels.mime_headers import CALCULATOR_UNIT, UNIT_EDITOR_UNIT
 from src.gui.viewmodels.unit import UnitWidget
 from src.gui.viewmodels.utils import NumericalTableWidgetItem
 
@@ -11,7 +13,6 @@ from src.gui.viewmodels.utils import NumericalTableWidgetItem
 class CalculatorUnitWidget(UnitWidget):
     def __init__(self, unit_view, parent=None, size=32):
         super(CalculatorUnitWidget, self).__init__(unit_view, parent, size)
-
         self.verticalLayout = QVBoxLayout()
         self.cardLayout = QHBoxLayout()
 
@@ -32,6 +33,7 @@ class DroppableCalculatorWidget(QTableWidget):
         self.setSortingEnabled(True)
         self.verticalHeader().setVisible(False)
         self.setAcceptDrops(True)
+        self.setDragEnabled(True)
         self.setStyleSheet(
             "QTableWidget::item:selected{ background-color: rgba(50, 115, 220, 0.15); color: rgb(0,0,0); }")
         self.calculator_view = calculator_view
@@ -42,6 +44,27 @@ class DroppableCalculatorWidget(QTableWidget):
         else:
             super().keyPressEvent(event)
 
+    def mousePressEvent(self, event):
+        super().mousePressEvent(event)
+        if event.button() == Qt.LeftButton:
+            self.drag_start_position = event.pos()
+            self.selected = self.selectedIndexes()
+
+    def mouseMoveEvent(self, event):
+        if not (event.buttons() & Qt.LeftButton):
+            return
+        if (event.pos() - self.drag_start_position).manhattanLength() < QApplication.startDragDistance():
+            return
+        if self.selectedItems():
+            self.selected = self.selectedIndexes()
+        if not self.selected:
+            return
+        drag = QDrag(self)
+        mimedata = QMimeData()
+        mimedata.setText(CALCULATOR_UNIT + str(self.cellWidget(self.selected[0].row(), 0).card_ids))
+        drag.setMimeData(mimedata)
+        drag.exec_(Qt.CopyAction | Qt.MoveAction)
+
     def dragEnterEvent(self, e):
         e.acceptProposedAction()
 
@@ -49,17 +72,11 @@ class DroppableCalculatorWidget(QTableWidget):
         e.acceptProposedAction()
 
     def dropEvent(self, e):
-        flag = False
-        try:
-            int(e.mimeData().text())
-            flag = True
-        except ValueError:
-            pass
-        if flag:
-            return
-        card_ids = ast.literal_eval(e.mimeData().text())
-        logger.debug("Dragged {} into calculator".format(card_ids))
-        self.calculator_view.add_unit(card_ids)
+        mimetext = e.mimeData().text()
+        if mimetext.startswith(UNIT_EDITOR_UNIT):
+            card_ids = ast.literal_eval(mimetext[len(UNIT_EDITOR_UNIT):])
+            logger.debug("Dragged {} into calculator".format(card_ids))
+            self.calculator_view.add_unit(card_ids)
 
 
 class CalculatorView:

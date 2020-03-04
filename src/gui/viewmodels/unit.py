@@ -1,12 +1,16 @@
+import ast
+
 from PyQt5.QtCore import QSize, Qt, QMimeData
 from PyQt5.QtGui import QDrag
 from PyQt5.QtWidgets import QListWidget, QWidget, QHBoxLayout, QVBoxLayout, QListWidgetItem, QLineEdit, QPushButton, \
     QApplication
 
-from src.logic.profile import unit_storage
 from settings import IMAGE_PATH64, IMAGE_PATH32, IMAGE_PATH
+from src import customlogger as logger
 from src.db import db
+from src.gui.viewmodels.mime_headers import CARD, CALCULATOR_UNIT, UNIT_EDITOR_UNIT
 from src.gui.viewmodels.utils import ImageWidget
+from src.logic.profile import unit_storage
 
 
 class UnitCard(ImageWidget):
@@ -29,11 +33,10 @@ class UnitCard(ImageWidget):
         e.acceptProposedAction()
 
     def dropEvent(self, e):
-        try:
-            card_id = int(e.mimeData().text())
-        except ValueError:
-            return
-        self.unit_widget.set_card(self.card_idx, card_id)
+        mimetext = e.mimeData().text()
+        if mimetext.startswith(CARD):
+            card_id = int(mimetext[len(CARD):])
+            self.unit_widget.set_card(self.card_idx, card_id)
 
 
 class UnitWidget(QWidget):
@@ -120,9 +123,11 @@ class SmallUnitWidget(UnitWidget):
 
 
 class DragableUnitList(QListWidget):
-    def __init__(self, *args):
-        super().__init__(*args)
+    def __init__(self, parent, unit_view, *args):
+        super().__init__(parent, *args)
+        self.unit_view = unit_view
         self.setDragEnabled(True)
+        self.setAcceptDrops(True)
 
     def mousePressEvent(self, event):
         super().mousePressEvent(event)
@@ -141,14 +146,26 @@ class DragableUnitList(QListWidget):
             return
         drag = QDrag(self)
         mimedata = QMimeData()
-        mimedata.setText(str(self.itemWidget(self.selected[0]).card_ids))
+        mimedata.setText(UNIT_EDITOR_UNIT + str(self.itemWidget(self.selected[0]).card_ids))
         drag.setMimeData(mimedata)
         drag.exec_(Qt.CopyAction | Qt.MoveAction)
+
+    def dragEnterEvent(self, e):
+        e.acceptProposedAction()
+
+    def dragMoveEvent(self, e):
+        e.acceptProposedAction()
+
+    def dropEvent(self, e):
+        mimetext = e.mimeData().text()
+        if mimetext.startswith(CALCULATOR_UNIT):
+            logger.debug("Dragged {} into unit editor".format(mimetext[len(CALCULATOR_UNIT):]))
+            self.unit_view.add_unit(mimetext[len(CALCULATOR_UNIT):])
 
 
 class UnitView:
     def __init__(self, main):
-        self.widget = DragableUnitList(main)
+        self.widget = DragableUnitList(main, self)
         self.widget.setVerticalScrollMode(1)  # Smooth scroll
         self.pics = None
 
@@ -157,18 +174,23 @@ class UnitView:
 
     def load_data(self, data):
         for unit_name, unit_cards in data:
-            myQCustomQWidget = SmallUnitWidget(self, self.widget)
-            myQCustomQWidget.set_unit_name(unit_name)
-            cards = unit_cards.split(",")
-            for idx, card in enumerate(cards):
-                if card == "":
-                    continue
-                myQCustomQWidget.set_card(idx, int(card))
-            myQListWidgetItem = QListWidgetItem(self.widget)
-            myQCustomQWidget.set_widget_item(myQListWidgetItem)
-            myQListWidgetItem.setSizeHint(myQCustomQWidget.sizeHint())
-            self.widget.addItem(myQListWidgetItem)
-            self.widget.setItemWidget(myQListWidgetItem, myQCustomQWidget)
+            unit_widget = self.add_unit(unit_cards)
+            unit_widget.set_unit_name(unit_name)
+
+    def add_unit(self, card_ids):
+        unit_widget = SmallUnitWidget(self, self.widget)
+        unit_widget.set_unit_name("")
+        cards = ast.literal_eval(card_ids)
+        for idx, card in enumerate(cards):
+            if card is None:
+                continue
+            unit_widget.set_card(idx, int(card))
+        unit_widget_item = QListWidgetItem(self.widget)
+        unit_widget.set_widget_item(unit_widget_item)
+        unit_widget_item.setSizeHint(unit_widget.sizeHint())
+        self.widget.addItem(unit_widget_item)
+        self.widget.setItemWidget(unit_widget_item, unit_widget)
+        return unit_widget
 
     def add_empty_widget(self):
         unit_widget = SmallUnitWidget(self, self.widget)

@@ -34,7 +34,8 @@ class CustomCardTable(QTableWidget):
         card_id = self.item(card_row, 1).text()
         card_img = self.cellWidget(card_row, 0).picture
         mimedata = QMimeData()
-        mimedata.setText(card_id)
+        header = "card"
+        mimedata.setText(header + card_id)
         pixmap = QPixmap(card_img.size())
         painter = QPainter(pixmap)
         painter.drawPixmap(0, 0, card_img)

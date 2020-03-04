@@ -10,7 +10,6 @@ from src.logic.unit import Unit
 class SupportView:
     def __init__(self, main):
         self.widget = QTableWidget(main)
-        self.widget.setDragEnabled(True)
         self.widget.setSelectionMode(QAbstractItemView.NoSelection)
         self.widget.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.widget.setSortingEnabled(True)
