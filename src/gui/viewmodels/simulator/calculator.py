@@ -68,13 +68,13 @@ class CalculatorView:
         self.widget = DroppableCalculatorWidget(self, main)
         self.widget.setHorizontalScrollMode(1)  # Smooth scroll
         self.widget.setVerticalScrollMode(1)  # Smooth scroll
-        self.widget.setColumnCount(12)
+        self.widget.setColumnCount(11)
         self.widget.setRowCount(1)
         self.widget.verticalHeader().setDefaultSectionSize(50)
         self.widget.verticalHeader().setSectionResizeMode(2)
         self.widget.horizontalHeader().setSectionResizeMode(3)  # Auto fit
         self.widget.setHorizontalHeaderLabels(
-            ["Unit", "Appeals", "Perfect", "Mean", "Max", "Min", "Skill Off", "1%", "5%", "25%", "50%", "75%"])
+            ["Unit", "Appeals", "Perfect", "Mean", "Max", "Min", "Skill Off", "5%", "25%", "50%", "75%"])
         self.widget.setColumnWidth(0, 40 * 6)
 
         simulator_unit_widget = CalculatorUnitWidget(self, self.widget, size=32)

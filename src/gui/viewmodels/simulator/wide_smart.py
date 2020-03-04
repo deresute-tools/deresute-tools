@@ -66,8 +66,8 @@ class MainView:
         self.add_button = QtWidgets.QPushButton("Add Empty Unit", self.widget)
         self.clear_button = QtWidgets.QPushButton("Clear All Units", self.widget)
         self.times_text = QtWidgets.QLineEdit(self.widget)
-        self.times_text.setValidator(QIntValidator(0, 1E3, None))  # Only number allowed
-        self.times_text.setText("20")
+        self.times_text.setValidator(QIntValidator(0, 100, None))  # Only number allowed
+        self.times_text.setText("10")
         self.times_label = QtWidgets.QLabel("times", self.widget)
 
         font = self.big_button.font()
@@ -176,7 +176,6 @@ class MainModel:
             temp.append(base + deltas.max())
             temp.append(base + deltas.min())
             temp.append(skill_off)
-            temp.append(base + np.percentile(deltas, 99))
             temp.append(base + np.percentile(deltas, 95))
             temp.append(base + np.percentile(deltas, 75))
             temp.append(base + np.percentile(deltas, 50))

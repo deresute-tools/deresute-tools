@@ -17,6 +17,14 @@ live.set_unit(unit)
 sim = Simulator(live)
 assert sim.simulate(perfect_play=True, appeals=170901)[1] == 544321
 
+unit = Unit.from_query("sae4 chieri4 rika4 arisu3 kako2 uzuki2", custom_pots=(0,10,0,0,10))
+
+live = Live()
+live.set_music(music_name="Trust me", difficulty=Difficulty.MPLUS)
+live.set_unit(unit)
+sim = Simulator(live)
+assert sim.simulate(perfect_play=True, appeals=261917)[1] == 1958643
+
 sae4 = Card.from_query("sae4", custom_pots=(2, 10, 0, 0, 10))
 chieri4 = Card.from_query("chieri4", custom_pots=(0, 10, 9, 0, 10))
 yoshino3 = Card.from_query("yoshino3", custom_pots=(8, 10, 0, 0, 10))
@@ -29,7 +37,7 @@ live = Live()
 live.set_music(music_name="印象", difficulty=Difficulty.MPLUS)
 live.set_unit(unit)
 sim = Simulator(live)
-assert sim.simulate(times=10, appeals=270000)[0] == 1736810
+assert sim.simulate(times=100, appeals=270000)[1] == 1736810
 
 unitA = Unit.from_query("kaede2 chieri4 kyoko4 rika4 rika4u")
 unitB = Unit.from_query("sae4 kozue2 momoka3 frederica3 sachiko4")
@@ -39,7 +47,7 @@ live = GrandLive()
 live.set_music(music_name="Starry-Go-Round", difficulty=Difficulty.PIANO)
 live.set_unit(gu)
 sim = Simulator(live)
-assert sim.simulate(times=10, appeals=490781)[0] == 3424303
+assert sim.simulate(times=10, appeals=490781)[1] == 3424303
 
 unit_lskaren_flick = Unit.from_query("nao4 kaede4 karen3 akira1 haru2 kaede1")
 unit_lsasuka_flick = Unit.from_query("nao4 kaede4 asuka3 akira1 haru2 kaede1")

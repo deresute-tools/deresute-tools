@@ -25,7 +25,7 @@ class Simulator:
             assert isinstance(extra_bonus, np.ndarray) and extra_bonus.shape == (3, 3)
             self.live.set_extra_bonus(extra_bonus)
         self.notes_data = self.live.notes
-        self.song_duration = self.live.duration
+        self.song_duration = self.notes_data.iloc[-1].sec
         self.note_count = len(self.notes_data)
 
         weight_range = np.array(WEIGHT_RANGE)
@@ -60,6 +60,9 @@ class Simulator:
         start = time.time()
         logger.debug("Unit: {}".format(self.live.unit))
         logger.debug("Song: {} - {}".format(self.live.music_name, self.live.difficulty))
+        if perfect_play:
+            times = 1
+            logger.debug("Only need 1 simulation for perfect play.")
         res = self._simulate(times, appeals=appeals, extra_bonus=extra_bonus, support=support,
                              perfect_play=perfect_play)
         logger.debug("Total run time for {} trials: {:04.2f}s".format(times, time.time() - start))
@@ -71,9 +74,6 @@ class Simulator:
                   extra_bonus=None,
                   support=None,
                   perfect_play=False):
-        if perfect_play:
-            times = 1
-            logger.debug("Only need 1 simulation for perfect play.")
 
         self._setup_simulator(appeals=appeals, support=support, extra_bonus=extra_bonus)
         grand = self.live.is_grand
@@ -81,10 +81,6 @@ class Simulator:
         self._simulate_internal(times=times, grand=grand, time_offset=0, fail_simulate=False)
         perfect_score = self.get_note_scores().sum()
         skill_off = self.get_note_scores(skill_off=True).sum()
-
-        self.notes_data['base_score'] = self.base_score * self.notes_data['weight']
-        self.notes_data['note_score'] = self.get_note_scores()
-        self.notes_data['total_score'] = self.get_note_scores().cumsum()
 
         if perfect_play:
             base = perfect_score
@@ -143,13 +139,6 @@ class Simulator:
         np_b_sum = np_b.sum(axis=3)
         np_b_max = np_b.max(axis=3)
 
-        def non_reso_agg_func(arr):
-            non_zero = arr[arr != 0]
-            if len(non_zero) == 0:
-                return 0
-            else:
-                return np.max(non_zero)
-
         # Apply boosts to values
         for unit_idx, unit in enumerate(self.live.unit.all_units):
             if unit.resonance:
@@ -161,10 +150,10 @@ class Simulator:
                 # Non-resonance unit will get the max boost applied on each skill
                 boost_array = np_b_max
                 # And the final skill values of the unit are maxed over the unit
-                agg_func = non_reso_agg_func
+                agg_func = np.max
 
             for card_idx in range(unit_idx * 5, (unit_idx + 1) * 5):
-                skill = unit.get_card(card_idx).skill
+                skill = unit.get_card(card_idx % 5).skill
                 if skill.is_alternate:
                     alternate_mask = np_v[:, 1, :, card_idx] < 0
                     original_value = np_v[:, 1, :, card_idx][alternate_mask]
@@ -175,8 +164,11 @@ class Simulator:
                     mask = np_v[:, 3, :, card_idx] == 0
                     np_v[:, 3, :, card_idx] += boost_array[:, 3]
                     np_v[:, 3, :, card_idx][mask] = 0
-            np_vu[:, :, :, unit_idx] = np.apply_along_axis(func1d=agg_func, axis=3,
-                                                           arr=np_v[:, :, :, unit_idx * 5: (unit_idx + 1) * 5])
+            np_vu[:, :, :, unit_idx] = agg_func(np_v[:, :, :, unit_idx * 5: (unit_idx + 1) * 5], axis=3)
+            if self.has_alternate:
+                min_tensor = np_v[:, :, :, unit_idx * 5: (unit_idx + 1) * 5].min(axis=3)
+                mask = np.logical_and(np_vu[:, :, :, unit_idx] == 0, min_tensor < 0)
+                np_vu[:, :, :, unit_idx][mask] = min_tensor[mask]
 
         # Unify effects per unit / across colors
         skill_bonuses = np.zeros((len(self.notes_data), 4, 3))  # Notes x Values x Units
@@ -186,24 +178,28 @@ class Simulator:
                 skill_bonuses[:, :, unit_idx] = np_vu[:, :, :, unit_idx].sum(axis=2)
             else:
                 # Final skill values are maxed over colors
-                skill_bonuses[:, :, unit_idx] = np.apply_along_axis(func1d=non_reso_agg_func,
-                                                                    axis=2,
-                                                                    arr=np_vu[:, :, :, unit_idx])
+                skill_bonuses[:, :, unit_idx] = np_vu[:, :, :, unit_idx].max(axis=2)
+                if self.has_alternate:
+                    min_tensor = np_vu[:, :, unit_idx].min(axis=2)
+                    mask = np.logical_and(skill_bonuses[:, :, unit_idx] == 0, min_tensor < 0)
+                    skill_bonuses[:, :, unit_idx][mask] = min_tensor[mask]
         # Unify effects across units
-        skill_bonuses = np.apply_along_axis(func1d=non_reso_agg_func,
-                                            axis=2,
-                                            arr=skill_bonuses)  # Notes x Values
+        skill_bonuses_final = skill_bonuses.max(axis=2)
+        if self.has_alternate:
+            min_tensor = skill_bonuses.min(axis=2)
+            mask = np.logical_and(skill_bonuses_final == 0, min_tensor < 0)
+            skill_bonuses_final[mask] = min_tensor[mask]
         if mutate_df:
             # Fill values into DataFrame
             value_range = 4 if self.has_support else 3
             for _ in range(value_range):
-                self.notes_data["bonuses_{}".format(_)] = skill_bonuses[:, _]
+                self.notes_data["bonuses_{}".format(_)] = skill_bonuses_final[:, _]
             # Evaluate HP
             self.notes_data['life'] = np.clip(
                 self.live.get_life()
                 + self.notes_data['bonuses_2'].groupby(self.notes_data.index // self.note_count).cumsum(),
                 a_min=0, a_max=2 * self.live.get_life())
-        return skill_bonuses
+        return skill_bonuses_final
 
     def _helper_initialize_skill_bonuses(self, grand, np_v=None, np_b=None, sparkle=False, alternate=False):
         """
@@ -307,9 +303,6 @@ class Simulator:
 
         for unit_idx, unit in enumerate(self.live.unit.all_units):
             for card_idx, card in enumerate(unit.all_cards()):
-                probability = self.live.get_probability(unit_idx * 5 + card_idx)
-                if fail_simulate and probability == 1:
-                    continue
                 skill = card.skill
                 if skill.skill_type == 25:
                     has_sparkle = True
@@ -318,9 +311,11 @@ class Simulator:
                 if skill.v3 > 0 and not skill.boost:
                     # Use for early termination
                     has_support = True
-                skill_times = int(
-                    (max(self.song_duration - 2, self.notes_data.iloc[-1].sec) - skill.duration)
-                    // skill.interval)
+        for unit_idx, unit in enumerate(self.live.unit.all_units):
+            for card_idx, card in enumerate(unit.all_cards()):
+                skill = card.skill
+                probability = self.live.get_probability(unit_idx * 5 + card_idx)
+                skill_times = int((self.notes_data.iloc[-1].sec - 3) // skill.interval)
                 if skill_times == 0:
                     self.notes_data['skill_{}'.format(unit_idx * 5 + card_idx)] = 0
                     continue  # Skip empty skill
@@ -334,35 +329,27 @@ class Simulator:
                     self.notes_data['skill_{}'.format(unit_idx * 5 + card_idx)] = 0
                     for skill_activation, skill_range in enumerate(skills):
                         left, right = skill_range
-                        self.notes_data.loc[
-                            (note_times > left)
-                            & (note_times <= right),
-                            'skill_{}'.format(unit_idx * 5 + card_idx)] = 1
-                        self.notes_data.loc[
-                            (note_times > left)
-                            & (note_times < right),
-                            'skill_{}_l'.format(unit_idx * 5 + card_idx)] = left
-                        self.notes_data.loc[
-                            (note_times > left)
-                            & (note_times <= right),
-                            'skill_{}_r'.format(unit_idx * 5 + card_idx)] = right
+                        self.notes_data.loc[(note_times > left) & (note_times <= right),
+                                            'skill_{}'.format(unit_idx * 5 + card_idx)] = 1
+                        if has_alternate:
+                            self.notes_data.loc[(note_times > left) & (note_times < right),
+                                                'skill_{}_l'.format(unit_idx * 5 + card_idx)] = left
+                            self.notes_data.loc[(note_times > left) & (note_times <= right),
+                                                'skill_{}_r'.format(unit_idx * 5 + card_idx)] = right
                 else:
-                    self.notes_data['skill_{}{}'.format(unit_idx, card_idx)] = 0
+                    note_times = self.notes_data.sec + np.random.random(len(self.notes_data)) * 0.06 - 0.03
+                    self.notes_data['skill_{}'.format(unit_idx * 5 + card_idx)] = 0
                     for skill_activation, skill_range in enumerate(skills):
                         left, right = skill_range
                         if probability < 1:
                             rep_rolls = np.random.choice(2, times, p=[1 - probability, probability])
                             rep_rolls = rep_rolls * np.arange(1, 1 + times) - 1
                             rep_rolls = rep_rolls[rep_rolls != -1]
-                            self.notes_data.loc[
-                                (self.notes_data.sec > left)
-                                & (self.notes_data.sec <= right)
-                                & (self.notes_data.rep.isin(rep_rolls)),
-                                'skill_{}{}'.format(unit_idx, card_idx)] = 1
+                            self.notes_data.loc[(note_times > left) & (note_times <= right)
+                                                & (self.notes_data.rep.isin(rep_rolls)),
+                                                'skill_{}'.format(unit_idx * 5 + card_idx)] = 1
                         else:
                             # Save a bit more time
-                            self.notes_data.loc[
-                                (self.notes_data.sec > left)
-                                & (self.notes_data.sec <= right),
-                                'skill_{}{}'.format(unit_idx, card_idx)] = 1
+                            self.notes_data.loc[(note_times > left) & (note_times <= right),
+                                                'skill_{}'.format(unit_idx * 5 + card_idx)] = 1
         return has_sparkle, has_support, has_alternate
