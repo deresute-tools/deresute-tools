@@ -1,5 +1,5 @@
 from PyQt5.QtCore import QSize
-from PyQt5.QtWidgets import QPlainTextEdit, QCheckBox
+from PyQt5.QtWidgets import QPlainTextEdit, QCheckBox, QLineEdit
 
 from src.logic.search import search_engine
 from src import customlogger as logger
@@ -7,7 +7,7 @@ from src import customlogger as logger
 
 class QuickSearchView:
     def __init__(self, main):
-        self.widget = QPlainTextEdit(main)
+        self.widget = QLineEdit(main)
         self.widget.setMaximumSize(QSize(2000, 25))
         self.model = None
 
@@ -17,7 +17,7 @@ class QuickSearchView:
         self.widget.textChanged.connect(lambda: self.trigger())
 
     def trigger(self):
-        self.model.call_searchengine(self.widget.toPlainText().strip())
+        self.model.call_searchengine(self.widget.text().strip())
 
 
 class QuickSearchModel:
@@ -46,7 +46,7 @@ class QuickSearchModel:
     def _add_option(self, option, option_text, parent_layout, main):
         check_box = QCheckBox(main)
         check_box.setText(option_text)
-        trigger = lambda: self.call_searchengine(self.view.widget.toPlainText().strip())
+        trigger = lambda: self.call_searchengine(self.view.widget.text().strip())
         check_box.stateChanged.connect(trigger)
         self.options[option] = check_box
         parent_layout.addWidget(check_box)

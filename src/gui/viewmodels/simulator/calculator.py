@@ -77,6 +77,8 @@ class DroppableCalculatorWidget(QTableWidget):
             card_ids = ast.literal_eval(mimetext[len(UNIT_EDITOR_UNIT):])
             logger.debug("Dragged {} into calculator".format(card_ids))
             self.calculator_view.add_unit(card_ids)
+        else:
+            e.acceptProposedAction()
 
 
 class CalculatorView:

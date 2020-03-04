@@ -5,6 +5,7 @@ from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QComboBox, QAbstract
 from settings import IMAGE_PATH64, IMAGE_PATH, IMAGE_PATH32
 from src import customlogger as logger
 from src.db import db
+from src.gui.viewmodels.mime_headers import CARD
 from src.gui.viewmodels.utils import ImageWidget, NumericalTableWidgetItem
 from src.logic.profile import card_storage
 from src.network import meta_updater
@@ -34,8 +35,7 @@ class CustomCardTable(QTableWidget):
         card_id = self.item(card_row, 1).text()
         card_img = self.cellWidget(card_row, 0).picture
         mimedata = QMimeData()
-        header = "card"
-        mimedata.setText(header + card_id)
+        mimedata.setText(CARD + card_id)
         pixmap = QPixmap(card_img.size())
         painter = QPainter(pixmap)
         painter.drawPixmap(0, 0, card_img)

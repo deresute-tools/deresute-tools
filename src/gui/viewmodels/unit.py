@@ -37,6 +37,8 @@ class UnitCard(ImageWidget):
         if mimetext.startswith(CARD):
             card_id = int(mimetext[len(CARD):])
             self.unit_widget.set_card(self.card_idx, card_id)
+        else:
+            e.acceptProposedAction()
 
 
 class UnitWidget(QWidget):
@@ -161,6 +163,8 @@ class DragableUnitList(QListWidget):
         if mimetext.startswith(CALCULATOR_UNIT):
             logger.debug("Dragged {} into unit editor".format(mimetext[len(CALCULATOR_UNIT):]))
             self.unit_view.add_unit(mimetext[len(CALCULATOR_UNIT):])
+        else:
+            e.acceptProposedAction()
 
 
 class UnitView:

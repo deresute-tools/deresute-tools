@@ -22,10 +22,15 @@ def import_from_gameid(game_id):
         assert len(str(game_id)) == 9
         z = int(game_id)
         assert 0 <= z <= 999999999
+        logger.info("Trying to import from ID {}, this might take a while".format(game_id))
         subprocess.call(list(map(str, [TOOL_EXE, game_id, TEMP_PATH, kirara_query.get_truth_version()])))
+        if not os.path.exists(TEMP_PATH):
+            logger.info("Failed to import cards")
+            return
         with open(TEMP_PATH) as fr:
             cards = fr.read().strip().split(",")
         os.remove(TEMP_PATH)
+        cards = list(map(int, cards))
         for idx, card in enumerate(cards):
             if card % 2 == 1:
                 cards[idx] += 1
