@@ -1,4 +1,4 @@
-from main import ROOT_DIR
+from chihiro import ROOT_DIR
 
 LOGGER_NAME = "chihiro"
 LOG_DIR = ROOT_DIR / "logs"

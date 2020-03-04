@@ -53,8 +53,9 @@ class SupportModel:
             custom_pots = self.custom_settings_model.get_custom_pots()
             unit = Unit.from_list(self.card_ids, custom_pots)
         except InvalidUnit:
-            return
+            return False
         self.live.set_unit(unit)
+        return True
 
     def set_music(self, score_id, difficulty):
         self.live.set_music(score_id=score_id, difficulty=difficulty)

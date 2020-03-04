@@ -9,7 +9,8 @@ from src.logic.card import Card
 class Unit:
     def __init__(self, c0, c1, c2, c3, c4, cg=None, resonance=None):
         for _ in [c0, c1, c2, c3, c4]:
-            assert isinstance(_, Card)
+            if not isinstance(_, Card):
+                raise InvalidUnit("{} is not a card".format(_))
         if cg is None:
             self._cards = [c0, c1, c2, c3, c4]
         else:
@@ -36,8 +37,6 @@ class Unit:
                 card = int(card)
             if isinstance(card, int):
                 card = Card.from_id(card, custom_pots)
-            if not isinstance(card, Card):
-                raise InvalidUnit("Invalid card: {}".format(card))
             results.append(card)
         return cls(*results)
 

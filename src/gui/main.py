@@ -3,7 +3,7 @@ from PyQt5.QtGui import QIntValidator, QIcon
 from PyQt5.QtWidgets import QWidget, QGridLayout, QVBoxLayout, QHBoxLayout, QTabWidget, QPushButton, QMenuBar, \
     QMenu, QStatusBar, QAction, QApplication, QMainWindow, QLineEdit
 
-from main import ROOT_DIR
+from chihiro import ROOT_DIR
 from src import customlogger as logger
 from src.gui.viewmodels.card import CardView, CardModel, IconLoaderView, IconLoaderModel
 from src.gui.viewmodels.quicksearch import QuickSearchView, QuickSearchModel

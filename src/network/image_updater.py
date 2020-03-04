@@ -11,7 +11,6 @@ from src import customlogger as logger
 from src.network.kirara_query import _base_query
 from src.utils import storage
 
-
 FORMAT = "https://hidamarirhodonite.kirara.ca/icon_card/{:06d}.png"
 
 
@@ -35,6 +34,7 @@ def update_image(card_id, sleep=0.1):
 
 
 def update_all(sleep=0.1):
+    logger.info("Updating images, please wait...")
     _try_extract_cache()
     if not IMAGE_PATH64.exists():
         IMAGE_PATH64.mkdir()
@@ -53,7 +53,7 @@ def _try_extract_cache():
     if os.path.exists(ZIP_PATH):
         with zipfile.ZipFile(ZIP_PATH, 'r') as zip_ref:
             zip_ref.extractall(IMAGE_PATH)
-        # os.remove(ZIP_PATH)
+        os.remove(ZIP_PATH)
 
 
 update_all(0.1)

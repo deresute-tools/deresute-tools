@@ -26,6 +26,9 @@ def import_from_gameid(game_id):
         with open(TEMP_PATH) as fr:
             cards = fr.read().strip().split(",")
         os.remove(TEMP_PATH)
+        for idx, card in enumerate(cards):
+            if card % 2 == 1:
+                cards[idx] += 1
         card_dict = defaultdict(int)
         for card in cards:
             card_dict[card] += 1
