@@ -56,17 +56,15 @@ class UiMainWindow:
 
         self.calculator_song_layout = QHBoxLayout()
         self.calculator = QTabWidget(self.central_widget)
-        self.non_grand_tab_view = MainView()
-        self.non_grand_tab_model = MainModel(self.non_grand_tab_view)
-        self.non_grand_tab_view.set_model(self.non_grand_tab_model)
-        self.non_grand_tab_view.setup()
-        self.grand_tab = QWidget()  # TODO
+        self.calculator_view = MainView()
+        self.calculator_model = MainModel(self.calculator_view)
+        self.calculator_view.set_model(self.calculator_model)
+        self.calculator_view.setup()
         self.potential_view = PotentialView()
         self.potential_model = PotentialModel(self.potential_view)
         self.potential_view.set_model(self.potential_model)
         self.potential_model.initialize_data()
-        self.calculator.addTab(self.non_grand_tab_view.widget, "WIDE/SMART")
-        self.calculator.addTab(self.grand_tab, "GRAND")
+        self.calculator.addTab(self.calculator_view.widget, "Simulator")
         self.calculator.addTab(self.potential_view.widget, "Potentials")
         self.calculator_song_layout.addWidget(self.calculator)
         self.song_layout = QVBoxLayout()
@@ -194,9 +192,9 @@ class UiMainWindow:
 
     def attach(self):
         self.potential_model.attach_card_model(self.card_model)
-        self.card_model.attach_calculator_view(self.non_grand_tab_view.calculator_table_view)
-        self.non_grand_tab_view.attach_song_view(self.song_view)
-        self.song_view.attach_support_model(self.non_grand_tab_view.support_model)
+        self.card_model.attach_calculator_view(self.calculator_view.calculator_table_view)
+        self.calculator_view.attach_song_view(self.song_view)
+        self.song_view.attach_support_model(self.calculator_view.support_model)
 
 
 def setup_gui(*args):
