@@ -63,6 +63,8 @@ class Simulator:
         if perfect_play:
             times = 1
             logger.debug("Only need 1 simulation for perfect play.")
+        if times == 1:
+            perfect_play = True
         res = self._simulate(times, appeals=appeals, extra_bonus=extra_bonus, support=support,
                              perfect_play=perfect_play)
         logger.debug("Total run time for {} trials: {:04.2f}s".format(times, time.time() - start))
@@ -237,6 +239,7 @@ class Simulator:
             first_score_note = np.argwhere(alternate_value > 0)[0][0]
             first_score_note = self.notes_data.iloc[first_score_note].sec
             for skill_idx in alternates:
+                skill = self.live.unit.get_card(skill_idx).skill
                 fail_alternate_notes = self.notes_data[self.notes_data.sec < first_score_note][
                     "skill_{}_l".format(skill_idx)].max()
                 if not np.isnan(fail_alternate_notes):

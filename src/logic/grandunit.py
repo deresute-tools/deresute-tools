@@ -31,5 +31,8 @@ class GrandUnit:
             result.extend(unit.all_cards())
         return result
 
+    def get_card(self, idx):
+        return self.all_cards()[idx]
+
     def __str__(self):
         return " ".join(map(str, self._units))

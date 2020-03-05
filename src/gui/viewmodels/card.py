@@ -33,7 +33,7 @@ class CustomCardTable(QTableWidget):
         drag = QDrag(self)
         card_row = self.row(self.selected[0])
         card_id = self.item(card_row, 2).text()
-        card_img = self.cellWidget(card_row, 0).picture
+        card_img = self.cellWidget(card_row, 1).picture
         mimedata = QMimeData()
         mimedata.setText(CARD + card_id)
         pixmap = QPixmap(card_img.size())
