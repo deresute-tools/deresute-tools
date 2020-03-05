@@ -192,8 +192,8 @@ class UiMainWindow:
 
     def attach(self):
         self.potential_model.attach_card_model(self.card_model)
-        self.card_model.attach_calculator_view(self.calculator_view.calculator_table_view)
         self.calculator_view.attach_song_view(self.song_view)
+        self.card_model.attach_calculator_view(self.calculator_view)
         self.song_view.attach_support_model(self.calculator_view.support_model)
 
 

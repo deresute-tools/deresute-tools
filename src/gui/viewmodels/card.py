@@ -264,7 +264,7 @@ class CardModel:
         if cell_widget is None:
             logger.info("No card at index {}".format(idx))
             return
-        self.calculator_view.push_card(int(cell_widget.text()))
+        self.calculator_view.get_table_view().push_card(int(cell_widget.text()))
 
 
 class IconLoaderView:

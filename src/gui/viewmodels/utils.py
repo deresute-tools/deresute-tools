@@ -40,7 +40,6 @@ class ImageWidget(QWidget):
             painter.fillPath(path, color)
         painter.drawPixmap(self.padding, self.padding, self.picture)
 
-
 class NumericalTableWidgetItem(QTableWidgetItem):
     def __init__(self, value):
         if isinstance(value, int) or isinstance(value, float):

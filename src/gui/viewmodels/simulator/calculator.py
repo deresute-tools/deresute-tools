@@ -23,6 +23,9 @@ class CalculatorUnitWidget(UnitWidget):
         self.verticalLayout.addLayout(self.cardLayout)
         self.setLayout(self.verticalLayout)
 
+    def handle_lost_mime(self, mime_text):
+        self.unit_view.handle_lost_mime(mime_text)
+
 
 class DroppableCalculatorWidget(QTableWidget):
     def __init__(self, calculator_view, *args, **kwargs):
@@ -84,11 +87,17 @@ class DroppableCalculatorWidget(QTableWidget):
 class CalculatorView:
     def __init__(self, main, main_view):
         self.main_view = main_view
+        self.initialize_widget(main)
+        self.setup_widget()
+
+    def initialize_widget(self, main):
         self.widget = DroppableCalculatorWidget(self, main)
+
+    def setup_widget(self):
         self.widget.setHorizontalScrollMode(1)  # Smooth scroll
         self.widget.setVerticalScrollMode(1)  # Smooth scroll
         self.widget.setColumnCount(11)
-        self.widget.setRowCount(1)
+        self.widget.setRowCount(0)
         self.widget.verticalHeader().setDefaultSectionSize(50)
         self.widget.verticalHeader().setSectionResizeMode(2)
         self.widget.horizontalHeader().setSectionResizeMode(3)  # Auto fit
@@ -96,11 +105,9 @@ class CalculatorView:
             ["Unit", "Appeals", "Perfect", "Mean", "Max", "Min", "Skill Off", "5%", "25%", "50%", "75%"])
         self.widget.setColumnWidth(0, 40 * 6)
 
-        simulator_unit_widget = CalculatorUnitWidget(self, self.widget, size=32)
-        self.widget.setCellWidget(0, 0, simulator_unit_widget)
-
         self.widget.cellClicked.connect(lambda r, _: self.create_support_team(r))
         self.widget.cellDoubleClicked.connect(lambda r, _: self.main_view.simulate(r))
+        self.add_empty_unit()
 
     def set_support_model(self, support_model):
         self.support_model = support_model
@@ -113,9 +120,13 @@ class CalculatorView:
 
     def add_empty_unit(self):
         simulator_unit_widget = CalculatorUnitWidget(self, self.widget, size=32)
+        self._insert_unit_int(simulator_unit_widget)
+
+    def _insert_unit_int(self, simulator_unit_widget):
         self.widget.insertRow(self.widget.rowCount())
         self.widget.setCellWidget(self.widget.rowCount() - 1, 0, simulator_unit_widget)
         logger.debug("Inserted empty unit at {}".format(self.widget.rowCount()))
+        self.widget.setColumnWidth(0, 40 * 6)
 
     def delete_unit(self):
         selected_row = self.widget.selectionModel().selectedRows()[0].row()

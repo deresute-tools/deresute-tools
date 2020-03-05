@@ -3,6 +3,8 @@ from PyQt5.QtWidgets import QTableWidget, QAbstractItemView
 from settings import IMAGE_PATH64
 from src.exceptions import InvalidUnit
 from src.gui.viewmodels.utils import NumericalTableWidgetItem, ImageWidget
+from src.logic.grandlive import GrandLive
+from src.logic.grandunit import GrandUnit
 from src.logic.live import Live
 from src.logic.unit import Unit
 
@@ -38,6 +40,7 @@ class SupportModel:
     def __init__(self, view):
         self.view = view
         self.live = Live()
+        self.music = None
         self.card_ids = None
 
     def attach_custom_bonus_model(self, custom_bonus_model):
@@ -50,18 +53,27 @@ class SupportModel:
         self.card_ids = cards_ids
         try:
             custom_pots = self.custom_settings_model.get_custom_pots()
-            unit = Unit.from_list(self.card_ids, custom_pots)
+            if len(cards_ids) == 15:
+                unit = GrandUnit.from_list(self.card_ids, custom_pots)
+                self.live = GrandLive()
+                self.live.set_unit(unit)
+            else:
+                unit = Unit.from_list(self.card_ids, custom_pots)
+                self.live = Live()
+                self.live.set_unit(unit)
         except InvalidUnit:
             return False
-        self.live.set_unit(unit)
         return True
 
     def set_music(self, score_id, difficulty):
         self.live.set_music(score_id=score_id, difficulty=difficulty)
+        self.music = (score_id, difficulty)
 
     def generate_support(self):
         if self.live.unit is None:
             return
+        if self.music is not None:
+            self.live.set_music(score_id=self.music[0], difficulty=self.music[1])
         self.live.set_extra_bonus(self.custom_bonus_model.get_bonus())
         self.live.get_support()
         self.view.display_support(self.live.support)

@@ -9,7 +9,7 @@ from src.static.song_difficulty import Difficulty
 
 logger.print_debug()
 
-unit = Unit.from_query("karen4 sae3 miho4 momoka4 nagi2", custom_pots=(0,0,0,0,10))
+unit = Unit.from_query("karen4 sae3 miho4 momoka4 nagi2", custom_pots=(0, 0, 0, 0, 10))
 
 live = Live()
 live.set_music(music_name="あいくるしい", difficulty=Difficulty.REGULAR)
@@ -17,7 +17,7 @@ live.set_unit(unit)
 sim = Simulator(live)
 assert sim.simulate(perfect_play=True, appeals=170901)[1] == 544321
 
-unit = Unit.from_query("sae4 chieri4 rika4 arisu3 kako2 uzuki2", custom_pots=(0,10,0,0,10))
+unit = Unit.from_query("sae4 chieri4 rika4 arisu3 kako2 uzuki2", custom_pots=(0, 10, 0, 0, 10))
 
 live = Live()
 live.set_music(music_name="Trust me", difficulty=Difficulty.MPLUS)

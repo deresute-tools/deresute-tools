@@ -2,15 +2,18 @@ import numpy as np
 from PyQt5 import QtWidgets
 from PyQt5.QtGui import QIntValidator
 
+from src import customlogger as logger
 from src.exceptions import InvalidUnit
-from src.gui.viewmodels.simulator.calculator import CalculatorView, CalculatorModel
+from src.gui.viewmodels.simulator.calculator import CalculatorModel, CalculatorView
 from src.gui.viewmodels.simulator.custom_bonus import CustomBonusView, CustomBonusModel
 from src.gui.viewmodels.simulator.custom_settings import CustomSettingsView, CustomSettingsModel
+from src.gui.viewmodels.simulator.grandcalculator import GrandCalculatorView
 from src.gui.viewmodels.simulator.support import SupportView, SupportModel
+from src.logic.grandlive import GrandLive
+from src.logic.grandunit import GrandUnit
 from src.logic.live import Live
 from src.logic.unit import Unit
 from src.simulator import Simulator
-from src import customlogger as logger
 
 
 class MainView:
@@ -20,22 +23,17 @@ class MainView:
 
     def setup(self):
         self.calculator_and_custom_setting_layout = QtWidgets.QVBoxLayout()
-        self._set_up_calculator()
         self.bottom_row_layout = QtWidgets.QHBoxLayout()
         self._set_up_big_buttons()
         self._setup_custom_settings()
-        self.calculator_and_custom_setting_layout.addLayout(self.bottom_row_layout)
         self.bottom_row_layout.setStretch(0, 1)
         self.bottom_row_layout.setStretch(1, 5)
         self.calculator_and_custom_setting_layout.setStretch(0, 1)
-
         self.custom_appeal_and_support_layout = QtWidgets.QVBoxLayout()
         self._setup_custom_bonus()
         self._setup_support()
-
-        self.calculator_table_view.set_support_model(self.support_model)
-        self.calculator_table_view.attach_custom_settings_model(self.custom_settings_model)
-
+        self._set_up_calculator()
+        self.calculator_and_custom_setting_layout.addLayout(self.bottom_row_layout)
         self.main_layout.addLayout(self.calculator_and_custom_setting_layout)
         self.main_layout.addLayout(self.custom_appeal_and_support_layout)
         self.main_layout.setStretch(0, 1)
@@ -55,10 +53,36 @@ class MainView:
         self.custom_appeal_and_support_layout.addWidget(self.support_view.widget)
 
     def _set_up_calculator(self):
-        self.calculator_table_view = CalculatorView(self.widget, self)
-        self.calculator_table_model = CalculatorModel(self.calculator_table_view)
-        self.calculator_table_view.set_model(self.calculator_table_view)
-        self.calculator_and_custom_setting_layout.addWidget(self.calculator_table_view.widget)
+        self.calculator_tabs = QtWidgets.QTabWidget(self.widget)
+        view_wide = CalculatorView(self.widget, self)
+        view_grand = GrandCalculatorView(self.widget, self)
+        self.views = [view_wide, view_grand]
+        self.calculator_tabs.addTab(view_wide.widget, "WIDE")
+        self.calculator_tabs.addTab(view_grand.widget, "GRAND")
+        self.calculator_and_custom_setting_layout.addWidget(self.calculator_tabs)
+        self.calculator_tabs.setCurrentIndex(0)
+        self._switch_tab(0)
+        self.calculator_tabs.currentChanged.connect(lambda idx: self._switch_tab(idx))
+
+    def _switch_tab(self, idx):
+        self.calculator_table_model = CalculatorModel(self.views[idx])
+        self.views[idx].set_model(self.calculator_table_model)
+        try:
+            self.add_button.pressed.disconnect()
+            self.clear_button.pressed.disconnect()
+        except TypeError:
+            pass
+        self.add_button.pressed.connect(lambda: self.views[idx].add_empty_unit())
+        self.clear_button.pressed.connect(lambda: self.views[idx].clear_units())
+        self.calculator_table_view = self.views[idx]
+        self.views[idx].set_support_model(self.support_model)
+        self.views[idx].attach_custom_settings_model(self.custom_settings_model)
+
+    def get_table_view(self):
+        return self.calculator_table_view
+
+    def get_table_model(self):
+        return self.calculator_table_model
 
     def _set_up_big_buttons(self):
         self.button_layout = QtWidgets.QGridLayout()
@@ -74,8 +98,6 @@ class MainView:
         font.setPointSize(16)
         self.big_button.setFont(font)
 
-        self.add_button.pressed.connect(lambda: self.calculator_table_view.add_empty_unit())
-        self.clear_button.pressed.connect(lambda: self.calculator_table_view.clear_units())
         self.big_button.pressed.connect(lambda: self.simulate())
 
         self.button_layout.addWidget(self.big_button, 0, 0, 1, 2)
@@ -117,7 +139,7 @@ class MainView:
             logger.info("No chart loaded")
             return
         times = self.get_times()
-        all_cards = self.calculator_table_model.get_all_cards()
+        all_cards = self.get_table_model().get_all_cards()
         custom_pots = self.custom_settings_model.get_custom_pots()
         appeals = self.custom_settings_model.get_appeals()
         support = self.custom_settings_model.get_support()
@@ -129,7 +151,7 @@ class MainView:
         )
 
     def display_results(self, results, row=None):
-        self.calculator_table_view.display_results(results, row=row)
+        self.get_table_view().display_results(results, row=row)
 
 
 class MainModel:
@@ -141,17 +163,25 @@ class MainModel:
     def simulate_internal(self, score_id, diff_id, times, all_cards, custom_pots, appeals, support, extra_bonus,
                           row=None):
         results = list()
-
-        live = Live()
+        if len(all_cards) == 0:
+            logger.info("Nothing to simulate")
+            return
+        if len(all_cards[0]) == 15:
+            live = GrandLive()
+        else:
+            live = Live()
         live.set_music(score_id=score_id, difficulty=diff_id)
         if row is not None:
             all_cards = [all_cards[row]]
         for cards in all_cards:
             # Load cards
-            if cards[5] is None:
-                cards = cards[:5]
             try:
-                unit = Unit.from_list(cards, custom_pots)
+                if len(cards) == 15:
+                    unit = GrandUnit.from_list(cards, custom_pots)
+                else:
+                    if cards[5] is None:
+                        cards = cards[:5]
+                    unit = Unit.from_list(cards, custom_pots)
             except InvalidUnit:
                 logger.info("Invalid unit: {}".format(cards))
                 results.append(None)

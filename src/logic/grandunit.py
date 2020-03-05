@@ -15,8 +15,11 @@ class GrandUnit:
             unit.set_offset(idx)
 
     @classmethod
-    def from_list(cls, card_list):
-        return cls(*card_list)
+    def from_list(cls, card_list, custom_pots=None):
+        return cls(
+            Unit.from_list(card_list[0:5], custom_pots),
+            Unit.from_list(card_list[5:10], custom_pots),
+            Unit.from_list(card_list[10:15], custom_pots))
 
     def get_unit(self, idx):
         return self._units[idx]

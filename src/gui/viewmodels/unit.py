@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import QListWidget, QWidget, QHBoxLayout, QVBoxLayout, QLis
 from settings import IMAGE_PATH64, IMAGE_PATH32, IMAGE_PATH
 from src import customlogger as logger
 from src.db import db
-from src.gui.viewmodels.mime_headers import CARD, CALCULATOR_UNIT, UNIT_EDITOR_UNIT
+from src.gui.viewmodels.mime_headers import CARD, CALCULATOR_UNIT, UNIT_EDITOR_UNIT, CALCULATOR_GRANDUNIT
 from src.gui.viewmodels.utils import ImageWidget
 from src.logic.profile import unit_storage
 
@@ -38,7 +38,7 @@ class UnitCard(ImageWidget):
             card_id = int(mimetext[len(CARD):])
             self.unit_widget.set_card(self.card_idx, card_id)
         else:
-            e.acceptProposedAction()
+            self.unit_widget.handle_lost_mime(mimetext)
 
 
 class UnitWidget(QWidget):
@@ -95,6 +95,10 @@ class UnitWidget(QWidget):
         if unit_name != "":
             unit_storage.delete_unit(unit_name)
         self.unit_view.delete_unit(self.widget_item)
+
+    def handle_lost_mime(self, mime_text):
+        if type(self.unit_view) == UnitView:
+            self.unit_view.handle_lost_mime(mime_text)
 
 
 class SmallUnitWidget(UnitWidget):
@@ -163,8 +167,10 @@ class DragableUnitList(QListWidget):
         if mimetext.startswith(CALCULATOR_UNIT):
             logger.debug("Dragged {} into unit editor".format(mimetext[len(CALCULATOR_UNIT):]))
             self.unit_view.add_unit(mimetext[len(CALCULATOR_UNIT):])
-        else:
-            e.acceptProposedAction()
+        elif mimetext.startswith(CALCULATOR_GRANDUNIT):
+            logger.debug("Dragged {} into unit editor".format(mimetext[len(CALCULATOR_GRANDUNIT):]))
+            self.unit_view.add_units(mimetext[len(CALCULATOR_UNIT):])
+        e.ignore()
 
 
 class UnitView:
@@ -196,6 +202,13 @@ class UnitView:
         self.widget.setItemWidget(unit_widget_item, unit_widget)
         return unit_widget
 
+    def add_units(self, card_ids):
+        card_ids = ast.literal_eval(card_ids)
+        for i in range(3):
+            cards = card_ids[i * 5: (i + 1) * 5]
+            if cards != [None] * 5:
+                self.add_unit(str(cards))
+
     def add_empty_widget(self):
         unit_widget = SmallUnitWidget(self, self.widget)
         unit_widget_item = QListWidgetItem(self.widget)
@@ -206,6 +219,14 @@ class UnitView:
 
     def delete_unit(self, unit_widget):
         self.widget.takeItem(self.widget.row(unit_widget))
+
+    def handle_lost_mime(self, mime_text):
+        if mime_text.startswith(CALCULATOR_UNIT):
+            logger.debug("Dragged {} into unit editor".format(mime_text[len(CALCULATOR_UNIT):]))
+            self.add_unit(mime_text[len(CALCULATOR_UNIT):])
+        elif mime_text.startswith(CALCULATOR_GRANDUNIT):
+            logger.debug("Dragged {} into unit editor".format(mime_text[len(CALCULATOR_GRANDUNIT):]))
+            self.add_units(mime_text[len(CALCULATOR_UNIT):])
 
     def __del__(self):
         unit_storage.clean_all_units(grand=False)
