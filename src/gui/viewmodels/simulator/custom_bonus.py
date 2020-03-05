@@ -79,4 +79,4 @@ class CustomBonusModel:
             for c in range(3):
                 results[r][c] = int(self.view.custom_bonus_table.item(r, c).text())
         results[:, [1, 2]] = results[:, [2, 1]]
-        return results
+        return results.transpose()
