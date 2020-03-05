@@ -22,7 +22,7 @@
         <item>
          <widget class="QTabWidget" name="calculator">
           <property name="currentIndex">
-           <number>0</number>
+           <number>1</number>
           </property>
           <widget class="QWidget" name="tab_3">
            <attribute name="title">
@@ -86,7 +86,7 @@
                </widget>
               </item>
               <item>
-               <layout class="QGridLayout" name="gridLayout_3" rowstretch="0,0,0,0,0,0" columnstretch="0,0,0,0,0,1,1">
+               <layout class="QGridLayout" name="gridLayout_3" rowstretch="0,0,0" columnstretch="0,0,0,0,0,1,1">
                 <item row="1" column="6">
                  <widget class="QLineEdit" name="lineEdit_2"/>
                 </item>
@@ -332,6 +332,11 @@
            <attribute name="title">
             <string>Tab 2</string>
            </attribute>
+           <layout class="QGridLayout" name="gridLayout_4">
+            <item row="0" column="0">
+             <widget class="QTableWidget" name="tableWidget_4"/>
+            </item>
+           </layout>
           </widget>
          </widget>
         </item>

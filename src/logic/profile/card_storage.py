@@ -1,6 +1,6 @@
 from src import customlogger as logger
 from src.db import db
-from src.logic.search import indexer
+from src.logic.search import indexer, search_engine
 
 
 def initialize_owned_cards():
@@ -29,3 +29,4 @@ def update_owned_cards(card_ids, numbers):
     db.cachedb.commit()
     indexer.im.initialize_index_db(card_ids)
     indexer.im.reindex(card_ids)
+    search_engine.engine.refresh_searcher()

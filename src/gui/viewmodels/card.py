@@ -234,13 +234,17 @@ class CardModel:
             return
         card_id = int(self.view.widget.item(r_idx, 2).text())
         new_value = self.view.widget.item(r_idx, c_idx).text()
+        if str(self.owned[card_id]) == new_value:
+            return
         try:
             new_value = int(new_value)
             assert new_value >= 0
         except:
             logger.error("Owned value {} invalid for card ID {}".format(new_value, card_id))
             # Revert value
+            self.view.disconnect_cell_change()
             self.view.widget.item(r_idx, c_idx).setData(2, self.owned[card_id])
+            self.view.connect_cell_change()
             return
         self.owned[card_id] = new_value
         card_storage.update_owned_cards(card_id, new_value)

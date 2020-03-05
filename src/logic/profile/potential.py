@@ -1,5 +1,6 @@
 import pandas as pd
 
+from src import customlogger as logger
 from src.db import db
 from src.logic.search import card_query
 
@@ -71,3 +72,4 @@ def update_potential(chara_id, pots):
         VALUES (?,?,?,?,?,?)
     """, [int(chara_id)] + list(map(int, pots)))
     copy_card_data_from_master(update_all=False, chara_id=chara_id)
+    logger.info("Updated character ID {} to pots {}".format(chara_id, pots))

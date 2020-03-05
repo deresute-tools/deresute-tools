@@ -6,6 +6,7 @@ from PyQt5.QtWidgets import QWidget, QGridLayout, QVBoxLayout, QHBoxLayout, QTab
 from chihiro import ROOT_DIR
 from src import customlogger as logger
 from src.gui.viewmodels.card import CardView, CardModel, IconLoaderView, IconLoaderModel
+from src.gui.viewmodels.potential import PotentialView, PotentialModel
 from src.gui.viewmodels.quicksearch import QuickSearchView, QuickSearchModel
 from src.gui.viewmodels.simulator.wide_smart import MainView, MainModel
 from src.gui.viewmodels.song import SongListView, SongListModel, SongView, SongModel
@@ -60,8 +61,13 @@ class UiMainWindow:
         self.non_grand_tab_view.set_model(self.non_grand_tab_model)
         self.non_grand_tab_view.setup()
         self.grand_tab = QWidget()  # TODO
+        self.potential_view = PotentialView()
+        self.potential_model = PotentialModel(self.potential_view)
+        self.potential_view.set_model(self.potential_model)
+        self.potential_model.initialize_data()
         self.calculator.addTab(self.non_grand_tab_view.widget, "WIDE/SMART")
         self.calculator.addTab(self.grand_tab, "GRAND")
+        self.calculator.addTab(self.potential_view.widget, "Potentials")
         self.calculator_song_layout.addWidget(self.calculator)
         self.song_layout = QVBoxLayout()
 
@@ -78,9 +84,6 @@ class UiMainWindow:
         self.song_model = SongModel(self.song_view)
         self.song_view.set_model(self.song_model)
         self.song_layout.addWidget(self.song_view.widget)
-
-        self.non_grand_tab_view.attach_song_view(self.song_view)
-        self.song_view.attach_support_model(self.non_grand_tab_view.support_model)
 
         self.song_list_view = SongListView(self.central_widget, self.song_model)
         self.song_list_model = SongListModel(self.song_list_view)
@@ -108,7 +111,6 @@ class UiMainWindow:
         self.card_view = CardView(self.central_widget)
         self.card_model = CardModel(self.card_view)
         self.card_view.set_model(self.card_model)
-        self.card_model.attach_calculator_view(self.non_grand_tab_view.calculator_table_view)
         self.card_model.initialize_cards()
         self.card_view.initialize_pics()
         self.card_view.connect_cell_change()
@@ -190,6 +192,12 @@ class UiMainWindow:
         self.menuMenu.setTitle(_translate("main", "Menu"))
         self.actionExit.setText(_translate("main", "Exit"))
 
+    def attach(self):
+        self.potential_model.attach_card_model(self.card_model)
+        self.card_model.attach_calculator_view(self.non_grand_tab_view.calculator_table_view)
+        self.non_grand_tab_view.attach_song_view(self.song_view)
+        self.song_view.attach_support_model(self.non_grand_tab_view.support_model)
+
 
 def setup_gui(*args):
     app = QApplication(*args)
@@ -199,5 +207,6 @@ def setup_gui(*args):
     ui = UiMainWindow(MainWindow)
     MainWindow.setui(ui)
     ui.setup_ui()
+    ui.attach()
     logger.info("GUI setup successfully")
     return app, MainWindow

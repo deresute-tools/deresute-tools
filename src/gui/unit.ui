@@ -1,75 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
-    <class>Form</class>
-    <widget class="QWidget" name="Form">
-        <property name="geometry">
-            <rect>
-                <x>0</x>
-                <y>0</y>
-                <width>377</width>
-                <height>280</height>
-            </rect>
-        </property>
-        <property name="windowTitle">
-            <string>Form</string>
-        </property>
-        <layout class="QGridLayout" name="gridLayout_2">
-            <item row="0" column="0">
-                <layout class="QVBoxLayout" name="verticalLayout">
-                    <item>
-                        <widget class="QPlainTextEdit" name="unitName">
-                            <property name="minimumSize">
-                                <size>
-                                    <width>0</width>
-                                    <height>10</height>
-                                </size>
-                            </property>
-                            <property name="maximumSize">
-                                <size>
-                                    <width>16777215</width>
-                                    <height>25</height>
-                                </size>
-                            </property>
-                        </widget>
-                    </item>
-                    <item>
-                        <layout class="QHBoxLayout" name="horizontalLayout">
-                            <item>
-                                <layout class="QVBoxLayout" name="verticalLayout_3">
-                                    <item>
-                                        <widget class="QWidget" name="card1" native="true"/>
-                                    </item>
-                                    <item>
-                                        <widget class="QWidget" name="card4" native="true"/>
-                                    </item>
-                                </layout>
-                            </item>
-                            <item>
-                                <layout class="QVBoxLayout" name="verticalLayout_2">
-                                    <item>
-                                        <widget class="QWidget" name="card2" native="true"/>
-                                    </item>
-                                    <item>
-                                        <widget class="QWidget" name="card5" native="true"/>
-                                    </item>
-                                </layout>
-                            </item>
-                            <item>
-                                <layout class="QVBoxLayout" name="verticalLayout_4">
-                                    <item>
-                                        <widget class="QWidget" name="card3" native="true"/>
-                                    </item>
-                                    <item>
-                                        <widget class="QWidget" name="cardg" native="true"/>
-                                    </item>
-                                </layout>
-                            </item>
-                        </layout>
-                    </item>
-                </layout>
-            </item>
-        </layout>
-    </widget>
-    <resources/>
-    <connections/>
+ <class>Form</class>
+ <widget class="QWidget" name="Form">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>400</width>
+    <height>300</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Form</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <widget class="QTableWidget" name="tableWidget"/>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
 </ui>
