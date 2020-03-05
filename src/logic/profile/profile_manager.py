@@ -63,6 +63,7 @@ class ProfileManager:
         """)
         db.cachedb.commit()
         if not self.switch_profile('main'):
+            logger.info("No profile found, creating default profile")
             self.add_profile('main')
             self.switch_profile('main')
         self.profile = 'main'

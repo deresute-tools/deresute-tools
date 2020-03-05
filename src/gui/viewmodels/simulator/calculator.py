@@ -6,7 +6,7 @@ from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QAbstractItemView, QTableW
 
 from src import customlogger as logger
 from src.gui.viewmodels.mime_headers import CALCULATOR_UNIT, UNIT_EDITOR_UNIT
-from src.gui.viewmodels.unit import UnitWidget
+from src.gui.viewmodels.unit import UnitWidget, UnitView
 from src.gui.viewmodels.utils import NumericalTableWidgetItem
 
 
@@ -24,7 +24,8 @@ class CalculatorUnitWidget(UnitWidget):
         self.setLayout(self.verticalLayout)
 
     def handle_lost_mime(self, mime_text):
-        self.unit_view.handle_lost_mime(mime_text)
+        if type(self.unit_view) == UnitView:
+            self.unit_view.handle_lost_mime(mime_text)
 
 
 class DroppableCalculatorWidget(QTableWidget):
