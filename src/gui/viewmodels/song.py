@@ -71,11 +71,12 @@ class SongListModel:
                         REPLACE(name, "\\n", "") as Name,
                         ct.text as Type,
                         bpm as BPM,
-                        music_data.id
+                        music_data.id as id,
+                        ld.difficulty_101 as _difficulty_101
                     FROM music_data
                     INNER JOIN live_data as ld ON ld.music_data_id = music_data.id
                     INNER JOIN cachedb.color_text ct on ld.type = ct.id
-                    WHERE ld.difficulty_1 > 0 AND ld.sort < 9000
+                    WHERE ld.sort < 9000
                 """, out_dict=True)
         db.masterdb.execute("DETACH DATABASE cachedb")
         db.masterdb.commit()
@@ -83,7 +84,7 @@ class SongListModel:
         cloned = dict()
         for value in data:
             if value['Name'] in cloned:
-                if value['_end_date'] == "":
+                if value['_end_date'] == "" and int(value['_difficulty_101']) != 0:
                     cloned[value['Name']] = value
                 continue
             cloned[value['Name']] = value
@@ -93,6 +94,7 @@ class SongListModel:
             value['_sort'] = _sort
             value.pop('_end_date')
             value.pop('id')
+            value.pop('_difficulty_101')
         self.view.load_data(data)
 
 
@@ -191,7 +193,7 @@ class SongModel:
                 dt.text AS difficulty_text 
             FROM live_data, live_detail live
             INNER JOIN cachedb.difficulty_text dt ON dt.id = live.difficulty_type
-            WHERE live_data.sort = ? AND live.live_data_id = live_data.id AND sort_key <> 21 AND sort_key <> 22
+            WHERE live_data.sort = ? AND live.live_data_id = live_data.id
             ORDER BY sort_key
             """,
             [music_id], out_dict=True
@@ -210,11 +212,6 @@ class SongModel:
             )
 
         scores = {Difficulty(int(score[0].split("_")[-1].split(".")[0])): score[1] for score in scores}
-        try:
-            scores.pop(Difficulty.PIANO)
-            scores.pop(Difficulty.FORTE)
-        except KeyError:
-            pass
         for key, _ in scores.items():
             notes_data = pd.read_csv(io.StringIO(_.decode()))
             notes_data = notes_data[notes_data["type"] < 10].reset_index(drop=True)

@@ -73,6 +73,7 @@ class CardView:
         for r_idx in range(self.widget.rowCount()):
             image = ImageWidget(None, self.widget)
             self.widget.setCellWidget(r_idx, 1, image)
+        self.connect_cell_change()
 
     def toggle_auto_resize(self, on=False):
         if on:

@@ -15,7 +15,9 @@ from src import customlogger as logger
 
 class MainView:
     def __init__(self):
+        self.layout = QtWidgets.QVBoxLayout()
         self.widget = QtWidgets.QWidget()
+        self.layout.addWidget(self.widget)
         self.main_layout = QtWidgets.QHBoxLayout(self.widget)
 
     def setup(self):
