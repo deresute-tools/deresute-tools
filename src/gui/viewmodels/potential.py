@@ -2,7 +2,7 @@ from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QAbstractItemView, QTableWidgetItem
 
-from settings import IMAGE_PATH32
+from settings import IMAGE_PATH64
 from src import customlogger as logger
 from src.db import db
 from src.gui.viewmodels.utils import NumericalTableWidgetItem, ImageWidget
@@ -36,7 +36,7 @@ class PotentialView:
             for c_idx, (key, value) in enumerate(potential.items()):
                 if c_idx == 1:
                     item = ImageWidget(None, self.widget)
-                    item.set_path(str(IMAGE_PATH32 / "{:06d}.jpg".format(value)))
+                    item.set_path(str(IMAGE_PATH64 / "{:06d}.jpg".format(value)))
                     self.widget.setCellWidget(r_idx, c_idx, item)
                     continue
                 elif isinstance(value, int):
