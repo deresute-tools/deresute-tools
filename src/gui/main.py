@@ -11,7 +11,7 @@ from src.gui.viewmodels.quicksearch import QuickSearchView, QuickSearchModel
 from src.gui.viewmodels.simulator.wide_smart import MainView, MainModel
 from src.gui.viewmodels.song import SongListView, SongListModel, SongView, SongModel
 from src.gui.viewmodels.unit import UnitView, UnitModel
-from src.logic.profile import profile_manager
+from src.logic.profile import profile_manager, unit_storage
 from src.logic.search import indexer, search_engine
 
 
@@ -26,6 +26,13 @@ class CustomMainWindow(QMainWindow):
         key = event.key()
         if QApplication.keyboardModifiers() == Qt.ControlModifier and key == Qt.Key_F:
             self.ui.quicksearch_view.focus()
+        if QApplication.keyboardModifiers() == Qt.ControlModifier and key == Qt.Key_S:
+            logger.info("User data backed up")
+            unit_storage.clean_all_units(grand=False)
+            for r_idx in range(self.ui.unit_view.widget.count()):
+                widget = self.ui.unit_view.widget.itemWidget(self.ui.unit_view.widget.item(r_idx))
+                widget.update_unit()
+            profile_manager.cleanup()
 
 
 # noinspection PyAttributeOutsideInit

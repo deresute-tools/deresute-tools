@@ -190,9 +190,12 @@ class UnitView:
     def add_unit(self, card_ids):
         unit_widget = SmallUnitWidget(self, self.widget)
         unit_widget.set_unit_name("")
-        cards = ast.literal_eval(card_ids)
+        try:
+            cards = ast.literal_eval(card_ids)
+        except SyntaxError:
+            cards = card_ids.split(",")
         for idx, card in enumerate(cards):
-            if card is None:
+            if card is None or card == "":
                 continue
             unit_widget.set_card(idx, int(card))
         unit_widget_item = QListWidgetItem(self.widget)
