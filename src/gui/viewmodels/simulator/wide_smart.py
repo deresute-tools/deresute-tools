@@ -1,6 +1,7 @@
 import numpy as np
 from PyQt5 import QtWidgets
 from PyQt5.QtGui import QIntValidator
+from PyQt5.QtWidgets import QSizePolicy
 
 from src import customlogger as logger
 from src.exceptions import InvalidUnit
@@ -70,10 +71,13 @@ class MainView:
         try:
             self.add_button.pressed.disconnect()
             self.clear_button.pressed.disconnect()
+            self.permute_button.pressed.disconnect()
         except TypeError:
             pass
         self.add_button.pressed.connect(lambda: self.views[idx].add_empty_unit())
         self.clear_button.pressed.connect(lambda: self.views[idx].clear_units())
+        if idx == 1:
+            self.permute_button.pressed.connect(lambda: self.views[idx].permute_units())
         self.calculator_table_view = self.views[idx]
         self.views[idx].set_support_model(self.support_model)
         self.views[idx].attach_custom_settings_model(self.custom_settings_model)
@@ -89,6 +93,7 @@ class MainView:
         self.big_button = QtWidgets.QPushButton("Run", self.widget)
         self.add_button = QtWidgets.QPushButton("Add Empty Unit", self.widget)
         self.clear_button = QtWidgets.QPushButton("Clear All Units", self.widget)
+        self.permute_button = QtWidgets.QPushButton("Permute Units", self.widget)
         self.times_text = QtWidgets.QLineEdit(self.widget)
         self.times_text.setValidator(QIntValidator(0, 100, None))  # Only number allowed
         self.times_text.setText("10")
@@ -97,14 +102,16 @@ class MainView:
         font = self.big_button.font()
         font.setPointSize(16)
         self.big_button.setFont(font)
+        self.big_button.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.MinimumExpanding)
 
         self.big_button.pressed.connect(lambda: self.simulate())
 
-        self.button_layout.addWidget(self.big_button, 0, 0, 1, 2)
-        self.button_layout.addWidget(self.times_text, 1, 0, 1, 1)
-        self.button_layout.addWidget(self.times_label, 1, 1, 1, 1)
+        self.button_layout.addWidget(self.big_button, 0, 0, 2, 2)
+        self.button_layout.addWidget(self.times_text, 2, 0, 1, 1)
+        self.button_layout.addWidget(self.times_label, 2, 1, 1, 1)
         self.button_layout.addWidget(self.add_button, 0, 2, 1, 1)
         self.button_layout.addWidget(self.clear_button, 1, 2, 1, 1)
+        self.button_layout.addWidget(self.permute_button, 2, 2, 1, 1)
         self.bottom_row_layout.addLayout(self.button_layout)
 
     def _setup_custom_settings(self):

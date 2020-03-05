@@ -1,3 +1,5 @@
+import itertools
+
 from PyQt5.QtCore import QSize, Qt, QMimeData
 from PyQt5.QtGui import QDrag
 from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QApplication
@@ -35,6 +37,9 @@ class GrandCalculatorUnitWidget(UnitWidget):
         for card_layout in self.cardLayouts:
             self.verticalLayout.addLayout(card_layout)
         self.setLayout(self.verticalLayout)
+
+    def permute_units(self):
+        self.unit_view.permute_units()
 
     def handle_lost_mime(self, mime_text):
         pass
@@ -93,3 +98,21 @@ class GrandCalculatorView(CalculatorView):
                     return
         self.add_empty_unit()
         self.set_unit(row=self.widget.rowCount() - 1, unit=0, cards=cards)
+
+    def permute_units(self):
+        n = self.widget.rowCount()
+        all_units = list()
+        for r in range(n):
+            card_ids = self.widget.cellWidget(r, 0).card_ids
+            if None in card_ids:
+                continue
+            units = [card_ids[0:5], card_ids[5:10], card_ids[10:15]]
+            all_units.append(units)
+        for grand_unit in all_units:
+            for permutation in itertools.permutations(grand_unit, 3):
+                permutation = list(permutation)
+                if permutation in all_units:
+                    continue
+                self.add_empty_unit()
+                for unit_idx, unit in enumerate(permutation):
+                    self.set_unit(row=self.widget.rowCount() - 1, unit=unit_idx, cards=unit)
