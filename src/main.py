@@ -22,7 +22,7 @@ def main():
 
         app, main = setup_gui(sys.argv)
         main.show()
-        sys.exit(app.exec_())
+        app.exec_()
     except:
         logger.critical("ERROR!")
         logger.critical(traceback.print_exc())
