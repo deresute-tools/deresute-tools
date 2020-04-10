@@ -22,7 +22,7 @@ class Simulator:
 
     def _setup_simulator(self, appeals=None, support=None, extra_bonus=None):
         if extra_bonus is not None:
-            assert isinstance(extra_bonus, np.ndarray) and extra_bonus.shape == (3, 3)
+            assert isinstance(extra_bonus, np.ndarray) and extra_bonus.shape == (5, 3)
             self.live.set_extra_bonus(extra_bonus)
         self.notes_data = self.live.notes
         self.song_duration = self.notes_data.iloc[-1].sec
@@ -56,7 +56,7 @@ class Simulator:
         else:
             return np.round(self.base_score * self.notes_data['weight'] * bonuses_0 * bonuses_1)
 
-    def simulate(self, times=1000, appeals=None, extra_bonus=None, support=None, perfect_play=False):
+    def simulate(self, times=100, appeals=None, extra_bonus=None, support=None, perfect_play=False):
         start = time.time()
         logger.debug("Unit: {}".format(self.live.unit))
         logger.debug("Song: {} - {}".format(self.live.music_name, self.live.difficulty))

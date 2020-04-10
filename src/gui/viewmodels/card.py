@@ -110,7 +110,7 @@ class CardView:
             row_count_item.setFlags(row_count_item.flags() & ~Qt.ItemIsEditable)
             self.widget.setItem(r_idx, 0, row_count_item)
             for c_idx, (key, value) in enumerate(card_data.items()):
-                if isinstance(value, int):
+                if isinstance(value, int) and c_idx != 8:
                     item = NumericalTableWidgetItem(value)
                 elif value is None:
                     item = QTableWidgetItem("")

@@ -54,11 +54,11 @@ class CustomBonusView:
         self.custom_bonus_appeal_preset.setMaxVisibleItems(12)
         self.custom_bonus_preset_value.setValidator(QIntValidator(0, 1000, None))  # Only number allowed
         self.custom_bonus_table.setRowCount(3)
-        self.custom_bonus_table.setColumnCount(3)
-        self.custom_bonus_table.setHorizontalHeaderLabels(["Vocal", "Dance", "Visual"])
+        self.custom_bonus_table.setColumnCount(5)
+        self.custom_bonus_table.setHorizontalHeaderLabels(["Vocal", "Dance", "Visual", "Life", "Skill"])
         self.custom_bonus_table.setVerticalHeaderLabels(["Cute", "Cool", "Passion"])
         for r in range(3):
-            for c in range(3):
+            for c in range(5):
                 item = QTableWidgetItem()
                 item.setData(Qt.EditRole, 0)
                 self.custom_bonus_table.setItem(r, c, item)
@@ -74,9 +74,9 @@ class CustomBonusModel:
         self.view = view
 
     def get_bonus(self):
-        results = np.zeros((3, 3))
+        results = np.zeros((3, 5))
         for r in range(3):
-            for c in range(3):
+            for c in range(5):
                 results[r][c] = int(self.view.custom_bonus_table.item(r, c).text())
         results[:, [1, 2]] = results[:, [2, 1]]
         return results.transpose()

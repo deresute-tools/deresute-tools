@@ -72,7 +72,8 @@ class SongListModel:
                         ct.text as Type,
                         bpm as BPM,
                         music_data.id as id,
-                        ld.difficulty_101 as _difficulty_101
+                        ld.difficulty_101 as _difficulty_101,
+                        ld.difficulty_5 as _difficulty_5
                     FROM music_data
                     INNER JOIN live_data as ld ON ld.music_data_id = music_data.id
                     INNER JOIN cachedb.color_text ct on ld.type = ct.id
@@ -84,7 +85,10 @@ class SongListModel:
         cloned = dict()
         for value in data:
             if value['Name'] in cloned:
-                if value['_end_date'] == "" and int(value['_difficulty_101']) != 0:
+                if int(cloned[value['Name']]['_difficulty_101']) != 0:
+                    # Already have legacy
+                    continue
+                if int(value['_difficulty_5']) > 0:
                     cloned[value['Name']] = value
                 continue
             cloned[value['Name']] = value
@@ -95,6 +99,7 @@ class SongListModel:
             value.pop('_end_date')
             value.pop('id')
             value.pop('_difficulty_101')
+            value.pop('_difficulty_5')
         self.view.load_data(data)
 
 

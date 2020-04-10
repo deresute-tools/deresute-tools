@@ -54,7 +54,7 @@ def fetch_chart(base_music_name, base_score_id, base_difficulty, event=False):
                     SELECT live_data.id, live_data.type, live_detail.level_vocal
                     FROM live_data, live_detail WHERE live_data.music_data_id IN (
                         SELECT id FROM music_data WHERE name LIKE ?
-                    ) AND event_type = ? AND live_detail.live_data_id = live_data.id AND live_detail.difficulty_type = ?
+                    ) AND event_type >= ? AND live_detail.live_data_id = live_data.id AND live_detail.difficulty_type = ?
                     """,
                     [music_name, event, difficulty]
                 )
@@ -146,8 +146,7 @@ class Live:
                                                                             event=True)
 
     def set_extra_bonus(self, bonuses):
-        self.extra_bonuses = np.zeros((5, 3))
-        self.extra_bonuses[:3] = bonuses
+        self.extra_bonuses = bonuses
 
     def get_bonuses(self):
         if self.bonuses is not None:
