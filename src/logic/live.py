@@ -250,10 +250,13 @@ class Live:
         # Sort by total appeal
         temp = temp[temp[:, 5].argsort()[::-1]]
         # Get only cards that contribute to support
-        last_idx = np.searchsorted(temp[:, 0].cumsum(), 10) + 1
+        last_idx = np.searchsorted(temp[:, 0].cumsum(), 10)
         # Duplicate cards that are starranked
-        for i in reversed(range(last_idx)):
-            temp = np.insert(temp, [i + 1] * (int(temp[i, 0]) - 1), temp[i], axis=0)
+        for i in reversed(range(last_idx + 1)):
+            try:
+                temp = np.insert(temp, [i + 1] * (int(temp[i, 0]) - 1), temp[i], axis=0)
+            except IndexError:
+                continue
         self.support = temp[:10, 1:].astype(int)  # Return top 10
         return self.support[:, -1].sum()
 
