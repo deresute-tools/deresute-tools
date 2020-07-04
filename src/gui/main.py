@@ -207,7 +207,11 @@ class UiMainWindow:
 def setup_gui(*args):
     app = QApplication(*args)
     app.setApplicationName("Chihiro")
-    app.setWindowIcon(QIcon(str(ROOT_DIR / 'icon.png')))
+    icon = QIcon(str(ROOT_DIR / 'icon.png'))
+    app.setWindowIcon(icon)
+    import ctypes
+    myappid = 'mycompany.myproduct.subproduct.version'  # arbitrary string
+    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
     MainWindow = CustomMainWindow()
     ui = UiMainWindow(MainWindow)
     MainWindow.setui(ui)
