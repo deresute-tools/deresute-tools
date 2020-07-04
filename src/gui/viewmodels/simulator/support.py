@@ -74,7 +74,7 @@ class SupportModel:
             return
         if self.music is not None:
             self.live.set_music(score_id=self.music[0], difficulty=self.music[1])
-        self.live.set_extra_bonus(self.custom_bonus_model.get_bonus())
+        self.live.set_extra_bonus(*self.custom_bonus_model.get_bonus())
         self.live.get_support()
-        self.view.display_support(self.live.support)
+        self.view.display_support(self.live.support.copy())
         return self.live.get_appeals(), self.live.get_support()

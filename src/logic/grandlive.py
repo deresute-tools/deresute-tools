@@ -1,36 +1,39 @@
 import numpy as np
 
 from src.logic.grandunit import GrandUnit
-from src.logic.live import Live
+from src.logic.live import BaseLive, Live
 from src.static.color import Color
 
 
-class GrandLive(Live):
+class GrandLive(BaseLive):
     unit: GrandUnit
+
+    def __init__(self, music_name=None, difficulty=None, unit=None):
+        super().__init__(music_name, difficulty, unit)
+        self.unit_lives = list()
+        for i in range(3):
+            dummy_live = Live()
+            dummy_live.initialize_music(music_name, difficulty, unit)
+            self.unit_lives.append(dummy_live)
+
+    def reset_attributes(self):
+        for i in range(3):
+            self.unit_lives[i].reset_attributes()
 
     def set_unit(self, unit):
         assert isinstance(unit, GrandUnit)
         self.unit = unit
+        for i in range(3):
+            self.unit_lives[i].set_unit(self.unit.get_unit(i))
+            self.unit_lives[i].reset_attributes()
 
     def get_attributes(self):
         if self.attributes is not None:
             return self.attributes
+        self.get_bonuses()
         attributes = np.zeros((4, 3))  # Attributes x Units
-        for unit_idx, unit in enumerate(self.unit.all_units):
-            bonuses = unit.leader_bonuses(song_color=self.color)[:4, :]
-            bonuses[:3] += 10  # Furniture
-            if self.color == Color.ALL:
-                bonuses[:3] += 30
-            else:
-                bonuses[:3, self.color] += 30
-            character_specific_bonuses = np.zeros((5, 4, 3))
-            for i in range(5):
-                character_specific_bonuses[i, :, :] = bonuses
-                if unit.get_card(i).chara_id in self.chara_bonus_set:
-                    character_specific_bonuses[i, :3, :] += self.chara_bonus_value
-            bonuses = 1 + character_specific_bonuses / 100
-
-            attributes[:, unit_idx] = np.ceil(np.multiply(unit.base_attributes, bonuses)).sum(axis=0).sum(axis=1)
+        for unit_idx in range(3):
+            attributes[:, unit_idx] = self.unit_lives[unit_idx].get_attributes()
         self.attributes = attributes
         return self.attributes
 
@@ -40,3 +43,10 @@ class GrandLive(Live):
     @property
     def is_grand(self):
         return True
+
+    def get_bonuses(self):
+        for unit_live in self.unit_lives:
+            unit_live.get_bonuses()
+
+    def get_probability(self, idx=None):
+        return self.unit_lives[idx // 5].get_probability(idx % 5)

@@ -21,11 +21,13 @@ class Simulator:
     def __init__(self, live=None):
         self.live = live
 
-    def _setup_simulator(self, appeals=None, support=None, extra_bonus=None, chara_bonus_set=None, chara_bonus_value=0):
-        if extra_bonus is not None:
-            assert isinstance(extra_bonus, np.ndarray) and extra_bonus.shape == (5, 3)
-            self.live.set_extra_bonus(extra_bonus)
+    def _setup_simulator(self, appeals=None, support=None, extra_bonus=None, chara_bonus_set=None, chara_bonus_value=0,
+                         special_option=None, special_value=None):
         self.live.set_chara_bonus(chara_bonus_set, chara_bonus_value)
+        if extra_bonus is not None or special_option is not None:
+            if extra_bonus is not None:
+                assert isinstance(extra_bonus, np.ndarray) and extra_bonus.shape == (5, 3)
+            self.live.set_extra_bonus(extra_bonus, special_option, special_value)
         self.notes_data = self.live.notes
         self.song_duration = self.notes_data.iloc[-1].sec
         self.note_count = len(self.notes_data)
@@ -59,7 +61,7 @@ class Simulator:
             return np.round(self.base_score * self.notes_data['weight'] * bonuses_0 * bonuses_1)
 
     def simulate(self, times=100, appeals=None, extra_bonus=None, support=None, perfect_play=False,
-                 chara_bonus_set=None, chara_bonus_value=0):
+                 chara_bonus_set=None, chara_bonus_value=0, special_option=None, special_value=None):
         start = time.time()
         logger.debug("Unit: {}".format(self.live.unit))
         logger.debug("Song: {} - {}".format(self.live.music_name, self.live.difficulty))
@@ -69,8 +71,9 @@ class Simulator:
         if times == 1:
             perfect_play = True
         res = self._simulate(times, appeals=appeals, extra_bonus=extra_bonus, support=support,
-                             perfect_play=perfect_play, chara_bonus_set=chara_bonus_set,
-                             chara_bonus_value=chara_bonus_value)
+                             perfect_play=perfect_play,
+                             chara_bonus_set=chara_bonus_set, chara_bonus_value=chara_bonus_value,
+                             special_option=special_option, special_value=special_value)
         logger.debug("Total run time for {} trials: {:04.2f}s".format(times, time.time() - start))
         return res
 
@@ -81,11 +84,14 @@ class Simulator:
                   support=None,
                   perfect_play=False,
                   chara_bonus_set=None,
-                  chara_bonus_value=0
+                  chara_bonus_value=0,
+                  special_option=None,
+                  special_value=None,
                   ):
 
         self._setup_simulator(appeals=appeals, support=support, extra_bonus=extra_bonus,
-                              chara_bonus_set=chara_bonus_set, chara_bonus_value=chara_bonus_value)
+                              chara_bonus_set=chara_bonus_set, chara_bonus_value=chara_bonus_value,
+                              special_option=special_option, special_value=special_value)
         grand = self.live.is_grand
 
         self._simulate_internal(times=times, grand=grand, time_offset=0, fail_simulate=False)

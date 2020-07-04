@@ -1,3 +1,5 @@
+from abc import ABC, abstractmethod
+
 import numpy as np
 
 from src.db import db
@@ -6,7 +8,26 @@ from src.logic.card import Card
 from src.logic.search import card_query
 
 
-class Unit:
+class BaseUnit(ABC):
+    @classmethod
+    @abstractmethod
+    def from_list(cls, cards, custom_pots=None):
+        pass
+
+    @abstractmethod
+    def all_units(self):
+        pass
+
+    @abstractmethod
+    def all_cards(self):
+        pass
+
+    @abstractmethod
+    def get_card(self, idx):
+        pass
+
+
+class Unit(BaseUnit):
     def __init__(self, c0, c1, c2, c3, c4, cg=None, resonance=None):
         for _ in [c0, c1, c2, c3, c4]:
             if not isinstance(_, Card):

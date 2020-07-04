@@ -1,4 +1,5 @@
 import io
+from abc import ABC, abstractmethod
 from collections import OrderedDict
 
 import numpy as np
@@ -9,6 +10,8 @@ from src import customlogger as logger
 from src.db import db
 from src.exceptions import NoLiveFoundException
 from src.logic.search import card_query
+from src.logic.unit import BaseUnit, Unit
+from src.static.appeal_presets import APPEAL_PRESETS
 from src.static.color import Color
 from src.static.note_type import NoteType
 from src.static.song_difficulty import Difficulty
@@ -94,16 +97,16 @@ def fetch_chart(base_music_name, base_score_id, base_difficulty, event=False):
     return notes_data, Color(color - 1), level, duration
 
 
-class Live:
+class BaseLive(ABC):
+
     def __init__(self, music_name=None, difficulty=None, unit=None):
         self.attributes = None
-        self.bonuses = None
         self.extra_bonuses = None
-        self.leader_bonuses = None
         self.color_bonuses = None
         self.chara_bonus_set = {}
         self.chara_bonus_value = 0
-        self.probabilities = None
+        self.special_option = None
+        self.special_value = None
         self.support = None
         self.unit = None
         self.music_name = None
@@ -113,109 +116,13 @@ class Live:
         self.color = None
         self.duration = None
         self.level = None
+        self.initialize_music(music_name, difficulty, unit)
+
+    def initialize_music(self, music_name=None, difficulty=None, unit=None):
         if music_name is not None and difficulty is not None:
             self.set_music(music_name, difficulty)
         if unit is not None:
             self.set_unit(unit)
-
-    def reset_attributes(self):
-        self.attributes = None  # Reset calculation
-        self.bonuses = None
-        self.extra_bonuses = None
-        self.leader_bonuses = None
-        self.chara_bonus_set = {}
-        self.chara_bonus_value = 0
-        self.support = None
-
-    def set_unit(self, unit):
-        self.unit = unit
-        self.reset_attributes()
-
-    def set_music(self, music_name=None, score_id=None, difficulty=None, event=None):
-        self.music_name = music_name
-        if isinstance(difficulty, int):
-            difficulty = Difficulty(difficulty)
-        self.difficulty = difficulty
-        self.score_id = score_id
-        self.reset_attributes()
-        if event is None:
-            try:
-                self.notes, self.color, self.level, self.duration = fetch_chart(music_name, score_id, difficulty,
-                                                                                event=False)
-            except ValueError:
-                self.notes, self.color, self.level, self.duration = fetch_chart(music_name, score_id, difficulty,
-                                                                                event=True)
-        else:
-            self.notes, self.color, self.level, self.duration = fetch_chart(music_name, score_id, difficulty,
-                                                                            event=True)
-
-    def set_extra_bonus(self, bonuses):
-        self.extra_bonuses = bonuses
-
-    def set_chara_bonus(self, chara_bonus_set, chara_bonus_value):
-        if chara_bonus_set is None:
-            chara_bonus_set = set()
-        self.chara_bonus_set = chara_bonus_set
-        if chara_bonus_value is None:
-            chara_bonus_value = 0
-        self.chara_bonus_value = chara_bonus_value
-
-    def get_bonuses(self):
-        if self.bonuses is not None:
-            return
-        if not self.is_grand:
-            self.leader_bonuses = self.unit.leader_bonuses(song_color=self.color)
-        self.color_bonuses = np.zeros((5, 3))
-        if self.extra_bonuses is None:
-            self.extra_bonuses = np.zeros((5, 3))
-        if self.color is None:
-            pass
-        elif self.color == Color.ALL:
-            self.color_bonuses[:3] = 30  # Appeal
-            self.color_bonuses[4] = 30  # Skill
-        else:
-            self.color_bonuses[:3, self.color.value] = 30  # Appeal
-            self.color_bonuses[4, self.color.value] = 30  # Skill
-        bonuses = np.zeros((5, 3))
-        if not self.is_grand:
-            bonuses = self.leader_bonuses
-        bonuses += self.color_bonuses
-        bonuses += self.extra_bonuses
-        bonuses[:3] += 10  # Furniture
-        self.bonuses = np.clip(bonuses, a_min=-100, a_max=5000)
-
-    def get_attributes(self):
-        if self.attributes is not None:
-            return self.attributes
-        self.get_bonuses()
-        bonuses = np.repeat(self.bonuses[np.newaxis, :, :], self.unit.base_attributes.shape[0], axis=0)
-        for card_idx, card in enumerate(self.unit.all_cards(guest=True)):
-            if card.chara_id in self.chara_bonus_set:
-                bonuses[card_idx, :3, :] += self.chara_bonus_value
-        bonuses = (1 + bonuses / 100)[:, :4, :]
-        self.attributes = np.ceil(self.unit.base_attributes * bonuses).sum(axis=0).sum(axis=1)
-        return self.attributes
-
-    def get_appeals(self):
-        return self.get_attributes()[:3].sum()
-
-    def get_life(self):
-        return self.get_attributes()[3]
-
-    def get_probability(self, idx=None):
-        if self.probabilities is None:
-            card_probabilities = np.zeros((5 * len(self.unit.all_units), 3))
-            for unit_idx, unit in enumerate(self.unit.all_units):
-                for card_idx, card in enumerate(unit.all_cards()):
-                    card_probabilities[unit_idx * 5 + card_idx, card.color.value] = card.skill.probability
-            self.get_bonuses()
-            probability_bonus = self.bonuses[4]
-            card_probabilities = (card_probabilities * (1 + probability_bonus / 100) / 10000).max(axis=1)
-            logger.debug("Card probabilities: {}".format(card_probabilities))
-            self.probabilities = np.clip(card_probabilities, a_min=0, a_max=1)
-        if idx is None:
-            return self.probabilities
-        return self.probabilities[idx]
 
     def get_support(self):
         if self.support is not None:
@@ -252,9 +159,9 @@ class Live:
             base_support_attributes[idx, 0, attribute - 1] += vocal
             base_support_attributes[idx, 1, attribute - 1] += visual
             base_support_attributes[idx, 2, attribute - 1] += dance
-        self.get_bonuses()
-        bonuses = self.extra_bonuses + self.color_bonuses
+        bonuses = self.get_extra_bonuses() + self.get_color_bonuses()
         support_attributes = np.ceil(base_support_attributes * (1 + bonuses[:3] / 100) / 2)
+        support_attributes *= 1 - (bonuses[:3] < -5000)
         support_attributes = support_attributes.sum(axis=2)  # Sum over colors
 
         # Temp is No. owned | Card ID | Vocal | Dance | Visual | Total
@@ -281,6 +188,211 @@ class Live:
             self.get_support()
         return card_query.convert_id_to_short_name(" ".join(map(str, self.support[:, 0])))
 
+    def set_music(self, music_name=None, score_id=None, difficulty=None, event=None):
+        self.music_name = music_name
+        if isinstance(difficulty, int):
+            difficulty = Difficulty(difficulty)
+        self.difficulty = difficulty
+        self.score_id = score_id
+        self.reset_attributes()
+        if event is None:
+            try:
+                self.notes, self.color, self.level, self.duration = fetch_chart(music_name, score_id, difficulty,
+                                                                                event=False)
+            except ValueError:
+                self.notes, self.color, self.level, self.duration = fetch_chart(music_name, score_id, difficulty,
+                                                                                event=True)
+        else:
+            self.notes, self.color, self.level, self.duration = fetch_chart(music_name, score_id, difficulty,
+                                                                            event=True)
+
+    def set_extra_bonus(self, bonuses, special_option, special_value):
+        self.extra_bonuses = bonuses
+        self.special_option = special_option
+        self.special_value = special_value
+        if self.special_option == APPEAL_PRESETS["Event Idols"]:
+            self.chara_bonus_value = special_value
+
+    def get_extra_bonuses(self):
+        if self.extra_bonuses is None:
+            self.extra_bonuses = np.zeros((5, 3))
+        return self.extra_bonuses
+
+    def get_color_bonuses(self):
+        self.color_bonuses = np.zeros((5, 3))
+        if self.color is None:
+            pass
+        elif self.color == Color.ALL:
+            self.color_bonuses[:3] = 30  # Appeal
+            self.color_bonuses[4] = 30  # Skill
+        else:
+            self.color_bonuses[:3, self.color.value] = 30  # Appeal
+            self.color_bonuses[4, self.color.value] = 30  # Skill
+        return self.color_bonuses
+
+    def set_chara_bonus(self, chara_bonus_set, chara_bonus_value):
+        if chara_bonus_set is None:
+            chara_bonus_set = set()
+        self.chara_bonus_set = chara_bonus_set
+        if chara_bonus_value is None:
+            chara_bonus_value = 0
+        self.chara_bonus_value = chara_bonus_value
+
+    def get_appeals(self):
+        return self.get_attributes()[:3].sum()
+
+    @abstractmethod
+    def get_bonuses(self):
+        pass
+
+    @abstractmethod
+    def reset_attributes(self):
+        pass
+
+    @abstractmethod
+    def set_unit(self, unit: BaseUnit):
+        pass
+
+    @abstractmethod
+    def get_probability(self, idx=None):
+        pass
+
+    @abstractmethod
+    def get_attributes(self):
+        pass
+
+    @abstractmethod
+    def get_life(self):
+        pass
+
+    @property
+    @abstractmethod
+    def is_grand(self):
+        pass
+
+
+class Live(BaseLive):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.bonuses = None
+        self.leader_bonuses = None
+        self.probabilities = None
+
+    def set_unit(self, unit: Unit):
+        self.unit = unit
+        self.reset_attributes()
+
+    def get_attributes(self):
+        if self.attributes is not None:
+            return self.attributes
+        self.get_bonuses()
+        bonuses = self.bonuses.copy()
+        self.apply_complex_bonus(bonuses)
+        bonuses = np.clip(bonuses, a_min=-100, a_max=5000)
+        bonuses = (1 + bonuses / 100)[:, :4, :]
+
+        self.attributes = np.ceil(self.unit.base_attributes * bonuses).sum(axis=0)
+        self.attributes *= 1 - (self.extra_bonuses[:4, :] < -5000)
+        self.attributes = self.attributes.sum(axis=1)
+        return self.attributes
+
+    def reset_attributes(self):
+        self.attributes = None  # Reset calculation
+        self.bonuses = None
+        self.extra_bonuses = None
+        self.leader_bonuses = None
+        self.chara_bonus_set = {}
+        self.chara_bonus_value = 0
+        self.support = None
+
+    def get_life(self):
+        return self.get_attributes()[3]
+
     @property
     def is_grand(self):
         return False
+
+    def get_leader_bonuses(self):
+        if self.leader_bonuses is None:
+            self.leader_bonuses = self.unit.leader_bonuses(song_color=self.color)
+        return self.leader_bonuses
+
+    def get_bonuses(self):
+        if self.bonuses is not None:
+            return
+        bonuses = np.zeros((5, 3))
+        bonuses += self.get_leader_bonuses()
+        bonuses += self.get_color_bonuses()
+        bonuses += self.get_extra_bonuses()
+        bonuses[:3] += 10  # Furniture
+        bonuses = np.repeat(bonuses[np.newaxis, :, :], self.unit.base_attributes.shape[0], axis=0)
+        self.bonuses = bonuses
+
+    def apply_complex_bonus(self, bonuses):
+        if self.special_option == APPEAL_PRESETS["Event Idols"]:
+            for card_idx, card in enumerate(self.unit.all_cards(guest=True)):
+                if card.chara_id in self.get_chara_bonus_set():
+                    bonuses[card_idx, :3, :] += self.chara_bonus_value
+        elif self.special_option == APPEAL_PRESETS["Scale with Potential"]:
+            potentials = db.cachedb.execute_and_fetchall("""
+                SELECT
+                    chara_id,
+                    vo + vi + da + li + sk as total_pots
+                FROM potential_cache
+                WHERE chara_id IN ({})
+            """.format(",".join([str(_.chara_id) for _ in self.unit.all_cards(guest=True)])))
+            potentials = {k: v for k, v in potentials}
+            for card_idx, card in enumerate(self.unit.all_cards(guest=True)):
+                bonuses[card_idx, :3, :] += potentials[card.chara_id] * self.special_value
+        elif self.special_option == APPEAL_PRESETS["Scale with Life"]:
+            life_bonuses = 1 + self.bonuses[:, 3, :] / 100
+            total_life = np.ceil(self.unit.base_attributes[:, 3, :] * life_bonuses).sum()
+            booth_life_value = db.masterdb.execute_and_fetchall("""
+                SELECT param, value FROM carnival_booth_life_value ORDER BY param
+            """)
+            last_bonus = 0
+            for life, bonus in booth_life_value[1:]:
+                if total_life < life:
+                    bonuses[:, :3, :] += last_bonus
+                    break
+                else:
+                    last_bonus = bonus - 100
+        elif self.special_option == APPEAL_PRESETS["Scale with Star Rank"]:
+            starrank_value = db.masterdb.execute_and_fetchall("""
+                SELECT param, value_1, value_2, value_3, value_4 FROM carnival_booth_starrank_value ORDER BY param
+            """)
+            starrank_value_array = list()
+            for i in range(20):
+                temp = list()
+                for j in range(4):
+                    temp.append(starrank_value[i][j + 1] - 100)
+                starrank_value_array.append(temp)
+            for card_idx, card in enumerate(self.unit.all_cards(guest=True)):
+                owned = db.cachedb.execute_and_fetchall("""
+                    SELECT number FROM owned_card WHERE card_id = ?
+                """, [card.card_id])[0][0]
+                if owned == 0:
+                    owned = 1
+                bonuses[card_idx, :3, :] += starrank_value_array[owned - 1][card.rarity // 2 - 1]
+
+    def get_probability(self, idx=None):
+        if self.probabilities is None:
+            card_probabilities = np.zeros((5, 3))
+            for card_idx, card in enumerate(self.unit.all_cards()):
+                card_probabilities[card_idx, card.color.value] = card.skill.probability
+            self.get_bonuses()
+            probability_bonus = self.bonuses[idx, 4, :]
+            card_probabilities = (card_probabilities * (1 + probability_bonus / 100) / 10000).max(axis=1)
+            logger.debug("Card probabilities: {}".format(card_probabilities))
+            self.probabilities = np.clip(card_probabilities, a_min=0, a_max=1)
+        if idx is None:
+            return self.probabilities
+        return self.probabilities[idx]
+
+    def get_chara_bonus_set(self):
+        if self.chara_bonus_set:
+            return self.chara_bonus_set
+        self.chara_bonus_set = set(
+            list(zip(*db.masterdb.execute_and_fetchall("SELECT chara_id FROM carnival_performer_idol")))[0])
+        return self.chara_bonus_set

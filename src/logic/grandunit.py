@@ -1,7 +1,7 @@
-from src.logic.unit import Unit
+from src.logic.unit import Unit, BaseUnit
 
 
-class GrandUnit:
+class GrandUnit(BaseUnit):
     ua: Unit
     ub: Unit
     uc: Unit

@@ -1,30 +1,10 @@
-from collections import OrderedDict
-
 import numpy as np
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIntValidator
 from PyQt5.QtWidgets import QTableWidgetItem
 
-COLOR_PRESETS = OrderedDict({
-    "All Colors": 1,
-    "Cute": 2,
-    "Cool": 3,
-    "Passion": 4,
-})
-APPEAL_PRESETS = OrderedDict({
-    "All Attributes": 1,
-    "Vocal Groove": 2,
-    "Dance Groove": 3,
-    "Visual Groove": 4,
-    "Vocal Only": 5,
-    "Dance Only": 6,
-    "Visual Only": 7,
-    "Scale with Star Rank": 8,
-    "Scale with Life": 9,
-    "Scale with Potential": 10,
-    "Event Idols": 11,
-})
+from src.static.appeal_presets import APPEAL_PRESETS, COLOR_PRESETS
 
 
 class CustomBonusView:
@@ -89,7 +69,6 @@ class CustomBonusModel:
 
     def get_bonus(self):
         appeal_idx = self.view.custom_bonus_appeal_preset.currentIndex()
-        color_idx = self.view.custom_bonus_color_preset.currentIndex()
         results = np.zeros((3, 5))
         if appeal_idx in {
             APPEAL_PRESETS["Scale with Star Rank"],
@@ -97,14 +76,17 @@ class CustomBonusModel:
             APPEAL_PRESETS["Scale with Potential"],
             APPEAL_PRESETS["Event Idols"],
         }:
-            pass
-            # TODO
+            if self.view.custom_bonus_preset_value.text() == "":
+                value = 0
+            else:
+                value = int(self.view.custom_bonus_preset_value.text())
+            return None, appeal_idx, value
         else:
             for r in range(3):
                 for c in range(5):
                     results[r][c] = int(self.view.custom_bonus_table.item(r, c).text())
             results[:, [1, 2]] = results[:, [2, 1]]
-        return results.transpose()
+        return results.transpose(), None, None
 
     def clear_bonus_template(self):
         for r in range(3):
