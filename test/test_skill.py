@@ -1,6 +1,7 @@
 import unittest
 
 from src.logic.skill import Skill
+from src.logic.unit import Unit
 
 
 class TestSkill(unittest.TestCase):
@@ -59,3 +60,17 @@ class TestSkill(unittest.TestCase):
         self.assertEqual(sym_9s_hi.interval, 9)
         self.assertEqual(sym_9s_hi.probability, 8000)
         assert sym_9s_hi.boost
+
+
+class TestSkillTrigger(unittest.TestCase):
+    def test_syn_all_passion(self):
+        unit = Unit.from_query("mio1 mio2 mio3 mio4 rika4")
+        self.assertEqual(unit.get_card(4).skill.probability, 0)
+
+    def test_princess_all_passion(self):
+        unit = Unit.from_query("mio1 mio2 mio3 mio4 rika4")
+        self.assertEqual(unit.get_card(2).skill.probability, 8000)
+
+    def test_princess_mismatch(self):
+        unit = Unit.from_query("mio1 mio2 mio3 mio4 rin2")
+        self.assertEqual(unit.get_card(2).skill.probability, 0)

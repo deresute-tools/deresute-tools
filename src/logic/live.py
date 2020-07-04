@@ -4,11 +4,11 @@ from collections import OrderedDict
 import numpy as np
 import pandas as pd
 
-from src.logic.search import card_query
 from settings import MUSICSCORES_PATH
 from src import customlogger as logger
 from src.db import db
 from src.exceptions import NoLiveFoundException
+from src.logic.search import card_query
 from src.static.color import Color
 from src.static.note_type import NoteType
 from src.static.song_difficulty import Difficulty
@@ -101,6 +101,8 @@ class Live:
         self.extra_bonuses = None
         self.leader_bonuses = None
         self.color_bonuses = None
+        self.chara_bonus_set = {}
+        self.chara_bonus_value = 0
         self.probabilities = None
         self.support = None
         self.unit = None
@@ -121,6 +123,8 @@ class Live:
         self.bonuses = None
         self.extra_bonuses = None
         self.leader_bonuses = None
+        self.chara_bonus_set = {}
+        self.chara_bonus_value = 0
         self.support = None
 
     def set_unit(self, unit):
@@ -147,6 +151,14 @@ class Live:
 
     def set_extra_bonus(self, bonuses):
         self.extra_bonuses = bonuses
+
+    def set_chara_bonus(self, chara_bonus_set, chara_bonus_value):
+        if chara_bonus_set is None:
+            chara_bonus_set = set()
+        self.chara_bonus_set = chara_bonus_set
+        if chara_bonus_value is None:
+            chara_bonus_value = 0
+        self.chara_bonus_value = chara_bonus_value
 
     def get_bonuses(self):
         if self.bonuses is not None:
@@ -176,7 +188,11 @@ class Live:
         if self.attributes is not None:
             return self.attributes
         self.get_bonuses()
-        bonuses = (1 + self.bonuses / 100)[:4]
+        bonuses = np.repeat(self.bonuses[np.newaxis, :, :], self.unit.base_attributes.shape[0], axis=0)
+        for card_idx, card in enumerate(self.unit.all_cards(guest=True)):
+            if card.chara_id in self.chara_bonus_set:
+                bonuses[card_idx, :3, :] += self.chara_bonus_value
+        bonuses = (1 + bonuses / 100)[:, :4, :]
         self.attributes = np.ceil(self.unit.base_attributes * bonuses).sum(axis=0).sum(axis=1)
         return self.attributes
 

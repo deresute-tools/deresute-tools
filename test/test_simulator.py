@@ -9,22 +9,6 @@ from src.static.song_difficulty import Difficulty
 
 logger.print_debug()
 
-unit = Unit.from_query("karen4 sae3 miho4 momoka4 nagi2", custom_pots=(0, 0, 0, 0, 10))
-
-live = Live()
-live.set_music(music_name="あいくるしい", difficulty=Difficulty.REGULAR)
-live.set_unit(unit)
-sim = Simulator(live)
-assert sim.simulate(perfect_play=True, appeals=170901)[1] == 544321
-
-unit = Unit.from_query("sae4 chieri4 rika4 arisu3 kako2 uzuki2", custom_pots=(0, 10, 0, 0, 10))
-
-live = Live()
-live.set_music(music_name="Trust me", difficulty=Difficulty.MPLUS)
-live.set_unit(unit)
-sim = Simulator(live)
-assert sim.simulate(perfect_play=True, appeals=261917)[1] == 1958643
-
 sae4 = Card.from_query("sae4", custom_pots=(2, 10, 0, 0, 10))
 chieri4 = Card.from_query("chieri4", custom_pots=(0, 10, 9, 0, 10))
 yoshino3 = Card.from_query("yoshino3", custom_pots=(8, 10, 0, 0, 10))
@@ -73,3 +57,24 @@ for unit in unit_list:
     sim = Simulator(live)
     print(unit)
     print(sim.simulate(times=10, support=110256))
+
+unit = Unit.from_query("nina4 chieri4 rika4 chieri4u yoko1 kaede2", custom_pots=(5, 10, 10, 0, 10))
+
+score_ids = [38, 45, 50, 54, 61, 62, 302, 306, 307, 308, 312, 313, 315, 317, 319, 321, 325, 327, 328, 331, 333, 334,
+             335, 338, 341, 343, 345, 347, 350, 351, 353, 355, 357, 359, 364, 369, 371, 373, 374, 375, 379, 385, 387,
+             389, 392, 393, 397, 406, ]
+
+for score_id in score_ids:
+    live = Live()
+    live.set_music(score_id=score_id, difficulty=Difficulty.MPLUS)
+    live.set_unit(unit)
+    sim = Simulator(live)
+    sim.simulate(perfect_play=True, support=113290)
+
+unit = Unit.from_query("nao4 yukimi2 haru2 mizuki4 rin2 ranko3", custom_pots=(0, 0, 0, 0, 10))
+
+live = Live()
+live.set_music(music_name="in fact", difficulty=Difficulty.MPLUS)
+live.set_unit(unit)
+sim = Simulator(live)
+assert sim.simulate(perfect_play=True, appeals=302495)[1] == 1314844

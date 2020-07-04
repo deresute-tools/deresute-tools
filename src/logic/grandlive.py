@@ -23,7 +23,13 @@ class GrandLive(Live):
                 bonuses[:3] += 30
             else:
                 bonuses[:3, self.color] += 30
-            bonuses = 1 + bonuses / 100
+            character_specific_bonuses = np.zeros((5, 4, 3))
+            for i in range(5):
+                character_specific_bonuses[i, :, :] = bonuses
+                if unit.get_card(i).chara_id in self.chara_bonus_set:
+                    character_specific_bonuses[i, :3, :] += self.chara_bonus_value
+            bonuses = 1 + character_specific_bonuses / 100
+
             attributes[:, unit_idx] = np.ceil(np.multiply(unit.base_attributes, bonuses)).sum(axis=0).sum(axis=1)
         self.attributes = attributes
         return self.attributes

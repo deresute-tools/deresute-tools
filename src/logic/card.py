@@ -6,7 +6,7 @@ from src.static.color import Color
 
 
 class Card:
-    def __init__(self, vo, da, vi, li, sk, le, color, ra=8, card_id=None):
+    def __init__(self, vo, da, vi, li, sk, le, color, ra=8, card_id=None, chara_id=None):
         assert isinstance(sk, Skill)
         assert isinstance(le, Leader)
         self.vo = vo
@@ -18,6 +18,7 @@ class Card:
         self.color = color
         self.ra = ra
         self.card_id = card_id
+        self.chara_id = chara_id
 
     @classmethod
     def from_query(cls, query, *args, **kwargs):
@@ -63,7 +64,8 @@ class Card:
                    sk=Skill.from_id(card_data['skill_id'], bonuses[4]),
                    le=Leader.from_id(card_data['leader_skill_id']),
                    color=Color(card_data['attribute'] - 1),
-                   card_id=card_id)
+                   card_id=card_id,
+                   chara_id=card_data['chara_id'])
 
     @property
     def vocal(self):

@@ -1,3 +1,5 @@
+from collections import OrderedDict
+
 from src import customlogger as logger
 from src.db import db
 
@@ -59,15 +61,22 @@ db.cachedb.commit()
 
 logger.debug("chihiro.skill_keywords created.")
 
-SPARKLE_BONUS_SSR = {idx: _[0] for idx, _ in
-                     enumerate(db.masterdb.execute_and_fetchall("SELECT type_01_value FROM skill_life_value"))}
-SPARKLE_BONUS_SR = {idx: _[0] for idx, _ in
-                    enumerate(db.masterdb.execute_and_fetchall("SELECT type_02_value FROM skill_life_value"))}
-SPARKLE_BONUS_SSR_GRAND = {idx: _[0] for idx, _ in enumerate(
-    db.masterdb.execute_and_fetchall("SELECT type_01_value FROM skill_life_value_grand"))}
-SPARKLE_BONUS_SR_GRAND = {idx: _[0] for idx, _ in enumerate(
-    db.masterdb.execute_and_fetchall("SELECT type_02_value FROM skill_life_value_grand"))}
+SPARKLE_BONUS_SSR = OrderedDict({_[0]: _[1] for idx, _ in
+                     enumerate(db.masterdb.execute_and_fetchall("SELECT life_value / 10, type_01_value FROM skill_life_value ORDER BY life_value"))})
+SPARKLE_BONUS_SR = OrderedDict({_[0]: _[1] for idx, _ in
+                    enumerate(db.masterdb.execute_and_fetchall("SELECT life_value / 10, type_02_value FROM skill_life_value ORDER BY life_value"))})
+SPARKLE_BONUS_SSR_GRAND = OrderedDict({_[0]: _[1] for idx, _ in enumerate(
+    db.masterdb.execute_and_fetchall("SELECT life_value / 10, type_01_value FROM skill_life_value_grand ORDER BY life_value"))})
+SPARKLE_BONUS_SR_GRAND = OrderedDict({_[0]: _[1] for idx, _ in enumerate(
+    db.masterdb.execute_and_fetchall("SELECT life_value / 10, type_02_value FROM skill_life_value_grand ORDER BY life_value"))})
 
+for d in [SPARKLE_BONUS_SSR, SPARKLE_BONUS_SR, SPARKLE_BONUS_SSR_GRAND, SPARKLE_BONUS_SR_GRAND]:
+    c_v = 0
+    for key, value in d.items():
+        if value < c_v:
+            d[key] = c_v
+        if c_v < value:
+            c_v = value
 
 def get_sparkle_bonus(rarity, grand=False):
     if grand:

@@ -1,9 +1,9 @@
 import numpy as np
 
-from src.exceptions import InvalidUnit
-from src.logic.search import card_query
 from src.db import db
+from src.exceptions import InvalidUnit
 from src.logic.card import Card
+from src.logic.search import card_query
 
 
 class Unit:
@@ -19,6 +19,7 @@ class Unit:
             self.resonance = resonance
         else:
             self.resonance = self._resonance_check()
+        self._skill_check()
 
     @classmethod
     def from_query(cls, query, custom_pots=None):
@@ -81,6 +82,21 @@ class Unit:
                 bonuses += card.leader.bonuses
         bonuses = np.clip(bonuses, a_min=-100, a_max=5000)
         return bonuses
+
+    def _skill_check(self):
+        colors = np.zeros(3)
+        for card in self._cards:
+            if card is None:
+                continue
+            colors[card.color.value] += 1
+
+        for card in self.all_cards(guest=False):
+            if card is None:
+                continue
+            if np.greater_equal(colors, card.skill.min_requirements).all() \
+                    and np.less_equal(colors, card.skill.max_requirements).all():
+                continue
+            card.skill.probability = 0
 
     def _resonance_check(self):
         skills = {_card.skill.skill_type for _card in self._cards if _card is not None}
