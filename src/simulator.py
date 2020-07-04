@@ -5,6 +5,7 @@ import numpy as np
 from src import customlogger as logger
 from src.static.color import Color
 from src.static.live_values import WEIGHT_RANGE, DIFF_MULTIPLIERS
+from src.static.note_type import NoteType
 from src.static.skill import get_sparkle_bonus
 
 
@@ -32,7 +33,7 @@ class Simulator:
         weight_range[:, 0] = np.trunc(WEIGHT_RANGE[:, 0] / 100 * len(self.notes_data) - 1)
         for idx, (bound_l, bound_r) in enumerate(zip(weight_range[:-1, 0], weight_range[1:, 0])):
             self.notes_data.loc[int(bound_l):int(bound_r), 'weight'] = weight_range[idx][1]
-        if support:
+        if support is not None:
             self.support = support
         else:
             self.support = self.live.get_support()
@@ -182,7 +183,7 @@ class Simulator:
                 # Final skill values are maxed over colors
                 skill_bonuses[:, :, unit_idx] = np_vu[:, :, :, unit_idx].max(axis=2)
                 if self.has_alternate:
-                    min_tensor = np_vu[:, :, unit_idx].min(axis=2)
+                    min_tensor = np_vu[:, :, :, unit_idx].min(axis=2)
                     mask = np.logical_and(skill_bonuses[:, :, unit_idx] == 0, min_tensor < 0)
                     skill_bonuses[:, :, unit_idx][mask] = min_tensor[mask]
         # Unify effects across units
@@ -235,7 +236,12 @@ class Simulator:
             non_alternate = list(set(range(units * 5)).difference(set(alternates)))
             alternate_value = np.ceil(np.clip(np_v[:, 0:1, :, non_alternate] - 100, a_min=0, a_max=9000) * 1.5)
             alternate_value[alternate_value != 0] += 100
-            alternate_value = np.maximum.accumulate(alternate_value.max(axis=2).max(axis=2), axis=0)[:, 0]
+            self.notes_data['alternate_bonus_per_note'] = alternate_value.max(axis=2).max(axis=2)
+            for note_type in NoteType:
+                self.notes_data.loc[
+                    self.notes_data['note_type'] == note_type, 'alternate_bonus_per_note'] = np.maximum.accumulate(
+                    self.notes_data.loc[self.notes_data['note_type'] == note_type, 'alternate_bonus_per_note'], axis=0)
+            alternate_value = np.array(self.notes_data['alternate_bonus_per_note'])
             first_score_note = np.argwhere(alternate_value > 0)[0][0]
             first_score_note = self.notes_data.iloc[first_score_note].sec
             for skill_idx in alternates:
