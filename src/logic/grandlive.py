@@ -9,12 +9,26 @@ class GrandLive(BaseLive):
     unit: GrandUnit
 
     def __init__(self, music_name=None, difficulty=None, unit=None):
-        super().__init__(music_name, difficulty, unit)
         self.unit_lives = list()
         for i in range(3):
             dummy_live = Live()
-            dummy_live.initialize_music(music_name, difficulty, unit)
             self.unit_lives.append(dummy_live)
+        super().__init__(music_name, difficulty, unit)
+
+    def initialize_music(self, music_name=None, difficulty=None, unit=None):
+        super().initialize_music(music_name, difficulty, unit)
+        for i in range(3):
+            self.unit_lives[i].initialize_music(music_name, difficulty, unit)
+
+    def set_music(self, music_name=None, score_id=None, difficulty=None, event=None):
+        super().set_music(music_name, score_id, difficulty, event)
+        for i in range(3):
+            self.unit_lives[i].set_music(music_name, score_id, difficulty, event)
+
+    def set_chara_bonus(self, chara_bonus_set, chara_bonus_value):
+        super().set_chara_bonus(chara_bonus_set, chara_bonus_value)
+        for i in range(3):
+            self.unit_lives[i].set_chara_bonus(chara_bonus_set, chara_bonus_value)
 
     def reset_attributes(self):
         for i in range(3):
@@ -26,6 +40,11 @@ class GrandLive(BaseLive):
         for i in range(3):
             self.unit_lives[i].set_unit(self.unit.get_unit(i))
             self.unit_lives[i].reset_attributes()
+
+    def set_extra_bonus(self, bonuses, special_option, special_value):
+        super().set_extra_bonus(bonuses, special_option, special_value)
+        for i in range(3):
+            self.unit_lives[i].set_extra_bonus(bonuses, special_option, special_value)
 
     def get_attributes(self):
         if self.attributes is not None:
