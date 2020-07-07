@@ -118,7 +118,7 @@ class Simulator:
         logger.debug("Max: {}".format(int(base + deltas.max())))
         logger.debug("Min: {}".format(int(base + deltas.min())))
         logger.debug("Deviation: {}".format(int(np.round(np.std(deltas)))))
-        return self.total_appeal, perfect_score, skill_off, base, deltas
+        return self.total_appeal, perfect_score, skill_off, base, deltas, int(base + np.round(deltas.mean()))
 
     def _simulate_internal(self, grand, times, fail_simulate=False, time_offset=0.0):
         results = self._helper_initialize_skill_activations(times=times, grand=grand,
@@ -252,21 +252,33 @@ class Simulator:
             self.notes_data['alternate_bonus_per_note'] = alternate_value.max(axis=2).max(axis=2)
             for note_type in NoteType:
                 self.notes_data.loc[
-                    self.notes_data['note_type'] == note_type, 'alternate_bonus_per_note'] = np.maximum.accumulate(
-                    self.notes_data.loc[self.notes_data['note_type'] == note_type, 'alternate_bonus_per_note'], axis=0)
+                    self.notes_data['note_type'] == note_type, 'alternate_bonus_per_note'] = \
+                    np.maximum.accumulate(
+                        self.notes_data.loc[self.notes_data['note_type'] == note_type,
+                                            'alternate_bonus_per_note'], axis=0)
             alternate_value = np.array(self.notes_data['alternate_bonus_per_note'])
-            first_score_note = np.argwhere(alternate_value > 0)[0][0]
-            first_score_note = self.notes_data.iloc[first_score_note].sec
-            for skill_idx in alternates:
-                skill = self.live.unit.get_card(skill_idx).skill
-                fail_alternate_notes = self.notes_data[self.notes_data.sec < first_score_note][
-                    "skill_{}_l".format(skill_idx)].max()
-                if not np.isnan(fail_alternate_notes):
-                    remove_index = self.notes_data[
-                        self.notes_data["skill_{}_l".format(skill_idx)] <= fail_alternate_notes].index.max()
-                    # Negate where skill not activated
-                    np_v[:remove_index + 1, 0:2, skill.color.value, skill_idx] = 0
-                np_v[:, 0, skill.color.value, skill_idx] = np_v[:, 0, skill.color.value, skill_idx] * alternate_value
+            note_count = len(self.live.notes)
+            if "rep" not in self.notes_data:
+                rep = 1
+            else:
+                rep = self.notes_data['rep'].max() + 1
+            for rep_idx in range(rep):
+                local_alternate_value = alternate_value[rep_idx * note_count: (rep_idx + 1) * note_count]
+                local_notes_data = self.notes_data[rep_idx * note_count: (rep_idx + 1) * note_count]
+                local_np_v = np_v[rep_idx * note_count: (rep_idx + 1) * note_count]
+                first_score_note = np.argwhere(local_alternate_value > 0)[0][0]
+                first_score_note = local_notes_data.iloc[first_score_note].sec
+                for skill_idx in alternates:
+                    skill = self.live.unit.get_card(skill_idx).skill
+                    fail_alternate_notes = local_notes_data[local_notes_data.sec < first_score_note][
+                        "skill_{}_l".format(skill_idx)].max()
+                    if not np.isnan(fail_alternate_notes):
+                        remove_index = local_notes_data[
+                            local_notes_data["skill_{}_l".format(skill_idx)] <= fail_alternate_notes].index.max()
+                        # Negate where skill not activated
+                        local_np_v[:remove_index + 1, 0:2, skill.color.value, skill_idx] = 0
+                    local_np_v[:, 0, skill.color.value, skill_idx] = local_np_v[:, 0, skill.color.value,
+                                                                     skill_idx] * local_alternate_value
 
         def null_deactivated_skills():
             card_range = range(unit_idx * 5, (unit_idx + 1) * 5)
@@ -370,8 +382,20 @@ class Simulator:
                             self.notes_data.loc[(note_times > left) & (note_times <= right)
                                                 & (self.notes_data.rep.isin(rep_rolls)),
                                                 'skill_{}'.format(unit_idx * 5 + card_idx)] = 1
+                            if has_alternate:
+                                self.notes_data.loc[(note_times > left) & (note_times < right)
+                                                    & (self.notes_data.rep.isin(rep_rolls)),
+                                                    'skill_{}_l'.format(unit_idx * 5 + card_idx)] = left
+                                self.notes_data.loc[(note_times > left) & (note_times <= right)
+                                                    & (self.notes_data.rep.isin(rep_rolls)),
+                                                    'skill_{}_r'.format(unit_idx * 5 + card_idx)] = right
                         else:
                             # Save a bit more time
                             self.notes_data.loc[(note_times > left) & (note_times <= right),
                                                 'skill_{}'.format(unit_idx * 5 + card_idx)] = 1
+                            if has_alternate:
+                                self.notes_data.loc[(note_times > left) & (note_times < right),
+                                                    'skill_{}_l'.format(unit_idx * 5 + card_idx)] = left
+                                self.notes_data.loc[(note_times > left) & (note_times <= right),
+                                                    'skill_{}_r'.format(unit_idx * 5 + card_idx)] = right
         return has_sparkle, has_support, has_alternate
