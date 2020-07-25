@@ -54,10 +54,12 @@ class Unit(BaseUnit):
         if len(cards) < 5 or len(cards) > 6:
             raise InvalidUnit("Invalid number of cards: {}".format(cards))
         results = list()
-        for card in cards:
+        for c_idx, card in enumerate(cards):
             if isinstance(card, str):
                 card = int(card)
             if isinstance(card, int):
+                if c_idx == 5:
+                    custom_pots = (10, 10, 10, 0, 5)
                 card = Card.from_id(card, custom_pots)
             results.append(card)
         return cls(*results)

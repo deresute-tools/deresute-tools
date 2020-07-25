@@ -131,7 +131,7 @@ class Simulator:
 
         if self.has_sparkle:
             np_v, np_b = self._helper_initialize_skill_bonuses(grand=grand, sparkle=self.has_sparkle,
-                                                               alternate=not self.has_alternate)
+                                                               alternate=self.has_alternate)
             self._helper_evaluate_skill_bonuses(np_v, np_b, grand=grand)
 
     def _helper_evaluate_skill_bonuses(self, np_v, np_b, grand, mutate_df=True):
@@ -276,7 +276,14 @@ class Simulator:
                     local_alternate_value = alternate_value[rep_idx * note_count: (rep_idx + 1) * note_count]
                     local_notes_data = self.notes_data[rep_idx * note_count: (rep_idx + 1) * note_count]
                     local_np_v = np_v[rep_idx * note_count: (rep_idx + 1) * note_count]
-                    first_score_note = np.argwhere(local_alternate_value > 0)[0][0]
+                    try:
+                        first_score_note = np.argwhere(local_alternate_value > 0)[0][0]
+                    except IndexError:
+                        # No scoring skills
+                        for skill_idx in alternates:
+                            skill = self.live.unit.get_card(skill_idx).skill
+                            local_np_v[:, 0:2, skill.color.value, skill_idx] = 0
+                        continue
                     first_score_note = local_notes_data.iloc[first_score_note].sec
                     for skill_idx in alternates:
                         skill = self.live.unit.get_card(skill_idx).skill
