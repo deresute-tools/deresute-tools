@@ -126,7 +126,9 @@ class Simulator:
                                                             fail_simulate=fail_simulate)
         self.has_sparkle, self.has_support, self.has_alternate = results
 
-        np_v, np_b = self._helper_initialize_skill_bonuses(grand=grand, sparkle=False, alternate=self.has_alternate)
+        # In case of Alternate and LS, to save one redundant Alternate evaluation, only evaluate together with LS
+        np_v, np_b = self._helper_initialize_skill_bonuses(grand=grand, sparkle=False,
+                                                           alternate=self.has_alternate and not self.has_sparkle)
         self._helper_evaluate_skill_bonuses(np_v, np_b, grand=grand)
 
         if self.has_sparkle:
