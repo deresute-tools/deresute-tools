@@ -64,7 +64,7 @@ class Simulator:
                  chara_bonus_set=None, chara_bonus_value=0, special_option=None, special_value=None):
         start = time.time()
         logger.debug("Unit: {}".format(self.live.unit))
-        logger.debug("Song: {} - {}".format(self.live.music_name, self.live.difficulty))
+        logger.debug("Song: {} - {} - Lv {}".format(self.live.music_name, self.live.difficulty, self.live.level))
         if perfect_play:
             times = 1
             logger.debug("Only need 1 simulation for perfect play.")
@@ -119,6 +119,100 @@ class Simulator:
         logger.debug("Min: {}".format(int(base + deltas.min())))
         logger.debug("Deviation: {}".format(int(np.round(np.std(deltas)))))
         return self.total_appeal, perfect_score, skill_off, base, deltas
+
+    def simulate_theoretical_max(self, appeals=None, extra_bonus=None, support=None,
+                                 chara_bonus_set=None, chara_bonus_value=0, special_option=None, special_value=None,
+                                 left_boundary=-200, right_boundary=200, n_intervals=40):
+        start = time.time()
+        logger.debug("Unit: {}".format(self.live.unit))
+        logger.debug("Song: {} - {} - Lv {}".format(self.live.music_name, self.live.difficulty, self.live.level))
+        res = self._simulate_theoretical_max(appeals=appeals, extra_bonus=extra_bonus, support=support,
+                                             chara_bonus_set=chara_bonus_set, chara_bonus_value=chara_bonus_value,
+                                             special_option=special_option, special_value=special_value,
+                                             left_boundary=left_boundary, right_boundary=right_boundary,
+                                             n_intervals=n_intervals)
+        logger.debug("Total run time for {} trials: {:04.2f}s".format(n_intervals + 1, time.time() - start))
+        return res
+
+    def _simulate_theoretical_max(self,
+                                  appeals=None,
+                                  extra_bonus=None,
+                                  support=None,
+                                  chara_bonus_set=None,
+                                  chara_bonus_value=0,
+                                  special_option=None,
+                                  special_value=None,
+                                  left_boundary=-200,
+                                  right_boundary=200,
+                                  n_intervals=40
+                                  ):
+        self._setup_simulator(appeals=appeals, support=support, extra_bonus=extra_bonus,
+                              chara_bonus_set=chara_bonus_set, chara_bonus_value=chara_bonus_value,
+                              special_option=special_option, special_value=special_value)
+        grand = self.live.is_grand
+        self._simulate_internal(times=1, grand=grand, time_offset=0, fail_simulate=False)
+        perfect_score = self.get_note_scores().copy()
+        self.notes_data['checkpoints'] = False
+        self.notes_data.loc[self.notes_data['note_type'] == NoteType.SLIDE, 'checkpoints'] = True
+        for group_id in self.notes_data[self.notes_data['note_type'] == NoteType.SLIDE].groupId.unique():
+            group = self.notes_data[
+                (self.notes_data['note_type'] == NoteType.SLIDE) & (self.notes_data['groupId'] == group_id)]
+            group.iloc[-1]['checkpoints'] = False
+            group.iloc[0]['checkpoints'] = False
+
+        cc_idxes = list()
+        for unit_idx, unit in enumerate(self.live.unit.all_units):
+            for card_idx, card in enumerate(unit.all_cards()):
+                if card.skill.skill_type == 15:
+                    cc_idxes.append(unit_idx * 5 + card_idx)
+        cc_idxes = list(map(lambda x: "skill_{}".format(x), cc_idxes))
+        score_array = np.zeros((len(self.notes_data), n_intervals + 1))
+        delta = (right_boundary - left_boundary) / n_intervals
+        for _ in range(n_intervals + 1):
+            offset = left_boundary + delta * _
+            self._simulate_internal(times=1, grand=grand, time_offset=offset / 1000, fail_simulate=False)
+            has_cc = self.notes_data[cc_idxes].any(axis=1)
+
+            temp = self.notes_data['note_type']
+            temp[~self.notes_data['checkpoints']] = NoteType.TAP
+
+            is_miss = np.logical_or(
+                np.logical_and(temp != NoteType.SLIDE, offset < -80 or offset > 80),
+                np.logical_and(np.logical_and(temp == NoteType.SLIDE, offset < -100 or offset > 100), has_cc)
+            )
+            is_great = np.logical_and(1 - is_miss,
+                                      np.logical_or(
+                                          np.logical_and(
+                                              np.logical_and(temp != NoteType.SLIDE, offset < -60 or offset > 60),
+                                              1 - has_cc),
+                                          np.logical_and(
+                                              np.logical_and(temp != NoteType.SLIDE, offset < -30 or offset > 30),
+                                              1 - has_cc)
+                                      ))
+            is_perfect = np.logical_and(1 - np.logical_or(is_miss, is_great), True)
+            bonuses_0 = (1 + self.notes_data['bonuses_0'] / 100)
+            bonuses_1 = (1 + self.notes_data['bonuses_1'] / 100)
+            self.notes_data['note_score'] = 0
+            try:
+                self.notes_data.loc[is_great, 'note_score'] = np.round(
+                    self.base_score * self.notes_data[is_great]['weight'] * bonuses_1[is_great] * 0.7)
+            except KeyError:
+                pass
+            try:
+                self.notes_data.loc[is_perfect, 'note_score'] = np.round(
+                    self.base_score * self.notes_data[is_perfect]['weight'] * bonuses_0[is_perfect] * bonuses_1[
+                        is_perfect])
+            except KeyError:
+                pass
+            score_array[:, _] = self.notes_data['note_score']
+        # max_score = score_array.max(axis=1)
+        # print(max_score.sum(), perfect_score.sum())
+        # for idx in range(len(max_score)):
+        #     temp = np.array(range(1, n_intervals + 2)) * (score_array[idx, :] == max_score[idx])
+        #     temp = temp[temp != 0] - 1
+        #     print(idx, left_boundary + temp.min() * delta, left_boundary + temp.max() * delta,
+        #                  max_score[idx] - perfect_score[idx])
+        return perfect_score, score_array
 
     def _simulate_internal(self, grand, times, fail_simulate=False, time_offset=0.0):
         results = self._helper_initialize_skill_activations(times=times, grand=grand,
