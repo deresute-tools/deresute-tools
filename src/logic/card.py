@@ -29,6 +29,8 @@ class Card:
 
     @classmethod
     def from_id(cls, card_id, custom_pots=None):
+        if card_id is None:
+            return None
         if custom_pots:
             assert len(custom_pots) == 5
             database = (db.masterdb, "card_data")

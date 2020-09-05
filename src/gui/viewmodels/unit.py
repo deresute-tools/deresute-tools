@@ -10,6 +10,7 @@ from src import customlogger as logger
 from src.db import db
 from src.gui.viewmodels.mime_headers import CARD, CALCULATOR_UNIT, UNIT_EDITOR_UNIT, CALCULATOR_GRANDUNIT
 from src.gui.viewmodels.utils import ImageWidget
+from src.logic.card import Card
 from src.logic.profile import unit_storage
 
 
@@ -27,6 +28,7 @@ class UnitCard(ImageWidget):
         if event.button() == Qt.RightButton:
             self.unit_widget.set_card(self.card_idx, None)
         elif event.button() == Qt.LeftButton:
+            self.unit_widget.toggle_custom_card(self.card_idx)
             event.ignore()
 
     def dragEnterEvent(self, e):
@@ -46,7 +48,7 @@ class UnitWidget(QWidget):
         super(UnitWidget, self).__init__(parent)
         self.unit_view = unit_view
         self.cards = list()
-        self.card_ids = [None] * 6
+        self.cards_internal = [None] * 6
         for idx in range(6):
             if idx == 0:
                 color = 'red'
@@ -68,11 +70,21 @@ class UnitWidget(QWidget):
         elif self.size == 124:
             self.path = IMAGE_PATH
 
+    @property
+    def card_ids(self):
+        return [
+            card.card_id if card is not None else None for card in self.cards_internal
+        ]
+
     def set_unit_name(self, unit_name):
         self.unitName.setText(unit_name)
 
     def set_card(self, idx, card_id):
-        self.card_ids[idx] = card_id
+        if idx == 5:
+            custom_pots = (10,10,10,0,5)
+        else:
+            custom_pots = None
+        self.cards_internal[idx] = Card.from_id(card_id, custom_pots)
         if card_id is None:
             self.cards[idx].set_path(None)
         else:
@@ -80,6 +92,12 @@ class UnitWidget(QWidget):
         self.cards[idx].repaint()
         if type(self) == UnitWidget:
             self.update_unit()
+
+    def toggle_custom_card(self, idx):
+        try:
+            self.unit_view.main_view.custom_card_model.set_card_object(self.cards_internal[idx])
+        except AttributeError:
+            return
 
     def set_widget_item(self, widget_item):
         self.widget_item = widget_item

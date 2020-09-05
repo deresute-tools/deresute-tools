@@ -1,12 +1,13 @@
 import numpy as np
 from PyQt5 import QtWidgets
 from PyQt5.QtGui import QIntValidator
-from PyQt5.QtWidgets import QSizePolicy
+from PyQt5.QtWidgets import QSizePolicy, QTabWidget
 
 from src import customlogger as logger
 from src.exceptions import InvalidUnit
 from src.gui.viewmodels.simulator.calculator import CalculatorModel, CalculatorView
 from src.gui.viewmodels.simulator.custom_bonus import CustomBonusView, CustomBonusModel
+from src.gui.viewmodels.simulator.custom_card import CustomCardView, CustomCardModel
 from src.gui.viewmodels.simulator.custom_settings import CustomSettingsView, CustomSettingsModel
 from src.gui.viewmodels.simulator.grandcalculator import GrandCalculatorView
 from src.gui.viewmodels.simulator.support import SupportView, SupportModel
@@ -32,7 +33,7 @@ class MainView:
         self.calculator_and_custom_setting_layout.setStretch(0, 1)
         self.custom_appeal_and_support_layout = QtWidgets.QVBoxLayout()
         self._setup_custom_bonus()
-        self._setup_support()
+        self._setup_custom_card_and_support()
         self._set_up_calculator()
         self.calculator_and_custom_setting_layout.addLayout(self.bottom_row_layout)
         self.main_layout.addLayout(self.calculator_and_custom_setting_layout)
@@ -45,13 +46,25 @@ class MainView:
         self.custom_bonus_view.set_model(self.custom_bonus_model)
         self.custom_appeal_and_support_layout.addLayout(self.custom_bonus_view.layout)
 
+    def _setup_custom_card_and_support(self):
+        self.custom_card_and_support_widget = QTabWidget(self.widget)
+        self._setup_support()
+        self._setup_custom_card()
+        self.custom_card_and_support_widget.addTab(self.support_view.widget, "Support Team")
+        self.custom_card_and_support_widget.addTab(self.custom_card_view.widget, "Custom Card")
+        self.custom_appeal_and_support_layout.addWidget(self.custom_card_and_support_widget)
+
+    def _setup_custom_card(self):
+        self.custom_card_view = CustomCardView(self.widget)
+        self.custom_card_model = CustomCardModel(self.custom_card_view)
+        self.custom_card_view.set_model(self.custom_card_model)
+
     def _setup_support(self):
         self.support_view = SupportView(self.widget)
         self.support_model = SupportModel(self.support_view)
         self.support_model.attach_custom_bonus_model(self.custom_bonus_model)
         self.support_model.attach_custom_settings_model(self.custom_settings_model)
         self.support_view.set_model(self.support_model)
-        self.custom_appeal_and_support_layout.addWidget(self.support_view.widget)
 
     def _set_up_calculator(self):
         self.calculator_tabs = QtWidgets.QTabWidget(self.widget)

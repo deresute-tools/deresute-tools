@@ -8,6 +8,8 @@ from src import customlogger as logger
 from src.gui.viewmodels.mime_headers import CALCULATOR_UNIT, UNIT_EDITOR_UNIT
 from src.gui.viewmodels.unit import UnitWidget, UnitView
 from src.gui.viewmodels.utils import NumericalTableWidgetItem
+from src.logic import card
+from src.logic.card import Card
 
 
 class CalculatorUnitWidget(UnitWidget):
@@ -204,6 +206,6 @@ class CalculatorModel:
 
     def get_all_cards(self):
         return [
-            self.view.widget.cellWidget(r_idx, 0).card_ids
+            self.view.widget.cellWidget(r_idx, 0).cards_internal
             for r_idx in range(self.view.widget.rowCount())
         ]

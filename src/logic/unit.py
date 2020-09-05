@@ -58,8 +58,6 @@ class Unit(BaseUnit):
             if isinstance(card, str):
                 card = int(card)
             if isinstance(card, int):
-                if c_idx == 5:
-                    custom_pots = (10, 10, 10, 0, 5)
                 card = Card.from_id(card, custom_pots)
             results.append(card)
         return cls(*results)
@@ -152,6 +150,8 @@ class Unit(BaseUnit):
             else:
                 values = [_[0] for _ in db.masterdb.execute_and_fetchall("SELECT type_01_value FROM skill_motif_value")]
             total = total // 1000
+            if total >= len(values):
+                total = len(values) - 1
             card.skill.v0 = values[int(total)]
 
     def update_card(self, idx, card):

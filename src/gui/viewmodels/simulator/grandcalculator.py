@@ -16,8 +16,8 @@ class GrandCalculatorUnitWidget(UnitWidget):
         super().__init__(unit_view, parent, size, *args, **kwargs)
         del self.unitName
         self.unit_view = unit_view
+        self.cards_internal = [None] * 15
         self.cards = list()
-        self.card_ids = [None] * 15
         for idx in range(15):
             if idx % 5 == 0:
                 color = 'red'
