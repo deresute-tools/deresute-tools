@@ -47,8 +47,13 @@ class GrandLive(BaseLive):
             self.unit_lives[i].set_extra_bonus(bonuses, special_option, special_value)
 
     def get_attributes(self):
+        self.attribute_cache_check()
         if self.attributes is not None:
             return self.attributes
+
+        if self.attributes is not None:
+            return self.attributes
+
         self.get_bonuses()
         attributes = np.zeros((4, 3))  # Attributes x Units
         for unit_idx in range(3):

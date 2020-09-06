@@ -168,7 +168,7 @@ class CalculatorView:
         self.set_unit(row=self.widget.rowCount() - 1, cards=cards)
 
     def create_support_team(self, r):
-        if not self.support_model.set_cards(self.widget.cellWidget(r, 0).card_ids):
+        if not self.support_model.set_cards(self.widget.cellWidget(r, 0).cards_internal):
             logger.info("Invalid unit to evaluate support team")
             return
         appeals, support = self.support_model.generate_support()

@@ -59,6 +59,15 @@ class Unit(BaseUnit):
                 card = int(card)
             if isinstance(card, int):
                 card = Card.from_id(card, custom_pots)
+            if card is not None:
+                assert isinstance(card, Card)
+            if card is not None and custom_pots is not None:
+                card.vo_pots = custom_pots[0]
+                card.vi_pots = custom_pots[1]
+                card.da_pots = custom_pots[2]
+                card.li_pots = custom_pots[3]
+                card.sk_pots = custom_pots[4]
+                card.refresh_values()
             results.append(card)
         return cls(*results)
 

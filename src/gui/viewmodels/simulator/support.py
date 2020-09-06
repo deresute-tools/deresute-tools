@@ -49,16 +49,16 @@ class SupportModel:
     def attach_custom_settings_model(self, custom_settings_model):
         self.custom_settings_model = custom_settings_model
 
-    def set_cards(self, cards_ids):
-        self.card_ids = cards_ids
+    def set_cards(self, cards):
+        self.cards = cards
         try:
             custom_pots = self.custom_settings_model.get_custom_pots()
-            if len(cards_ids) == 15:
-                unit = GrandUnit.from_list(self.card_ids, custom_pots)
+            if len(cards) == 15:
+                unit = GrandUnit.from_list(self.cards, custom_pots)
                 self.live = GrandLive()
                 self.live.set_unit(unit)
             else:
-                unit = Unit.from_list(self.card_ids, custom_pots)
+                unit = Unit.from_list(self.cards, custom_pots)
                 self.live = Live()
                 self.live.set_unit(unit)
         except InvalidUnit:

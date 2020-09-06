@@ -213,6 +213,15 @@ class BaseLive(ABC):
         if self.special_option == APPEAL_PRESETS["Event Idols"]:
             self.chara_bonus_value = special_value
 
+    def attribute_cache_check(self):
+        do_reset_attribute = False
+        for card in self.unit.all_cards():
+            if card.is_refreshed:
+                do_reset_attribute = True
+                card.is_refreshed = False
+        if do_reset_attribute:
+            self.reset_attributes()
+
     def get_extra_bonuses(self):
         if self.extra_bonuses is None:
             self.extra_bonuses = np.zeros((5, 3))
@@ -284,6 +293,7 @@ class Live(BaseLive):
         self.reset_attributes()
 
     def get_attributes(self):
+        self.attribute_cache_check()
         if self.attributes is not None:
             return self.attributes
         self.get_bonuses()
@@ -335,16 +345,8 @@ class Live(BaseLive):
                 if card.chara_id in self.get_chara_bonus_set():
                     bonuses[card_idx, :3, :] += self.chara_bonus_value
         elif self.special_option == APPEAL_PRESETS["Scale with Potential"]:
-            potentials = db.cachedb.execute_and_fetchall("""
-                SELECT
-                    chara_id,
-                    vo + vi + da + li + sk as total_pots
-                FROM potential_cache
-                WHERE chara_id IN ({})
-            """.format(",".join([str(_.chara_id) for _ in self.unit.all_cards(guest=True)])))
-            potentials = {k: v for k, v in potentials}
             for card_idx, card in enumerate(self.unit.all_cards(guest=True)):
-                bonuses[card_idx, :3, :] += potentials[card.chara_id] * self.special_value
+                bonuses[card_idx, :3, :] += card.total_potentials * self.special_value
         elif self.special_option == APPEAL_PRESETS["Scale with Life"]:
             life_bonuses = 1 + self.bonuses[:, 3, :] / 100
             total_life = np.ceil(self.unit.base_attributes[:, 3, :] * life_bonuses).sum()
@@ -369,12 +371,7 @@ class Live(BaseLive):
                     temp.append(starrank_value[i][j + 1] - 100)
                 starrank_value_array.append(temp)
             for card_idx, card in enumerate(self.unit.all_cards(guest=True)):
-                owned = db.cachedb.execute_and_fetchall("""
-                    SELECT number FROM owned_card WHERE card_id = ?
-                """, [card.card_id])[0][0]
-                if owned == 0:
-                    owned = 1
-                bonuses[card_idx, :3, :] += starrank_value_array[owned - 1][card.rarity // 2 - 1]
+                bonuses[card_idx, :3, :] += starrank_value_array[card.star - 1][card.rarity // 2 - 1]
 
     def get_probability(self, idx=None):
         if self.probabilities is None:
