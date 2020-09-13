@@ -17,7 +17,7 @@ def main():
     logger.info("Starting virtual Chihiro...")
 
     try:
-        initializer.setup(False)
+        initializer.setup(True)
         from src.gui.main import setup_gui
 
         app, main = setup_gui(sys.argv)

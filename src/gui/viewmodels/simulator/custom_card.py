@@ -61,10 +61,10 @@ class CustomCardModel:
             self.view.widget.setEditTriggers(QAbstractItemView.AllEditTriggers)
             self.view.set_values([
                 self.card.color.value,
-                self.card.vocal,
-                self.card.dance,
-                self.card.visual,
-                self.card.life,
+                self.card.base_vo,
+                self.card.base_da,
+                self.card.base_vi,
+                self.card.base_li,
                 self.card.skill.duration,
                 self.card.skill.interval,
                 self.card.vo_pots,
@@ -80,13 +80,13 @@ class CustomCardModel:
         if r_idx == 0:
             self.card.color = Color(int(v))
         elif r_idx == 1:
-            self.card.vo = float(v)
+            self.card.base_vo = float(v)
         elif r_idx == 2:
-            self.card.da = float(v)
+            self.card.base_da = float(v)
         elif r_idx == 3:
-            self.card.vi = float(v)
+            self.card.base_vi = float(v)
         elif r_idx == 4:
-            self.card.li = float(v)
+            self.card.base_li = float(v)
         elif r_idx == 5:
             self.card.skill.duration = float(v)
         elif r_idx == 6:

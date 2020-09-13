@@ -7,13 +7,18 @@ from src.static.color import Color
 
 class Card:
     def __init__(self, vo, da, vi, li, sk, le, color, ra=8, card_id=None, chara_id=None,
-                 vo_pots=0, vi_pots=0, da_pots=0, li_pots=0, sk_pots=0, star=1):
+                 vo_pots=0, vi_pots=0, da_pots=0, li_pots=0, sk_pots=0, star=1,
+                 base_vo=0, base_da=0, base_vi=0, base_li=0):
         assert isinstance(sk, Skill)
         assert isinstance(le, Leader)
         self.vo = vo
         self.vi = vi
         self.da = da
         self.li = li
+        self.base_vo = base_vo
+        self.base_da = base_da
+        self.base_vi = base_vi
+        self.base_li = base_li
         self.sk = sk
         self.le = le
         self.vo_pots = vo_pots
@@ -77,6 +82,10 @@ class Card:
                    vi=card_data['visual_max'] + bonuses[1],
                    da=card_data['dance_max'] + bonuses[2],
                    li=card_data['hp_max'] + bonuses[3],
+                   base_vo=card_data['vocal_max'],
+                   base_da=card_data['visual_max'],
+                   base_vi=card_data['dance_max'],
+                   base_li=card_data['hp_max'],
                    ra=card_data['rarity'],
                    vo_pots=potentials[0],
                    vi_pots=potentials[1],
@@ -111,10 +120,10 @@ class Card:
             bonuses[idx] += db.masterdb.execute_and_fetchone("""
                             SELECT value_rare_{} FROM potential_value_{} WHERE potential_level = ?
                         """.format(rarity, key), [potentials[idx]])[0]
-        self.vo = card_data['vocal_max'] + bonuses[0]
-        self.vi = card_data['visual_max'] + bonuses[1]
-        self.da = card_data['dance_max'] + bonuses[2]
-        self.li = card_data['hp_max'] + bonuses[3]
+        self.vo = self.base_vo + bonuses[0]
+        self.vi = self.base_da + bonuses[1]
+        self.da = self.base_vi + bonuses[2]
+        self.li = self.base_li + bonuses[3]
         self.sk.probability = self.sk.max_probability + bonuses[4]
 
     @property
