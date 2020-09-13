@@ -66,7 +66,7 @@ class SongListModel:
         db.masterdb.commit()
         data = db.masterdb.execute_and_fetchall("""
                     SELECT 
-                        ld.sort as _sort,
+                        ld.id as _sort,
                         ld.end_date as _end_date,
                         REPLACE(name, "\\n", "") as Name,
                         ct.text as Type,
@@ -77,21 +77,44 @@ class SongListModel:
                     FROM music_data
                     INNER JOIN live_data as ld ON ld.music_data_id = music_data.id
                     INNER JOIN cachedb.color_text ct on ld.type = ct.id
-                    WHERE ld.sort < 9000
+                    WHERE ld.sort < 9000 AND ld.release_type == 1
                 """, out_dict=True)
         db.masterdb.execute("DETACH DATABASE cachedb")
         db.masterdb.commit()
 
         cloned = dict()
         for value in data:
-            if value['Name'] in cloned:
-                if int(cloned[value['Name']]['_difficulty_101']) != 0:
-                    # Already have legacy
+            if value['Name'] not in cloned:
+                cloned[value['Name']] = list()
+            cloned[value['Name']].append(value)
+        for k, v in cloned.items():
+            if len(v) > 1:
+                # Merge multiple songs with same name (a.k.a. event and release versions)
+
+                # Keep songs that already have legacy (final release)
+                pop = False
+                for _ in v:
+                    if _['_difficulty_101'] > 0:
+                        pop = True
+                        cloned[k] = _
+                        break
+                if pop:
                     continue
-                if int(value['_difficulty_5']) > 0:
-                    cloned[value['Name']] = value
-                continue
-            cloned[value['Name']] = value
+                # TODO: Broken for Joker
+                # # Also keep legacy M+ for event songs that are not yet released
+                # event = [_ for _ in v if _['_end_date'] != ""][0]
+                # release = [_ for _ in v if _['_end_date'] == ""][0]
+                # if release['_difficulty_5'] == 0:
+                #     cloned[k] = event
+                #     continue
+                # Last, remove all event versions
+                for _ in v:
+                    if _['_end_date'] == "":
+                        cloned[k] = _
+                        break
+            else:
+                cloned[k] = v[0]
+
         data = list(sorted(cloned.values(), key=lambda value: value['_sort']))
         for idx, value in enumerate(data):
             _sort = value.pop('_sort')
@@ -198,7 +221,7 @@ class SongModel:
                 dt.text AS difficulty_text 
             FROM live_data, live_detail live
             INNER JOIN cachedb.difficulty_text dt ON dt.id = live.difficulty_type
-            WHERE live_data.sort = ? AND live.live_data_id = live_data.id
+            WHERE live_data.id = ? AND live.live_data_id = live_data.id
             ORDER BY sort_key
             """,
             [music_id], out_dict=True
