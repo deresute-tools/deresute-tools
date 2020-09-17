@@ -173,23 +173,93 @@ class Simulator:
             self._simulate_internal(times=1, grand=grand, time_offset=offset / 1000, fail_simulate=False)
             has_cc = self.notes_data[cc_idxes].any(axis=1)
 
-            temp = self.notes_data['note_type']
-            temp[~self.notes_data['checkpoints']] = NoteType.TAP
+            is_miss = np.ones(len(self.notes_data))
+            is_great = np.ones(len(self.notes_data))
+            is_perfect = np.ones(len(self.notes_data))
 
-            is_miss = np.logical_or(
-                np.logical_and(temp != NoteType.SLIDE, offset < -80 or offset > 80),
-                np.logical_and(np.logical_and(temp == NoteType.SLIDE, offset < -100 or offset > 100), has_cc)
-            )
-            is_great = np.logical_and(1 - is_miss,
-                                      np.logical_or(
-                                          np.logical_and(
-                                              np.logical_and(temp != NoteType.SLIDE, offset < -60 or offset > 60),
-                                              1 - has_cc),
-                                          np.logical_and(
-                                              np.logical_and(temp != NoteType.SLIDE, offset < -30 or offset > 30),
-                                              1 - has_cc)
-                                      ))
-            is_perfect = np.logical_and(1 - np.logical_or(is_miss, is_great), True)
+            for idx in range(len(self.notes_data)):
+                note_type = self.notes_data['note_type'][idx]
+                is_cc = has_cc[idx]
+                is_checkpoint = self.notes_data['checkpoints'][idx]
+
+                if note_type == NoteType.TAP \
+                        or note_type == NoteType.LONG \
+                        or (note_type == NoteType.SLIDE and not is_checkpoint):
+                    if is_cc:
+                        if offset < -40 or offset > 40:
+                            is_miss[idx] = True
+                            is_great[idx] = False
+                            is_perfect[idx] = False
+                        elif offset < -30 or offset > 30:
+                            is_miss[idx] = False
+                            is_great[idx] = True
+                            is_perfect[idx] = False
+                        else:
+                            is_miss[idx] = False
+                            is_great[idx] = False
+                            is_perfect[idx] = True
+                    else:
+                        if offset < -80 or offset > 80:
+                            is_miss[idx] = True
+                            is_great[idx] = False
+                            is_perfect[idx] = False
+                        elif offset < -60 or offset > 60:
+                            is_miss[idx] = False
+                            is_great[idx] = True
+                            is_perfect[idx] = False
+                        else:
+                            is_miss[idx] = False
+                            is_great[idx] = False
+                            is_perfect[idx] = True
+                elif note_type == NoteType.FLICK:
+                    if is_cc:
+                        if offset < -90 or offset > 90:
+                            is_miss[idx] = True
+                            is_great[idx] = False
+                            is_perfect[idx] = False
+                        elif offset < -75 or offset > 75:
+                            is_miss[idx] = False
+                            is_great[idx] = True
+                            is_perfect[idx] = False
+                        else:
+                            is_miss[idx] = False
+                            is_great[idx] = False
+                            is_perfect[idx] = True
+                    else:
+                        if offset < -180 or offset > 180:
+                            is_miss[idx] = True
+                            is_great[idx] = False
+                            is_perfect[idx] = False
+                        elif offset < -150 or offset > 150:
+                            is_miss[idx] = False
+                            is_great[idx] = True
+                            is_perfect[idx] = False
+                        else:
+                            is_miss[idx] = False
+                            is_great[idx] = False
+                            is_perfect[idx] = True
+                else:
+                    if is_cc:
+                        if offset < 0 or offset > 100:
+                            is_miss[idx] = True
+                            is_great[idx] = False
+                            is_perfect[idx] = False
+                        else:
+                            is_miss[idx] = False
+                            is_great[idx] = False
+                            is_perfect[idx] = True
+                    else:
+                        if offset < 0 or offset > 200:
+                            is_miss[idx] = True
+                            is_great[idx] = False
+                            is_perfect[idx] = False
+                        else:
+                            is_miss[idx] = False
+                            is_great[idx] = False
+                            is_perfect[idx] = True
+            is_miss = is_miss == 1
+            is_great = is_great == 1
+            is_perfect = is_perfect == 1
             bonuses_0 = (1 + self.notes_data['bonuses_0'] / 100)
             bonuses_1 = (1 + self.notes_data['bonuses_1'] / 100)
             self.notes_data['note_score'] = 0
@@ -204,14 +274,18 @@ class Simulator:
                         is_perfect])
             except KeyError:
                 pass
+            try:
+                self.notes_data.loc[is_miss, 'note_score'] = 0
+            except KeyError:
+                pass
             score_array[:, _] = self.notes_data['note_score']
-        # max_score = score_array.max(axis=1)
-        # print(max_score.sum(), perfect_score.sum())
-        # for idx in range(len(max_score)):
-        #     temp = np.array(range(1, n_intervals + 2)) * (score_array[idx, :] == max_score[idx])
-        #     temp = temp[temp != 0] - 1
-        #     print(idx, left_boundary + temp.min() * delta, left_boundary + temp.max() * delta,
-        #                  max_score[idx] - perfect_score[idx])
+        max_score = score_array.max(axis=1)
+        print(max_score.sum(), perfect_score.sum())
+        for idx in range(len(max_score)):
+            temp = np.array(range(1, n_intervals + 2)) * (score_array[idx, :] == max_score[idx])
+            temp = temp[temp != 0] - 1
+            print(idx, self.notes_data['note_type'][idx], left_boundary + temp.min() * delta, left_boundary + temp.max() * delta,
+                  max_score[idx] - perfect_score[idx])
         return perfect_score, score_array
 
     def _simulate_internal(self, grand, times, fail_simulate=False, time_offset=0.0):
