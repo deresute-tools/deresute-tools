@@ -32,6 +32,15 @@ class Simulator:
         self.song_duration = self.notes_data.iloc[-1].sec
         self.note_count = len(self.notes_data)
 
+        is_flick = self.notes_data['note_type'] == NoteType.FLICK
+        is_long = self.notes_data['note_type'] == NoteType.LONG
+        is_slide = self.notes_data['note_type'] == NoteType.SLIDE
+        is_slide = np.logical_or(is_slide, np.logical_and(self.notes_data['type'] == 3, is_flick))
+        is_long = np.logical_or(is_long, np.logical_and(self.notes_data['type'] == 2, is_flick))
+        self.notes_data['is_flick'] = is_flick
+        self.notes_data['is_long'] = is_long
+        self.notes_data['is_slide'] = is_slide
+
         weight_range = np.array(WEIGHT_RANGE)
         weight_range[:, 0] = np.trunc(WEIGHT_RANGE[:, 0] / 100 * len(self.notes_data) - 1)
         for idx, (bound_l, bound_r) in enumerate(zip(weight_range[:-1, 0], weight_range[1:, 0])):
@@ -97,6 +106,9 @@ class Simulator:
         self._simulate_internal(times=times, grand=grand, time_offset=0, fail_simulate=False)
         perfect_score = self.get_note_scores().sum()
         skill_off = self.get_note_scores(skill_off=True).sum()
+
+        self.notes_data["note_score"] = self.get_note_scores()
+        self.notes_data["total_score"] = self.get_note_scores().cumsum()
 
         if perfect_play:
             base = perfect_score
@@ -284,7 +296,8 @@ class Simulator:
         for idx in range(len(max_score)):
             temp = np.array(range(1, n_intervals + 2)) * (score_array[idx, :] == max_score[idx])
             temp = temp[temp != 0] - 1
-            print(idx, self.notes_data['note_type'][idx], left_boundary + temp.min() * delta, left_boundary + temp.max() * delta,
+            print(idx, self.notes_data['note_type'][idx], left_boundary + temp.min() * delta,
+                  left_boundary + temp.max() * delta,
                   max_score[idx] - perfect_score[idx])
         return perfect_score, score_array
 
@@ -404,10 +417,19 @@ class Simulator:
                 np_b[:, _, targets, unit_idx * 5 + card_idx] = __
 
         def handle_act(skill):
-            np_v[self.notes_data[self.notes_data['note_type'] == skill.act].index,
-                 0, skill.color.value, unit_idx * 5 + card_idx] = skill.v1
-            np_v[self.notes_data[self.notes_data['note_type'] != skill.act].index,
-                 0, skill.color.value, unit_idx * 5 + card_idx] = skill.v0
+            if skill.act == NoteType.SLIDE:
+                mask = self.notes_data['is_slide']
+                anti_mask = np.invert(mask)
+            elif skill.act == NoteType.FLICK:
+                mask = self.notes_data['is_flick']
+                anti_mask = np.invert(mask)
+            elif skill.act == NoteType.LONG:
+                mask = self.notes_data['is_long']
+                anti_mask = np.invert(mask)
+            else:
+                return
+            np_v[self.notes_data[mask].index, 0, skill.color.value, unit_idx * 5 + card_idx] = skill.v1
+            np_v[self.notes_data[anti_mask].index, 0, skill.color.value, unit_idx * 5 + card_idx] = skill.v0
 
         def handle_sparkle(skill):
             trimmed_life = (self.notes_data['life'] // 10).astype(int)
