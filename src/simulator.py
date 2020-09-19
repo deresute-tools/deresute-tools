@@ -296,7 +296,8 @@ class Simulator:
         for idx in range(len(max_score)):
             temp = np.array(range(1, n_intervals + 2)) * (score_array[idx, :] == max_score[idx])
             temp = temp[temp != 0] - 1
-            print(idx, self.notes_data['note_type'][idx], left_boundary + temp.min() * delta,
+            print(idx, self.notes_data['sec'][idx], self.notes_data['note_type'][idx],
+                  left_boundary + temp.min() * delta,
                   left_boundary + temp.max() * delta,
                   max_score[idx] - perfect_score[idx])
         return perfect_score, score_array
@@ -453,10 +454,15 @@ class Simulator:
                 alternate_value[alternate_value != 0] += 100
                 self.notes_data['alternate_bonus_per_note'] = alternate_value.max(axis=2).max(axis=2)
                 for note_type in NoteType:
-                    self.notes_data.loc[
-                        self.notes_data['note_type'] == note_type, 'alternate_bonus_per_note'] = \
-                        np.maximum.accumulate(
-                            self.notes_data.loc[self.notes_data['note_type'] == note_type,
+                    for mask in [
+                        self.notes_data.is_slide,
+                        self.notes_data.is_long,
+                        np.invert(np.logical_or(self.notes_data.is_slide, self.notes_data.is_long))
+                    ]:
+                        self.notes_data.loc[
+                            (self.notes_data['note_type'] == note_type) & mask
+                            , 'alternate_bonus_per_note'] = np.maximum.accumulate(
+                            self.notes_data.loc[(self.notes_data['note_type'] == note_type) & mask,
                                                 'alternate_bonus_per_note'], axis=0)
                 alternate_value = np.array(self.notes_data['alternate_bonus_per_note'])
                 note_count = len(self.live.notes)
