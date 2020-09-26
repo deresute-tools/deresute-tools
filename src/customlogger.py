@@ -49,3 +49,6 @@ def error(*args):
 
 def critical(*args):
     __logger.critical(*args)
+
+def setLevel(*args):
+    __logger.setLevel(*args)
