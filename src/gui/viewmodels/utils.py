@@ -1,6 +1,7 @@
 from PyQt5.QtCore import QRectF
 from PyQt5.QtGui import QPixmap, QPainter, QColor, QPen, QPainterPath
 from PyQt5.QtWidgets import QWidget, QTableWidgetItem
+from numpy import int32
 
 
 class ImageWidget(QWidget):
@@ -43,7 +44,7 @@ class ImageWidget(QWidget):
 
 class NumericalTableWidgetItem(QTableWidgetItem):
     def __init__(self, value):
-        if isinstance(value, int) or isinstance(value, float):
+        if isinstance(value, int) or isinstance(value, float) or isinstance(value, int32):
             self.__number = value
         QTableWidgetItem.__init__(self, str(value))
 

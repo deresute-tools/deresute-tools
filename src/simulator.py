@@ -164,13 +164,6 @@ class Simulator:
         grand = self.live.is_grand
         self._simulate_internal(times=1, grand=grand, time_offset=0, fail_simulate=False)
         perfect_score = self.get_note_scores().copy()
-        self.notes_data['checkpoints'] = False
-        self.notes_data.loc[self.notes_data['note_type'] == NoteType.SLIDE, 'checkpoints'] = True
-        for group_id in self.notes_data[self.notes_data['note_type'] == NoteType.SLIDE].groupId.unique():
-            group = self.notes_data[
-                (self.notes_data['note_type'] == NoteType.SLIDE) & (self.notes_data['groupId'] == group_id)]
-            group.iloc[-1]['checkpoints'] = False
-            group.iloc[0]['checkpoints'] = False
 
         cc_idxes = list()
         for unit_idx, unit in enumerate(self.live.unit.all_units):
@@ -192,11 +185,9 @@ class Simulator:
             for idx in range(len(self.notes_data)):
                 note_type = self.notes_data['note_type'][idx]
                 is_cc = has_cc[idx]
-                is_checkpoint = self.notes_data['checkpoints'][idx]
 
                 if note_type == NoteType.TAP \
-                        or note_type == NoteType.LONG \
-                        or (note_type == NoteType.SLIDE and not is_checkpoint):
+                        or note_type == NoteType.LONG:
                     if is_cc:
                         if offset < -40 or offset > 40:
                             is_miss[idx] = True
@@ -297,6 +288,8 @@ class Simulator:
             temp = np.array(range(1, n_intervals + 2)) * (score_array[idx, :] == max_score[idx])
             temp = temp[temp != 0] - 1
             print(idx, self.notes_data['sec'][idx], self.notes_data['note_type'][idx],
+                  self.notes_data['startPos'][idx],
+                  perfect_score[idx],
                   left_boundary + temp.min() * delta,
                   left_boundary + temp.max() * delta,
                   max_score[idx] - perfect_score[idx])

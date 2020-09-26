@@ -57,7 +57,7 @@ def fetch_chart(base_music_name, base_score_id, base_difficulty, event=False):
                     SELECT live_data.id, live_data.type, live_detail.level_vocal
                     FROM live_data, live_detail WHERE live_data.music_data_id IN (
                         SELECT id FROM music_data WHERE name LIKE ?
-                    ) AND event_type >= ? AND live_detail.live_data_id = live_data.id AND live_detail.difficulty_type = ?
+                    ) AND event_type == ? AND live_detail.live_data_id = live_data.id AND live_detail.difficulty_type = ?
                     """,
                     [music_name, event, difficulty]
                 )
@@ -220,7 +220,7 @@ class BaseLive(ABC):
                 do_reset_attribute = True
                 card.is_refreshed = False
         if do_reset_attribute:
-            self.reset_attributes()
+            self.reset_attributes(hard_reset=False)
 
     def get_extra_bonuses(self):
         if self.extra_bonuses is None:
@@ -255,7 +255,7 @@ class BaseLive(ABC):
         pass
 
     @abstractmethod
-    def reset_attributes(self):
+    def reset_attributes(self, hard_reset=True):
         pass
 
     @abstractmethod
@@ -307,13 +307,14 @@ class Live(BaseLive):
         self.attributes = self.attributes.sum(axis=1)
         return self.attributes
 
-    def reset_attributes(self):
+    def reset_attributes(self, hard_reset=True):
         self.attributes = None  # Reset calculation
         self.bonuses = None
-        self.extra_bonuses = None
+        if hard_reset:
+            self.extra_bonuses = None
+            self.chara_bonus_set = {}
+            self.chara_bonus_value = 0
         self.leader_bonuses = None
-        self.chara_bonus_set = {}
-        self.chara_bonus_value = 0
         self.support = None
 
     def get_life(self):

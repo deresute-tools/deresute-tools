@@ -30,9 +30,9 @@ class GrandLive(BaseLive):
         for i in range(3):
             self.unit_lives[i].set_chara_bonus(chara_bonus_set, chara_bonus_value)
 
-    def reset_attributes(self):
+    def reset_attributes(self, hard_reset=True):
         for i in range(3):
-            self.unit_lives[i].reset_attributes()
+            self.unit_lives[i].reset_attributes(hard_reset)
 
     def set_unit(self, unit):
         assert isinstance(unit, GrandUnit)
