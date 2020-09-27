@@ -105,8 +105,13 @@ SKILL_BASE = {1: "Cute Voice",
               106: "Resonance Makeup",
               108: "CutexPassion",
               109: "CoolxCute",
+              110: "CoolxPassion",
               111: "PassionxCute",
-              113: "Cinderella Yell"}
+              113: "Cinderella Yell",
+              114: "Tricolor Ability",
+              115: "Cinderella Charm",
+              116: "World Level"
+}
 
 logger.debug("Creating chihiro.leader_keywords...")
 
