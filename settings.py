@@ -22,3 +22,6 @@ TOOL_EXE = STATIC_PATH / "tool.exe"
 TEMP_PATH = STATIC_PATH / "temppp"
 
 INDEX_PATH = DATA_PATH / "index"
+
+REMOTE_CACHE_SCORES_URL = "https://raw.githubusercontent.com/deresute-tools/chihiro-static/master/live_detail_cache.csv"
+REMOTE_TRANSLATED_SONG_URL = "https://raw.githubusercontent.com/deresute-tools/chihiro-static/master/translated.csv"

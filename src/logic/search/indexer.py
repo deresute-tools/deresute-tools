@@ -8,6 +8,7 @@ from settings import INDEX_PATH
 from src import customlogger as logger
 from src.db import db
 from src.network.meta_updater import get_masterdb_path
+from src.static.song_difficulty import Difficulty
 
 KEYWORD_KEYS_STR_ONLY = ["short", "chara", "rarity", "color", "skill", "leader", "time_prob_key", "fes",
                          "main_attribute"]
@@ -20,6 +21,7 @@ class IndexManager:
         if self.cleanup():
             INDEX_PATH.mkdir()
         self.index = None
+        self.song_index = None
 
     def initialize_index_db(self, card_list=None):
         logger.info("Building quicksearch index, please wait...")
@@ -119,6 +121,37 @@ class IndexManager:
         self.index = ix
         logger.debug("Quicksearch index initialized for {} cards".format(len(results)))
 
+    def initialize_chart_index(self):
+        results = db.cachedb.execute_and_fetchall(
+            "SELECT live_detail_id, performers, special_keys, jp_name, name, difficulty FROM live_detail_cache")
+        schema = Schema(title=ID(stored=True),
+                        live_detail_id=NUMERIC,
+                        performers=TEXT,
+                        special_keys=TEXT,
+                        jp_name=TEXT,
+                        name=TEXT,
+                        difficulty=TEXT,
+                        content=TEXT)
+        ix = create_in(INDEX_PATH, schema, indexname="score")
+        writer = ix.writer()
+        logger.debug("Initializing quicksearch index for {} charts".format(len(results)))
+        for result in results:
+            difficulty = str(Difficulty(result[-1]).value)
+            performers = result[1].replace(",", "") if result[1] else ""
+            content = " ".join([performers, result[2] if result[2] else "", result[3], result[4], difficulty])
+            writer.add_document(title=str(result[0]),
+                                content=content,
+                                live_detail_id=result[0],
+                                performers=performers,
+                                special_keys=result[2],
+                                jp_name=result[3],
+                                name=result[4],
+                                difficulty=difficulty,
+                                )
+        writer.commit()
+        self.song_index = ix
+        logger.debug("Quicksearch index initialized for {} charts".format(len(results)))
+
     def reindex(self, card_ids=None):
         logger.debug("Reindexing for {} cards".format(len(card_ids)))
         if card_ids is not None:
@@ -140,10 +173,13 @@ class IndexManager:
                                 **fields)
         writer.commit()
 
-    def get_index(self):
+    def get_index(self, song_index=False):
         if self.index is None:
             im.initialize_index_db()
             im.initialize_index()
+            im.initialize_chart_index()
+        if song_index:
+            return self.song_index
         return self.index
 
     def cleanup(self):
