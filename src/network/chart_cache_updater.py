@@ -240,7 +240,6 @@ def update_cache_scores():
         live_data["duration"] = notes_data.iloc[-1]['sec']
         notes_data = notes_data[notes_data["type"] < 10].reset_index(drop=True)
         notes_data['note_type'] = notes_data.apply(classify_note, axis=1)
-        total_notes = len(notes_data)
         note_count = dict(notes_data['note_type'].value_counts())
         for note_type in NoteType:
             key_str = note_type.name.capitalize()
@@ -248,7 +247,6 @@ def update_cache_scores():
                 live_data[key_str] = int(note_count[note_type])
             else:
                 live_data[key_str] = 0
-        live_data['total'] = total_notes
         live_data['difficulty'] = live_data['diff']
         _insert_into_live_detail_cache(live_data)
     db.cachedb.commit()

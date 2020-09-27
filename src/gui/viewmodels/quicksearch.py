@@ -89,3 +89,33 @@ class QuickSearchModel:
         self.options['idolized'].setToolTip("Only show N+, R+, SR+, and SSR+.")
         self.options['owned_only'].setToolTip("Hide all cards you don't have.")
         self.options['partial_match'].setToolTip("This option might significantly increase query time!")
+
+
+class SongQuickSearchView:
+    def __init__(self, main, song_model):
+        self.widget = ShortcutQuickSearchWidget(main, song_model)
+        self.widget.setMaximumSize(QSize(2000, 25))
+        self.model = None
+
+    def set_model(self, model):
+        assert isinstance(model, SongQuickSearchModel)
+        self.model = model
+        self.widget.textChanged.connect(lambda: self.trigger())
+
+    def trigger(self):
+        self.model.call_searchengine(self.widget.text().strip())
+
+
+class SongQuickSearchModel:
+    def __init__(self, view, song_view):
+        self.view = view
+        self._song_view = song_view
+
+    def call_searchengine(self, query):
+        if query == "":
+            live_detail_ids = search_engine.song_query("*")
+        else:
+            live_detail_ids = search_engine.song_query(query)
+        logger.debug("Query: {}".format(query))
+        logger.debug("Result: {}".format(live_detail_ids))
+        self._song_view.show_only_ids(live_detail_ids)

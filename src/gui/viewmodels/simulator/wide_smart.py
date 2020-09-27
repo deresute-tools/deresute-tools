@@ -143,8 +143,8 @@ class MainView:
         row_idx = self.song_view.widget.selectionModel().currentIndex().row()
         if row_idx == -1:
             return None, None
-        score_id = int(self.song_view.widget.item(row_idx, 11).text())
-        diff_id = int(self.song_view.widget.item(row_idx, 12).text())
+        score_id = int(self.song_view.widget.item(row_idx, 1).text())
+        diff_id = int(self.song_view.widget.item(row_idx, 2).text())
         return score_id, diff_id
 
     def get_times(self):

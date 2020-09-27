@@ -40,7 +40,7 @@ def get_score_color(score_id):
     return Color(color - 1)
 
 
-def fetch_chart(base_music_name, base_score_id, base_difficulty, event=False):
+def fetch_chart(base_music_name, base_score_id, base_difficulty, event=False, skip_load_notes=False):
     assert base_difficulty in Difficulty
     difficulty = base_difficulty.value
 
@@ -89,6 +89,8 @@ def fetch_chart(base_music_name, base_score_id, base_difficulty, event=False):
 
     if len(score_ids) == 0 or not flag:
         raise NoLiveFoundException("Music {} difficulty {} not found".format(music_name, str(base_difficulty)))
+    if skip_load_notes:
+        return None, Color(color - 1), level, None
     notes_data = pd.read_csv(io.StringIO(row_data[1].decode()))
     duration = notes_data.iloc[-1]['sec']
     notes_data = notes_data[notes_data["type"] < 10].reset_index(drop=True)
@@ -188,7 +190,7 @@ class BaseLive(ABC):
             self.get_support()
         return card_query.convert_id_to_short_name(" ".join(map(str, self.support[:, 0])))
 
-    def set_music(self, music_name=None, score_id=None, difficulty=None, event=None):
+    def set_music(self, music_name=None, score_id=None, difficulty=None, event=None, skip_load_notes=False):
         self.music_name = music_name
         if isinstance(difficulty, int):
             difficulty = Difficulty(difficulty)
@@ -198,13 +200,15 @@ class BaseLive(ABC):
         if event is None:
             try:
                 self.notes, self.color, self.level, self.duration = fetch_chart(music_name, score_id, difficulty,
-                                                                                event=False)
+                                                                                event=False,
+                                                                                skip_load_notes=skip_load_notes)
             except ValueError:
                 self.notes, self.color, self.level, self.duration = fetch_chart(music_name, score_id, difficulty,
-                                                                                event=True)
+                                                                                event=True,
+                                                                                skip_load_notes=skip_load_notes)
         else:
             self.notes, self.color, self.level, self.duration = fetch_chart(music_name, score_id, difficulty,
-                                                                            event=True)
+                                                                            event=True, skip_load_notes=skip_load_notes)
 
     def set_extra_bonus(self, bonuses, special_option, special_value):
         self.extra_bonuses = bonuses

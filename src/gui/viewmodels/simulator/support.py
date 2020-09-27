@@ -66,7 +66,7 @@ class SupportModel:
         return True
 
     def set_music(self, score_id, difficulty):
-        self.live.set_music(score_id=score_id, difficulty=difficulty)
+        self.live.set_music(score_id=score_id, difficulty=difficulty, skip_load_notes=True)
         self.music = (score_id, difficulty)
 
     def generate_support(self):

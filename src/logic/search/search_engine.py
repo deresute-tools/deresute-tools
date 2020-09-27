@@ -53,5 +53,17 @@ def advanced_single_query(query, partial_match=True, idolized=True, ssr=True, ow
     return []
 
 
+def song_query(query, partial_match=True):
+    query = query.split()
+    if partial_match:
+        for idx in range(len(query)):
+            query[idx] += "*"
+    query = " ".join(query)
+    results = song_engine.execute_query(query)
+    if len(results) >= 1:
+        return [int(_['title']) for _ in results]
+    return []
+
+
 engine = SearchEngine()
 song_engine = SongSearchEngine()

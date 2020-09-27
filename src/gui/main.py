@@ -7,9 +7,9 @@ from chihiro import ROOT_DIR
 from src import customlogger as logger
 from src.gui.viewmodels.card import CardView, CardModel, IconLoaderView, IconLoaderModel
 from src.gui.viewmodels.potential import PotentialView, PotentialModel
-from src.gui.viewmodels.quicksearch import QuickSearchView, QuickSearchModel
+from src.gui.viewmodels.quicksearch import QuickSearchView, QuickSearchModel, SongQuickSearchView, SongQuickSearchModel
 from src.gui.viewmodels.simulator.wide_smart import MainView, MainModel
-from src.gui.viewmodels.song import SongListView, SongListModel, SongView, SongModel
+from src.gui.viewmodels.song import SongView, SongModel
 from src.gui.viewmodels.unit import UnitView, UnitModel
 from src.logic.profile import profile_manager, unit_storage
 from src.logic.search import indexer, search_engine
@@ -42,7 +42,7 @@ class UiMainWindow:
 
     def setup_ui(self):
         logger.info("Initializing UI")
-        self.main.resize(1600, 900)
+        self.main.resize(1800, 1000)
         self.setup_base()
         self.setup_calculator_song_layout()
         self.setup_card_unit_layout()
@@ -87,19 +87,17 @@ class UiMainWindow:
 
         self.song_view = SongView(self.central_widget)
         self.song_model = SongModel(self.song_view)
+        self.song_model.initialize_data()
         self.song_view.set_model(self.song_model)
         self.song_layout.addWidget(self.song_view.widget)
-
-        self.song_list_view = SongListView(self.central_widget, self.song_model)
-        self.song_list_model = SongListModel(self.song_list_view)
-        self.song_list_view.set_model(self.song_list_model)
-        self.song_list_model.initialize_songs()
-        self.song_layout.addWidget(self.song_list_view.widget)
+        self.songsearch_view = SongQuickSearchView(self.central_widget, self.song_model)
+        self.songsearch_model = SongQuickSearchModel(self.songsearch_view, self.song_view)
+        self.songsearch_view.set_model(self.songsearch_model)
+        self.song_layout.addWidget(self.songsearch_view.widget)
 
         self.calculator_song_layout.addLayout(self.song_layout)
-        self.calculator_song_layout.setStretch(0, 0)
-        self.calculator_song_layout.setStretch(1, 3)
-        self.calculator_song_layout.setStretch(2, 1)
+        self.calculator_song_layout.setStretch(0, 3)
+        self.calculator_song_layout.setStretch(1, 2)
         self.main_layout.addLayout(self.calculator_song_layout)
         self.calculator.setCurrentIndex(0)
 
@@ -164,8 +162,6 @@ class UiMainWindow:
         self.main_layout.addLayout(self.card_unit_layout)
         self.grid_layout.addLayout(self.main_layout, 0, 0, 1, 1)
 
-        self.card_view.toggle_auto_resize(False)
-
     def setup_menu_bar(self):
         logger.info("Setting up menu bar")
 
@@ -203,6 +199,9 @@ class UiMainWindow:
         self.card_model.attach_calculator_view(self.calculator_view)
         self.song_view.attach_support_model(self.calculator_view.support_model)
 
+    def disable_auto_resize(self):
+        self.card_view.toggle_auto_resize(False)
+
 
 def setup_gui(*args):
     app = QApplication(*args)
@@ -217,5 +216,6 @@ def setup_gui(*args):
     MainWindow.setui(ui)
     ui.setup_ui()
     ui.attach()
+    ui.disable_auto_resize()
     logger.info("GUI setup successfully")
     return app, MainWindow

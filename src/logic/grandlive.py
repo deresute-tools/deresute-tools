@@ -20,10 +20,10 @@ class GrandLive(BaseLive):
         for i in range(3):
             self.unit_lives[i].initialize_music(music_name, difficulty, unit)
 
-    def set_music(self, music_name=None, score_id=None, difficulty=None, event=None):
-        super().set_music(music_name, score_id, difficulty, event)
+    def set_music(self, music_name=None, score_id=None, difficulty=None, event=None, skip_load_notes=False):
+        super().set_music(music_name, score_id, difficulty, event, skip_load_notes)
         for i in range(3):
-            self.unit_lives[i].set_music(music_name, score_id, difficulty, event)
+            self.unit_lives[i].set_music(music_name, score_id, difficulty, event. skip_load_notes)
 
     def set_chara_bonus(self, chara_bonus_set, chara_bonus_value):
         super().set_chara_bonus(chara_bonus_set, chara_bonus_value)

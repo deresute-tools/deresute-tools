@@ -8,6 +8,7 @@ from settings import INDEX_PATH
 from src import customlogger as logger
 from src.db import db
 from src.network.meta_updater import get_masterdb_path
+from src.static.color import Color
 from src.static.song_difficulty import Difficulty
 
 KEYWORD_KEYS_STR_ONLY = ["short", "chara", "rarity", "color", "skill", "leader", "time_prob_key", "fes",
@@ -123,7 +124,7 @@ class IndexManager:
 
     def initialize_chart_index(self):
         results = db.cachedb.execute_and_fetchall(
-            "SELECT live_detail_id, performers, special_keys, jp_name, name, difficulty FROM live_detail_cache")
+            "SELECT live_detail_id, performers, special_keys, jp_name, name, level, color, difficulty FROM live_detail_cache")
         schema = Schema(title=ID(stored=True),
                         live_detail_id=NUMERIC,
                         performers=TEXT,
@@ -131,14 +132,17 @@ class IndexManager:
                         jp_name=TEXT,
                         name=TEXT,
                         difficulty=TEXT,
+                        level=NUMERIC,
+                        color=TEXT,
                         content=TEXT)
         ix = create_in(INDEX_PATH, schema, indexname="score")
         writer = ix.writer()
         logger.debug("Initializing quicksearch index for {} charts".format(len(results)))
         for result in results:
-            difficulty = str(Difficulty(result[-1]).value)
+            difficulty = Difficulty(result[-1]).name.lower()
             performers = result[1].replace(",", "") if result[1] else ""
-            content = " ".join([performers, result[2] if result[2] else "", result[3], result[4], difficulty])
+            color = Color(result[6] - 1).name.lower()
+            content = " ".join([performers, result[2] if result[2] else "", result[3], result[4], difficulty, color, str(result[5])])
             writer.add_document(title=str(result[0]),
                                 content=content,
                                 live_detail_id=result[0],
@@ -146,6 +150,8 @@ class IndexManager:
                                 special_keys=result[2],
                                 jp_name=result[3],
                                 name=result[4],
+                                level=result[5],
+                                color=color,
                                 difficulty=difficulty,
                                 )
         writer.commit()
