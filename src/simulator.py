@@ -165,6 +165,14 @@ class Simulator:
         self._simulate_internal(times=1, grand=grand, time_offset=0, fail_simulate=False)
         perfect_score = self.get_note_scores().copy()
 
+        self.notes_data['checkpoints'] = False
+        self.notes_data.loc[self.notes_data['note_type'] == NoteType.SLIDE, 'checkpoints'] = True
+        for group_id in self.notes_data[self.notes_data['note_type'] == NoteType.SLIDE].groupId.unique():
+            group = self.notes_data[
+                (self.notes_data['note_type'] == NoteType.SLIDE) & (self.notes_data['groupId'] == group_id)]
+            self.notes_data.loc[group.iloc[-1].name, 'checkpoints'] = False
+            self.notes_data.loc[group.iloc[0].name, 'checkpoints'] = False
+
         cc_idxes = list()
         for unit_idx, unit in enumerate(self.live.unit.all_units):
             for card_idx, card in enumerate(unit.all_cards()):
@@ -185,6 +193,7 @@ class Simulator:
             for idx in range(len(self.notes_data)):
                 note_type = self.notes_data['note_type'][idx]
                 is_cc = has_cc[idx]
+                is_checkpoint = self.notes_data['checkpoints'][idx]
 
                 if note_type == NoteType.TAP \
                         or note_type == NoteType.LONG:
@@ -236,6 +245,25 @@ class Simulator:
                         elif offset < -150 or offset > 150:
                             is_miss[idx] = False
                             is_great[idx] = True
+                            is_perfect[idx] = False
+                        else:
+                            is_miss[idx] = False
+                            is_great[idx] = False
+                            is_perfect[idx] = True
+                elif not is_checkpoint:
+                    if is_cc:
+                        if offset < -100 or offset > 100:
+                            is_miss[idx] = True
+                            is_great[idx] = False
+                            is_perfect[idx] = False
+                        else:
+                            is_miss[idx] = False
+                            is_great[idx] = False
+                            is_perfect[idx] = True
+                    else:
+                        if offset < -200 or offset > 200:
+                            is_miss[idx] = True
+                            is_great[idx] = False
                             is_perfect[idx] = False
                         else:
                             is_miss[idx] = False
