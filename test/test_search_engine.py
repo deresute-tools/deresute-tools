@@ -1,7 +1,7 @@
 import unittest
 
 from src.logic.search import card_query
-from src.logic.search.search_engine import engine
+from src.logic.search.search_engine import engine, song_engine
 
 
 class TestSearchEngine(unittest.TestCase):
@@ -16,3 +16,10 @@ class TestSearchEngine(unittest.TestCase):
                          card_query.convert_short_name_to_id('uzuki4')[0])
         self.assertEqual(int(engine.execute_query("chara:uzuki* skill:coord* idolized:false")[0]['title']),
                          card_query.convert_short_name_to_id('uzuki4u')[0])
+
+    def test_song_search(self):
+        self.assertEqual(song_engine.execute_query("message")[0]['title'], '89')
+        self.assertEqual(song_engine.execute_query("shiki solo")[0]['title'], '401')
+        self.assertEqual(song_engine.execute_query("shiki solo")[1]['title'], '402')
+        self.assertEqual(song_engine.execute_query("shiki solo")[2]['title'], '403')
+        self.assertEqual(song_engine.execute_query("shiki solo")[3]['title'], '404')
