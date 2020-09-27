@@ -1,5 +1,5 @@
 from PyQt5.QtCore import QSize, QMimeData, Qt, QPoint
-from PyQt5.QtGui import QDrag, QPixmap, QPainter
+from PyQt5.QtGui import QDrag, QPixmap, QPainter, QColor
 from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QComboBox, QAbstractItemView, QApplication
 
 from settings import IMAGE_PATH64, IMAGE_PATH, IMAGE_PATH32
@@ -9,6 +9,7 @@ from src.gui.viewmodels.mime_headers import CARD
 from src.gui.viewmodels.utils import ImageWidget, NumericalTableWidgetItem
 from src.logic.profile import card_storage
 from src.network import meta_updater
+from src.static.skill import SKILL_COLOR_BY_NAME
 
 
 class CustomCardTable(QTableWidget):
@@ -121,6 +122,9 @@ class CardView:
                 else:
                     item = QTableWidgetItem()
                     item.setData(Qt.EditRole, value)
+                if key == 'Skill':
+                    if value is not None:
+                        item.setBackground(QColor(*SKILL_COLOR_BY_NAME[value]))
                 self.widget.setItem(r_idx, c_idx + 2, item)
         logger.info("Loaded {} cards".format(len(data)))
         self.widget.setSortingEnabled(True)
