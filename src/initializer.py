@@ -15,6 +15,8 @@ def setup(update=False):
         meta_updater.update_database()
     from src.network import music_updater
     music_updater.update_musicscores()
+    from src.network import chart_cache_updater
+    chart_cache_updater.update_cache_scores()
     from src.logic.search import card_query
     assert card_query
     from src.network import image_updater
