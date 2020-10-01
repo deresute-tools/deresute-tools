@@ -95,6 +95,42 @@ class CustomBonusModel:
                 item.setData(Qt.EditRole, 0)
                 self.view.custom_bonus_table.setItem(r, c, item)
 
+    def apply_groove_bonus(self, appeal_idx, color_idx):
+        if appeal_idx == APPEAL_PRESETS["Vocal Groove"]:
+            match_c = 0
+        elif appeal_idx == APPEAL_PRESETS["Dance Groove"]:
+            match_c = 1
+        elif appeal_idx == APPEAL_PRESETS["Visual Groove"]:
+            match_c = 2
+        if color_idx == COLOR_PRESETS["Cute"]:
+            match_r = {0}
+        elif color_idx == COLOR_PRESETS["Cool"]:
+            match_r = {1}
+        elif color_idx == COLOR_PRESETS["Passion"]:
+            match_r = {2}
+        else:
+            match_r = {0, 1, 2}
+        value = self.view.custom_bonus_preset_value.text()
+        if value == "":
+            value = 0
+        value = int(value)
+        for r in range(3):
+            for c in range(3):
+                if c == match_c:
+                    base_value = value
+                else:
+                    base_value = 0
+                if r not in match_r:
+                    base_value -= 30
+
+                item = QTableWidgetItem()
+                item.setData(Qt.EditRole, base_value)
+                self.view.custom_bonus_table.setItem(r, c, item)
+            if r not in match_r:
+                item = QTableWidgetItem()
+                item.setData(Qt.EditRole, -30)
+                self.view.custom_bonus_table.setItem(r, 4, item)
+
     def apply_bonus_template(self):
         appeal_idx = self.view.custom_bonus_appeal_preset.currentIndex()
         color_idx = self.view.custom_bonus_color_preset.currentIndex()
@@ -102,12 +138,11 @@ class CustomBonusModel:
             return
         if appeal_idx == APPEAL_PRESETS["All Attributes"]:
             appeals = [1, 1, 1]
-        elif appeal_idx == APPEAL_PRESETS["Vocal Groove"]:
-            appeals = [1, 0, 0]
-        elif appeal_idx == APPEAL_PRESETS["Dance Groove"]:
-            appeals = [0, 1, 0]
-        elif appeal_idx == APPEAL_PRESETS["Visual Groove"]:
-            appeals = [0, 0, 1]
+        elif appeal_idx == APPEAL_PRESETS["Vocal Groove"] \
+                or appeal_idx == APPEAL_PRESETS["Dance Groove"] \
+                or appeal_idx == APPEAL_PRESETS["Visual Groove"]:
+            self.apply_groove_bonus(appeal_idx, color_idx)
+            return
         elif appeal_idx == APPEAL_PRESETS["Vocal Only"]:
             appeals = [1, -99, -99]
         elif appeal_idx == APPEAL_PRESETS["Dance Only"]:

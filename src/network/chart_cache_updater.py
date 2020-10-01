@@ -98,7 +98,10 @@ def _get_song_list():
         value['performers'] = ", ".join([_[0] for _ in performers])
         value['special_keys'] = _get_special_keys(value['sort'])
         value['jp_name'] = song_name
-        value['name'] = translated_names[value['sort']]
+        if value['sort'] in translated_names:
+            value['name'] = translated_names[value['sort']]
+        else:
+            value['name'] = song_name
     db.masterdb.execute("DETACH DATABASE cachedb")
     db.masterdb.commit()
     return song_dict
@@ -214,6 +217,18 @@ def _insert_into_live_detail_cache(hashable):
         hashable["Slide"],
     ])
 
+def _overwrite_song_name(expanded_song_list):
+    for live_detail_id, song_data in expanded_song_list.items():
+        db.cachedb.execute("""
+                    UPDATE live_detail_cache
+                    SET name = ?
+                    WHERE live_detail_id = ?
+                """, [
+            song_data["name"],
+            live_detail_id,
+        ])
+    db.cachedb.commit()
+
 
 def update_cache_scores():
     if not has_cached_live_details():
@@ -249,6 +264,7 @@ def update_cache_scores():
                 live_data[key_str] = 0
         live_data['difficulty'] = live_data['diff']
         _insert_into_live_detail_cache(live_data)
+    _overwrite_song_name(expanded_song_list)
     db.cachedb.commit()
 
 
