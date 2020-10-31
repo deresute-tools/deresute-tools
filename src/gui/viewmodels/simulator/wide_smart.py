@@ -225,8 +225,9 @@ class MainModel:
             if result is None:
                 temp.append(None)
                 continue
-            appeals, perfect_score, skill_off, base, deltas = result
+            appeals, perfect_score, skill_off, base, deltas, life = result
             temp.append(appeals)
+            temp.append(life)
             temp.append(perfect_score)
             temp.append(base)
             temp.append(base + deltas.max())

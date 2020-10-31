@@ -99,13 +99,13 @@ class CalculatorView:
     def setup_widget(self):
         self.widget.setHorizontalScrollMode(1)  # Smooth scroll
         self.widget.setVerticalScrollMode(1)  # Smooth scroll
-        self.widget.setColumnCount(11)
+        self.widget.setColumnCount(12)
         self.widget.setRowCount(0)
         self.widget.verticalHeader().setDefaultSectionSize(50)
         self.widget.verticalHeader().setSectionResizeMode(2)
         self.widget.horizontalHeader().setSectionResizeMode(3)  # Auto fit
         self.widget.setHorizontalHeaderLabels(
-            ["Unit", "Appeals", "Perfect", "Mean", "Max", "Min", "Skill Off", "5%", "25%", "50%", "75%"])
+            ["Unit", "Appeals", "Life", "Perfect", "Mean", "Max", "Min", "Skill Off", "5%", "25%", "50%", "75%"])
         self.widget.setColumnWidth(0, 40 * 6)
 
         self.widget.cellClicked.connect(lambda r, _: self.create_support_team(r))
@@ -171,7 +171,8 @@ class CalculatorView:
         if not self.support_model.set_cards(self.widget.cellWidget(r, 0).cards_internal):
             logger.info("Invalid unit to evaluate support team")
             return
-        appeals, support = self.support_model.generate_support()
+        appeals, support, life = self.support_model.generate_support()
+        self.widget.setItem(r, 2, NumericalTableWidgetItem(int(life)))
         if self.custom_settings_model.get_appeals() is not None:
             self.widget.setItem(r, 1, NumericalTableWidgetItem(int(self.custom_settings_model.get_appeals())))
             return

@@ -130,7 +130,7 @@ class Simulator:
         logger.debug("Max: {}".format(int(base + deltas.max())))
         logger.debug("Min: {}".format(int(base + deltas.min())))
         logger.debug("Deviation: {}".format(int(np.round(np.std(deltas)))))
-        return self.total_appeal, perfect_score, skill_off, base, deltas
+        return self.total_appeal, perfect_score, skill_off, base, deltas, self.live.get_life()
 
     def simulate_theoretical_max(self, appeals=None, extra_bonus=None, support=None,
                                  chara_bonus_set=None, chara_bonus_value=0, special_option=None, special_value=None,
