@@ -21,7 +21,10 @@ if __name__ == '__main__':
     live.set_music(score_id=int(sys.argv[1]), difficulty=Difficulty.MPLUS)
     live.set_unit(unit)
     sim = Simulator(live)
-    n_intervals = 40
+    try:
+        n_intervals = int(sys.argv[3])
+    except IndexError:
+        n_intervals = 40
     perfect_score, score_array = sim.simulate_theoretical_max(support=113290, n_intervals=n_intervals)
 
     max_score = score_array.max(axis=1)
@@ -36,10 +39,10 @@ if __name__ == '__main__':
             csv_writer.writerow([idx, sim.notes_data['sec'][idx], sim.notes_data['note_type'][idx],
                                  sim.notes_data['finishPos'][idx],
                                  perfect_score[idx],
-                                 -200 + temp.min() * 10,
-                                 -200 + temp.max() * 10,
+                                 -200 + temp.min() * 400 / n_intervals,
+                                 -200 + temp.max() * 400 / n_intervals,
                                  delta,
-                                 (temp.max() - temp.min()) * 10
+                                 (temp.max() - temp.min()) * 400 / n_intervals
                                  ])
             if delta > 0:
                 abuse_list.append(delta)

@@ -195,8 +195,7 @@ class Simulator:
                 is_cc = has_cc[idx]
                 is_checkpoint = self.notes_data['checkpoints'][idx]
 
-                if note_type == NoteType.TAP \
-                        or note_type == NoteType.LONG:
+                if note_type == NoteType.TAP:
                     if is_cc:
                         if offset < -40 or offset > 40:
                             is_miss[idx] = True
@@ -223,7 +222,7 @@ class Simulator:
                             is_miss[idx] = False
                             is_great[idx] = False
                             is_perfect[idx] = True
-                elif note_type == NoteType.FLICK:
+                elif note_type == NoteType.FLICK or note_type == NoteType.LONG:
                     if is_cc:
                         if offset < -90 or offset > 90:
                             is_miss[idx] = True
