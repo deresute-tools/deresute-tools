@@ -58,7 +58,7 @@ for unit in unit_list:
     print(unit)
     print(sim.simulate(times=10, support=110256))
 
-unit = Unit.from_query("nina4 chieri4 rika4 chieri4u yoko1 kaede2", custom_pots=(5, 10, 10, 0, 10))
+unit = Unit.from_query("nina4 mizuki4 riina5 rika4 sae3 kaede2", custom_pots=(5, 10, 10, 0, 10))
 
 score_ids = [38, 45, 50, 54, 61, 62, 302, 306, 307, 308, 312, 313, 315, 317, 319, 321, 325, 327, 328, 331, 333, 334,
              335, 338, 341, 343, 345, 347, 350, 351, 353, 355, 357, 359, 364, 369, 371, 373, 374, 375, 379, 385, 387,
@@ -78,3 +78,11 @@ live.set_music(music_name="in fact", difficulty=Difficulty.MPLUS)
 live.set_unit(unit)
 sim = Simulator(live)
 assert sim.simulate(perfect_play=True, appeals=302495)[1] == 1314844
+
+unit = Unit.from_query("nina4 riina5 riina5u yoshino3 mayu5 yui2", custom_pots=(5, 10, 10, 0, 10))
+
+live = Live()
+live.set_music(score_id=19, difficulty=Difficulty.MPLUS)
+live.set_unit(unit)
+sim = Simulator(live)
+sim.simulate(perfect_play=True, support=113290)

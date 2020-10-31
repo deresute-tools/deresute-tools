@@ -326,16 +326,18 @@ class Simulator:
         results = self._helper_initialize_skill_activations(times=times, grand=grand,
                                                             time_offset=time_offset,
                                                             fail_simulate=fail_simulate)
-        self.has_sparkle, self.has_support, self.has_alternate = results
+        self.has_sparkle, self.has_support, self.has_alternate, self.has_refrain = results
 
         # In case of Alternate and LS, to save one redundant Alternate evaluation, only evaluate together with LS
         np_v, np_b = self._helper_initialize_skill_bonuses(grand=grand, sparkle=False,
-                                                           alternate=self.has_alternate and not self.has_sparkle)
+                                                           alternate=self.has_alternate and not self.has_sparkle,
+                                                           refrain=self.has_refrain and not self.has_sparkle)
         self._helper_evaluate_skill_bonuses(np_v, np_b, grand=grand)
 
         if self.has_sparkle:
             np_v, np_b = self._helper_initialize_skill_bonuses(grand=grand, sparkle=self.has_sparkle,
-                                                               alternate=self.has_alternate)
+                                                               alternate=self.has_alternate,
+                                                               refrain=self.has_refrain)
             self._helper_evaluate_skill_bonuses(np_v, np_b, grand=grand)
 
     def _helper_evaluate_skill_bonuses(self, np_v, np_b, grand, mutate_df=True):
@@ -421,7 +423,8 @@ class Simulator:
                 a_min=0, a_max=2 * self.live.get_life())
         return skill_bonuses_final
 
-    def _helper_initialize_skill_bonuses(self, grand, np_v=None, np_b=None, sparkle=False, alternate=False):
+    def _helper_initialize_skill_bonuses(self, grand, np_v=None, np_b=None, sparkle=False, alternate=False,
+                                         refrain=False):
         """
         Initializes skill values in DataFrame.
         :param grand: True if GRAND LIVE, else False.
@@ -458,7 +461,7 @@ class Simulator:
             np_v[:, 1, skill.color.value, unit_idx * 5 + card_idx] = trimmed_life.map(
                 get_sparkle_bonus(rarity=card.rarity, grand=grand))
 
-        def handle_alternate(all_alternates):
+        def handle_alternate(all_alternates, all_refrains):
             alternate_groups = list()
             for i in range(3):
                 temp = list()
@@ -469,7 +472,8 @@ class Simulator:
             for unit_idx, alternates in enumerate(alternate_groups):
                 if len(alternates) == 0:
                     continue
-                non_alternate = list(set(range(unit_idx * 5, unit_idx * 5 + 5)).difference(set(alternates)))
+                non_alternate = list(set(range(unit_idx * 5, unit_idx * 5 + 5)).difference(set(alternates)).difference(
+                    set(all_refrains)))
                 alternate_value = np.ceil(np.clip(np_v[:, 0:1, :, non_alternate] - 100, a_min=0, a_max=9000) * 1.5)
                 alternate_value[alternate_value != 0] += 100
                 self.notes_data['alternate_bonus_per_note'] = alternate_value.max(axis=2).max(axis=2)
@@ -515,6 +519,94 @@ class Simulator:
                         local_np_v[:, 0, skill.color.value, skill_idx] = local_np_v[:, 0, skill.color.value,
                                                                          skill_idx] * local_alternate_value
 
+        def handle_refrain(all_refrains):
+            refrain_groups = list()
+            for i in range(3):
+                temp = list()
+                for ref in all_refrains:
+                    if i * 5 <= ref < (i + 1) * 5:
+                        temp.append(ref)
+                refrain_groups.append(temp)
+            for unit_idx, refrains in enumerate(refrain_groups):
+                if len(refrains) == 0:
+                    continue
+                non_refrain = list(set(range(unit_idx * 5, unit_idx * 5 + 5)).difference(set(refrains)))
+                ref_score_value = np.ceil(np.clip(np_v[:, 0:1, :, non_refrain] - 100, a_min=0, a_max=9000))
+                ref_score_value[ref_score_value != 0] += 100
+                ref_combo_value = np.ceil(np.clip(np_v[:, 1:2, :, non_refrain] - 100, a_min=0, a_max=9000))
+                ref_combo_value[ref_combo_value != 0] += 100
+                self.notes_data['ref_score_bonus_per_note'] = ref_score_value.max(axis=2).max(axis=2)
+                self.notes_data['ref_combo_bonus_per_note'] = ref_combo_value.max(axis=2).max(axis=2)
+                for note_type in NoteType:
+                    for mask in [
+                        self.notes_data.is_slide,
+                        self.notes_data.is_long,
+                        np.invert(np.logical_or(self.notes_data.is_slide, self.notes_data.is_long))
+                    ]:
+                        self.notes_data.loc[
+                            (self.notes_data['note_type'] == note_type) & mask
+                            , 'ref_score_bonus_per_note'] = np.maximum.accumulate(
+                            self.notes_data.loc[(self.notes_data['note_type'] == note_type) & mask,
+                                                'ref_score_bonus_per_note'], axis=0)
+                self.notes_data['ref_combo_bonus_per_note'] = np.maximum.accumulate(
+                    self.notes_data['ref_combo_bonus_per_note'], axis=0)
+                ref_score_value = np.array(self.notes_data['ref_score_bonus_per_note'])
+                ref_combo_value = np.array(self.notes_data['ref_combo_bonus_per_note'])
+                note_count = len(self.live.notes)
+                if "rep" not in self.notes_data:
+                    rep = 1
+                else:
+                    rep = self.notes_data['rep'].max() + 1
+                for rep_idx in range(rep):
+                    local_ref_score_value = ref_score_value[rep_idx * note_count: (rep_idx + 1) * note_count]
+                    local_ref_combo_value = ref_combo_value[rep_idx * note_count: (rep_idx + 1) * note_count]
+                    local_notes_data = self.notes_data[rep_idx * note_count: (rep_idx + 1) * note_count]
+                    local_np_v = np_v[rep_idx * note_count: (rep_idx + 1) * note_count]
+                    first_score_note = None
+                    first_combo_note = None
+                    try:
+                        first_score_note = np.argwhere(local_ref_score_value > 0)[0][0]
+                    except IndexError:
+                        # No scoring skills
+                        for skill_idx in refrains:
+                            skill = self.live.unit.get_card(skill_idx).skill
+                            local_np_v[:, 0:1, skill.color.value, skill_idx] = 0
+                    try:
+                        first_combo_note = np.argwhere(local_ref_combo_value > 0)[0][0]
+                    except IndexError:
+                        # No combo skills
+                        for skill_idx in refrains:
+                            skill = self.live.unit.get_card(skill_idx).skill
+                            local_np_v[:, 1:2, skill.color.value, skill_idx] = 0
+                    if first_score_note is None:
+                        first_score_note = 999
+                    else:
+                        first_score_note = local_notes_data.iloc[first_score_note].sec
+                    if first_combo_note is None:
+                        first_combo_note = 999
+                    else:
+                        first_combo_note = local_notes_data.iloc[first_combo_note].sec
+                    for skill_idx in refrains:
+                        skill = self.live.unit.get_card(skill_idx).skill
+                        fail_ref_score_notes = local_notes_data[local_notes_data.sec < first_score_note][
+                            "skill_{}_l".format(skill_idx)].max()
+                        if not np.isnan(fail_ref_score_notes):
+                            remove_index = local_notes_data[
+                                local_notes_data["skill_{}_l".format(skill_idx)] <= fail_ref_score_notes].index.max()
+                            # Negate score bonus where skill not activated
+                            local_np_v[:remove_index + 1, 0:1, skill.color.value, skill_idx] = 0
+                        fail_ref_combo_notes = local_notes_data[local_notes_data.sec < first_combo_note][
+                            "skill_{}_l".format(skill_idx)].max()
+                        if not np.isnan(fail_ref_combo_notes):
+                            remove_index = local_notes_data[
+                                local_notes_data["skill_{}_l".format(skill_idx)] <= fail_ref_combo_notes].index.max()
+                            # Negate combo bonus where skill not activated
+                            local_np_v[:remove_index + 1, 1:2, skill.color.value, skill_idx] = 0
+                        local_np_v[:, 0, skill.color.value, skill_idx] = local_np_v[:, 0, skill.color.value,
+                                                                         skill_idx] * local_ref_score_value / 1000
+                        local_np_v[:, 1, skill.color.value, skill_idx] = local_np_v[:, 1, skill.color.value,
+                                                                         skill_idx] * local_ref_combo_value / 1000
+
         def null_deactivated_skills():
             card_range = range(unit_idx * 5, (unit_idx + 1) * 5)
             value_range = 4 if self.has_support else 3
@@ -531,6 +623,7 @@ class Simulator:
         np_v = np.zeros((len(self.notes_data), 4, 3, 5 * units))  # Notes x Values x Colors x Cards
         np_b = np.zeros((len(self.notes_data), 4, 3, 5 * units))  # Notes x Values x Colors x Cards
         alternates = list()
+        refrains = list()
         for unit_idx, unit in enumerate(self.live.unit.all_units):
             unit.convert_motif(grand=grand)
             for card_idx, card in enumerate(unit.all_cards()):
@@ -546,11 +639,15 @@ class Simulator:
                         continue
                     elif skill.skill_type == 39 and alternate:
                         alternates.append(unit_idx * 5 + card_idx)
+                    elif skill.skill_type == 40 and refrain:
+                        refrains.append(unit_idx * 5 + card_idx)
                     for _, __ in enumerate(skill.values):
                         np_v[:, _, skill.color.value, unit_idx * 5 + card_idx] = __
             null_deactivated_skills()
         if alternate:
-            handle_alternate(alternates)
+            handle_alternate(alternates, refrains)
+        if refrain:
+            handle_refrain(refrains)
         return np_v, np_b
 
     def _helper_initialize_skill_activations(self, grand, times, time_offset=0.0, fail_simulate=False):
@@ -564,6 +661,7 @@ class Simulator:
         has_sparkle = False
         has_alternate = False
         has_support = False
+        has_refrain = False
 
         if fail_simulate:
             logger.debug("Simulating fail play")
@@ -577,6 +675,8 @@ class Simulator:
                     has_sparkle = True
                 elif skill.skill_type == 39:
                     has_alternate = True
+                elif skill.skill_type == 40:
+                    has_refrain = True
                 if skill.v3 > 0 and not skill.boost:
                     # Use for early termination
                     has_support = True
@@ -600,7 +700,7 @@ class Simulator:
                         left, right = skill_range
                         self.notes_data.loc[(note_times > left) & (note_times <= right),
                                             'skill_{}'.format(unit_idx * 5 + card_idx)] = 1
-                        if has_alternate:
+                        if has_alternate or has_refrain:
                             self.notes_data.loc[(note_times > left) & (note_times < right),
                                                 'skill_{}_l'.format(unit_idx * 5 + card_idx)] = left
                             self.notes_data.loc[(note_times > left) & (note_times <= right),
@@ -617,7 +717,7 @@ class Simulator:
                             self.notes_data.loc[(note_times > left) & (note_times <= right)
                                                 & (self.notes_data.rep.isin(rep_rolls)),
                                                 'skill_{}'.format(unit_idx * 5 + card_idx)] = 1
-                            if has_alternate:
+                            if has_alternate or has_refrain:
                                 self.notes_data.loc[(note_times > left) & (note_times < right)
                                                     & (self.notes_data.rep.isin(rep_rolls)),
                                                     'skill_{}_l'.format(unit_idx * 5 + card_idx)] = left
@@ -628,9 +728,9 @@ class Simulator:
                             # Save a bit more time
                             self.notes_data.loc[(note_times > left) & (note_times <= right),
                                                 'skill_{}'.format(unit_idx * 5 + card_idx)] = 1
-                            if has_alternate:
+                            if has_alternate or has_refrain:
                                 self.notes_data.loc[(note_times > left) & (note_times < right),
                                                     'skill_{}_l'.format(unit_idx * 5 + card_idx)] = left
                                 self.notes_data.loc[(note_times > left) & (note_times <= right),
                                                     'skill_{}_r'.format(unit_idx * 5 + card_idx)] = right
-        return has_sparkle, has_support, has_alternate
+        return has_sparkle, has_support, has_alternate, has_refrain

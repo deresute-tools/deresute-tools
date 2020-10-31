@@ -1,8 +1,6 @@
 from src import customlogger as logger
 from src.db import db
 
-
-
 SKILL_BASE = {1: "Cute Voice",
               2: "Cute Step",
               3: "Cute Makeup",
@@ -110,8 +108,9 @@ SKILL_BASE = {1: "Cute Voice",
               113: "Cinderella Yell",
               114: "Tricolor Ability",
               115: "Cinderella Charm",
-              116: "World Level"
-}
+              116: "World Level",
+              117: "Cinderella Wish",
+              }
 
 logger.debug("Creating chihiro.leader_keywords...")
 

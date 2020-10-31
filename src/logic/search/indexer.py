@@ -45,7 +45,7 @@ class IndexManager:
                     IFNULL(LOWER(sk.keywords), "") as skill,
                     IFNULL(LOWER(lk.keywords), "") as leader,
                     CASE
-                        WHEN cdc.leader_skill_id IN (70,71,72,73,81,82,83,84,104,105,106,113) 
+                        WHEN cdc.leader_skill_id IN (70,71,72,73,81,82,83,84,104,105,106,113,117) 
                         AND cdc.rarity > 6 
                         THEN "fes" 
                         ELSE ""
