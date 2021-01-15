@@ -18,11 +18,11 @@ if __name__ == '__main__':
     unit = Unit.from_list(cards)
 
     live = Live()
-    live.set_music(score_id=int(sys.argv[1]), difficulty=Difficulty.MPLUS)
+    live.set_music(score_id=int(sys.argv[1]), difficulty=Difficulty(int(sys.argv[2])))
     live.set_unit(unit)
     sim = Simulator(live)
     try:
-        n_intervals = int(sys.argv[3])
+        n_intervals = int(sys.argv[4])
     except IndexError:
         n_intervals = 40
     perfect_score, score_array = sim.simulate_theoretical_max(support=113290, n_intervals=n_intervals)
@@ -58,7 +58,7 @@ if __name__ == '__main__':
         return is_subset_sum(set, n - 1, sum, l) or is_subset_sum(set, n - 1, sum - set[n - 1], l + [set[n - 1]])
 
 
-    score_diff = int(sys.argv[2]) - perfect_score.sum()
+    score_diff = int(sys.argv[3]) - perfect_score.sum()
     res = is_subset_sum(abuse_list, len(abuse_list), score_diff, list())
     if res is not None:
         with open("results.txt", 'w') as fw:

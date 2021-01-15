@@ -169,7 +169,7 @@ class Simulator:
         self.notes_data.loc[self.notes_data['note_type'] == NoteType.SLIDE, 'checkpoints'] = True
         for group_id in self.notes_data[self.notes_data['note_type'] == NoteType.SLIDE].groupId.unique():
             group = self.notes_data[
-                (self.notes_data['note_type'] == NoteType.SLIDE) & (self.notes_data['groupId'] == group_id)]
+                (self.notes_data['groupId'] != 0) & (self.notes_data['groupId'] == group_id)]
             self.notes_data.loc[group.iloc[-1].name, 'checkpoints'] = False
             self.notes_data.loc[group.iloc[0].name, 'checkpoints'] = False
 
