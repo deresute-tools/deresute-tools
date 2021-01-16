@@ -95,21 +95,41 @@ class Unit(BaseUnit):
 
         bonuses = np.zeros((5, 3))  # Attributes x Colors
         if len(self._cards) == 6:
-            cards_to_test = [self._cards[0], self._cards[-1]]
+            leaders_to_include = [self._cards[0], self._cards[-1]]
         else:
-            cards_to_test = [self._cards[0]]
-        for card in cards_to_test:
+            leaders_to_include = [self._cards[0]]
+        is_blessed = any(map(lambda _: _.leader.bless, leaders_to_include))
+
+        if is_blessed:
+            agg_func = np.maximum
+            leaders_to_include = self._cards.copy()
+        else:
+            agg_func = np.add
+
+        # Separate into two lists, non reso and reso
+        resos = [card for card in leaders_to_include if card.leader.resonance]
+        for card in resos:
+            leaders_to_include.remove(card)
+
+        for card in leaders_to_include:
             if card is None:
                 continue
             if np.greater_equal(colors, card.leader.min_requirements).all() \
                     and np.less_equal(colors, card.leader.max_requirements).all():
-                if card.leader.unison:
-                    if song_color == card.color:
-                        bonuses += card.leader.song_bonuses
-                        continue
-                if card.leader.resonance and not self.resonance:
-                    continue
-                bonuses += card.leader.bonuses
+                bonuses_to_add = card.leader.bonuses
+                # Unison and correct song color
+                if card.leader.unison and song_color == card.color:
+                    bonuses_to_add = card.leader.song_bonuses
+                bonuses = agg_func(bonuses, bonuses_to_add)
+
+        reso_mask = np.zeros((5,3))
+        for card in resos:
+            # Does not satisfy the resonance constraint
+            if not self.resonance:
+                continue
+            reso_mask += card.leader.bonuses
+        reso_mask = np.clip(reso_mask, a_min=-100, a_max=5000)
+        bonuses += reso_mask
         bonuses = np.clip(bonuses, a_min=-100, a_max=5000)
         return bonuses
 
@@ -134,6 +154,12 @@ class Unit(BaseUnit):
             cards_to_test = [self._cards[0], self._cards[-1]]
         else:
             cards_to_test = [self._cards[0]]
+        for card in cards_to_test:
+            if card is None:
+                continue
+            if card.leader.bless:
+                cards_to_test = self._cards
+                break
         for card in cards_to_test:
             if card is None:
                 continue
