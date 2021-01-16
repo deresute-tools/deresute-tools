@@ -1,4 +1,5 @@
 import time
+from collections import defaultdict
 
 import numpy as np
 
@@ -326,18 +327,23 @@ class Simulator:
         results = self._helper_initialize_skill_activations(times=times, grand=grand,
                                                             time_offset=time_offset,
                                                             fail_simulate=fail_simulate)
-        self.has_sparkle, self.has_support, self.has_alternate, self.has_refrain = results
+        self.has_sparkle, self.has_support, self.has_alternate, self.has_refrain, self.has_magic = results
 
         # In case of Alternate and LS, to save one redundant Alternate evaluation, only evaluate together with LS
-        np_v, np_b = self._helper_initialize_skill_bonuses(grand=grand, sparkle=False,
+        np_v, np_b = self._helper_initialize_skill_bonuses(grand=grand,
+                                                           sparkle=False,
                                                            alternate=self.has_alternate and not self.has_sparkle,
-                                                           refrain=self.has_refrain and not self.has_sparkle)
+                                                           refrain=self.has_refrain and not self.has_sparkle,
+                                                           is_magic=self.has_magic)
         self._helper_evaluate_skill_bonuses(np_v, np_b, grand=grand)
 
         if self.has_sparkle:
-            np_v, np_b = self._helper_initialize_skill_bonuses(grand=grand, sparkle=self.has_sparkle,
+            np_v, np_b = self._helper_initialize_skill_bonuses(grand=grand,
+                                                               np_v=np_v, np_b=np_b,
+                                                               sparkle=self.has_sparkle,
                                                                alternate=self.has_alternate,
-                                                               refrain=self.has_refrain)
+                                                               refrain=self.has_refrain,
+                                                               is_magic=self.has_magic)
             self._helper_evaluate_skill_bonuses(np_v, np_b, grand=grand)
 
     def _helper_evaluate_skill_bonuses(self, np_v, np_b, grand, mutate_df=True):
@@ -424,7 +430,7 @@ class Simulator:
         return skill_bonuses_final
 
     def _helper_initialize_skill_bonuses(self, grand, np_v=None, np_b=None, sparkle=False, alternate=False,
-                                         refrain=False):
+                                         refrain=False, is_magic=False):
         """
         Initializes skill values in DataFrame.
         :param grand: True if GRAND LIVE, else False.
@@ -432,7 +438,7 @@ class Simulator:
         :return: 2-tuple of numpy arrays containing skill values (no boost) and boost values. Both arrays are of shape Notes x Values x Colors x Cards
         """
 
-        def handle_boost(skill):
+        def handle_boost(skill, unit_idx, card_idx):
             if not skill.color_target:
                 targets = [_.value for _ in [Color.CUTE, Color.COOL, Color.PASSION]]
             else:
@@ -440,7 +446,7 @@ class Simulator:
             for _, __ in enumerate(skill.values):
                 np_b[:, _, targets, unit_idx * 5 + card_idx] = __
 
-        def handle_act(skill):
+        def handle_act(skill, unit_idx, idx, color, magic_array=None):
             if skill.act == NoteType.SLIDE:
                 mask = self.notes_data['is_slide']
                 anti_mask = np.invert(mask)
@@ -452,28 +458,36 @@ class Simulator:
                 anti_mask = np.invert(mask)
             else:
                 return
-            np_v[self.notes_data[mask].index, 0, skill.color.value, unit_idx * 5 + card_idx] = skill.v1
-            np_v[self.notes_data[anti_mask].index, 0, skill.color.value, unit_idx * 5 + card_idx] = skill.v0
+            if magic_array is not None:
+                magic_array[self.notes_data[mask].index, 0, idx] = skill.v1
+                magic_array[self.notes_data[anti_mask].index, 0, idx] = skill.v0
+            else:
+                np_v[self.notes_data[mask].index, 0, color, unit_idx * 5 + idx] = skill.v1
+                np_v[self.notes_data[anti_mask].index, 0, color, unit_idx * 5 + idx] = skill.v0
 
-        def handle_sparkle(skill):
+        def handle_sparkle(unit_idx, card_idx, color):
+            card = self.live.unit.all_units[unit_idx].get_card(card_idx)
             trimmed_life = (self.notes_data['life'] // 10).astype(int)
-            np_v[:, 0, skill.color.value, unit_idx * 5 + card_idx] = 0
-            np_v[:, 1, skill.color.value, unit_idx * 5 + card_idx] = trimmed_life.map(
+            np_v[:, 0, color, unit_idx * 5 + card_idx] = 0
+            np_v[:, 1, color, unit_idx * 5 + card_idx] = trimmed_life.map(
                 get_sparkle_bonus(rarity=card.rarity, grand=grand))
 
-        def handle_alternate(all_alternates, all_refrains):
+        def handle_alternate(all_alternates, all_refrains, alt_magics):
             alternate_groups = list()
             for i in range(3):
                 temp = list()
-                for alt in all_alternates:
+                for alt in all_alternates + alt_magics:
                     if i * 5 <= alt < (i + 1) * 5:
                         temp.append(alt)
                 alternate_groups.append(temp)
             for unit_idx, alternates in enumerate(alternate_groups):
                 if len(alternates) == 0:
                     continue
-                non_alternate = list(set(range(unit_idx * 5, unit_idx * 5 + 5)).difference(set(alternates)).difference(
-                    set(all_refrains)))
+                non_alternate = list()
+                for _ in range(unit_idx * 5, unit_idx * 5 + 5):
+                    if _ in alternates or _ in all_refrains:
+                        continue
+                    non_alternate.append(_)
                 alternate_value = np.ceil(np.clip(np_v[:, 0:1, :, non_alternate] - 100, a_min=0, a_max=9000) * 1.5)
                 alternate_value[alternate_value != 0] += 100
                 self.notes_data['alternate_bonus_per_note'] = alternate_value.max(axis=2).max(axis=2)
@@ -489,6 +503,17 @@ class Simulator:
                             self.notes_data.loc[(self.notes_data['note_type'] == note_type) & mask,
                                                 'alternate_bonus_per_note'], axis=0)
                 alternate_value = np.array(self.notes_data['alternate_bonus_per_note'])
+
+                for skill_idx in alternates:
+                    if skill_idx not in alt_magics:
+                        continue
+                    # Remove values for magic alts
+                    skill = self.live.unit.get_card(skill_idx).skill
+                    s_arr = np_v[:, 0, skill.color.value, skill_idx]
+                    c_arr = np_v[:, 1, skill.color.value, skill_idx]
+                    s_arr[s_arr > 0] = 1
+                    c_arr[np.logical_and(s_arr > 0, c_arr == 0)] = 80
+
                 note_count = len(self.live.notes)
                 if "rep" not in self.notes_data:
                     rep = 1
@@ -530,7 +555,11 @@ class Simulator:
             for unit_idx, refrains in enumerate(refrain_groups):
                 if len(refrains) == 0:
                     continue
-                non_refrain = list(set(range(unit_idx * 5, unit_idx * 5 + 5)).difference(set(refrains)))
+                non_refrain = list()
+                for _ in range(unit_idx * 5, unit_idx * 5 + 5):
+                    if _ in refrains or _ in self.magic_set:
+                        continue
+                    non_refrain.append(_)
                 ref_score_value = np.ceil(np.clip(np_v[:, 0:1, :, non_refrain] - 100, a_min=0, a_max=9000))
                 ref_score_value[ref_score_value != 0] += 100
                 ref_combo_value = np.ceil(np.clip(np_v[:, 1:2, :, non_refrain] - 100, a_min=0, a_max=9000))
@@ -607,47 +636,100 @@ class Simulator:
                         local_np_v[:, 1, skill.color.value, skill_idx] = local_np_v[:, 1, skill.color.value,
                                                                          skill_idx] * local_ref_combo_value / 1000
 
-        def null_deactivated_skills():
-            card_range = range(unit_idx * 5, (unit_idx + 1) * 5)
+        def handle_magic_pass_one():
+            for unit_idx, unit in enumerate(self.live.unit.all_units):
+                for magic in self.magic_lists[unit_idx]:
+                    np_mv = np.zeros(
+                        (len(self.notes_data), 4, len(self.magic_copies[unit_idx])))  # Notes x Values x Cards
+                    for magic_idx, magic_copy in enumerate(self.magic_copies[unit_idx]):
+                        skill = unit.get_card(magic_copy).skill
+                        if skill.act:
+                            # color and unit_idx not needed
+                            handle_act(skill, 0, magic_idx, 0, np_mv)
+                        else:
+                            np_mv[:, :, magic_idx] = np_v[:, :, :, unit_idx * 5 + magic_copy].max(axis=2).max(axis=0)
+                        if skill.boost:
+                            np_b[:, :, :, unit_idx * 5 + magic] = np.maximum(
+                                np_b[:, :, :, unit_idx * 5 + magic],
+                                np_b[:, :, :, unit_idx * 5 + magic_copy].max(axis=0))
+                    np_v[:, :, unit.get_card(magic).color.value, unit_idx * 5 + magic] = np_mv.max(axis=2)
+
+        def handle_magic_pass_two():
+            trimmed_life = (self.notes_data['life'] // 10).astype(int)
+            for unit_idx, unit in enumerate(self.live.unit.all_units):
+                for magic_idx, magic_copy in enumerate(self.ls_magic_copies[unit_idx]):
+                    card = unit.get_card(magic_idx)
+                    ls_value = trimmed_life.map(get_sparkle_bonus(rarity=card.rarity, grand=grand))
+                    for magic in self.magic_lists[unit_idx]:
+                        np_v[:, 1, unit.get_card(magic).color.value, unit_idx * 5 + magic] = np.maximum(
+                            np_v[:, 1, unit.get_card(magic).color.value, unit_idx * 5 + magic], ls_value)
+
+        def null_deactivated_skills(unit_idx, card_idx=None):
+            if card_idx is not None:
+                assert isinstance(card_idx, int)
+                card_range = range(unit_idx * 5 + card_idx, unit_idx * 5 + card_idx + 1)
+                idx_range = range(card_idx, card_idx + 1)
+            else:
+                card_range = range(unit_idx * 5, (unit_idx + 1) * 5)
+                idx_range = range(5)
             value_range = 4 if self.has_support else 3
             for i in range(value_range):
                 for j in range(3):
                     np_v[:, i, j, card_range] = \
                         np_v[:, i, j, card_range] \
-                        * self.notes_data[['skill_{}'.format(unit_idx * 5 + _) for _ in range(5)]]
+                        * self.notes_data[['skill_{}'.format(unit_idx * 5 + _) for _ in idx_range]]
                     np_b[:, i, j, card_range] = \
                         np_b[:, i, j, card_range] \
-                        * self.notes_data[['skill_{}'.format(unit_idx * 5 + _) for _ in range(5)]]
+                        * self.notes_data[['skill_{}'.format(unit_idx * 5 + _) for _ in idx_range]]
 
         units = 3 if grand else 1
-        np_v = np.zeros((len(self.notes_data), 4, 3, 5 * units))  # Notes x Values x Colors x Cards
-        np_b = np.zeros((len(self.notes_data), 4, 3, 5 * units))  # Notes x Values x Colors x Cards
+        first_pass = np_v is None and np_b is None
+        if first_pass:
+            np_v = np.zeros((len(self.notes_data), 4, 3, 5 * units))  # Notes x Values x Colors x Cards
+            np_b = np.zeros((len(self.notes_data), 4, 3, 5 * units))  # Notes x Values x Colors x Cards
         alternates = list()
         refrains = list()
         for unit_idx, unit in enumerate(self.live.unit.all_units):
-            unit.convert_motif(grand=grand)
+            if first_pass:
+                unit.convert_motif(grand=grand)
             for card_idx, card in enumerate(unit.all_cards()):
                 skill = card.skill
-                if skill.boost:
-                    handle_boost(skill)
+                if skill.boost and first_pass:
+                    handle_boost(skill, unit_idx, card_idx)
                 else:
-                    if skill.act:
-                        handle_act(skill)
+                    if skill.act and first_pass:
+                        handle_act(skill, unit_idx, card_idx, card.skill.color.value)
                         continue
                     if skill.skill_type == 25 and sparkle:
-                        handle_sparkle(skill)
+                        handle_sparkle(unit_idx, card_idx, card.skill.color.value)
                         continue
                     elif skill.skill_type == 39 and alternate:
                         alternates.append(unit_idx * 5 + card_idx)
                     elif skill.skill_type == 40 and refrain:
                         refrains.append(unit_idx * 5 + card_idx)
-                    for _, __ in enumerate(skill.values):
-                        np_v[:, _, skill.color.value, unit_idx * 5 + card_idx] = __
-            null_deactivated_skills()
+                    if first_pass:
+                        for _, __ in enumerate(skill.values):
+                            np_v[:, _, skill.color.value, unit_idx * 5 + card_idx] = __
+            null_deactivated_skills(unit_idx)
+        if is_magic and first_pass:
+            handle_magic_pass_one()
+            for unit_idx, unit in enumerate(self.live.unit.all_units):
+                for magic in self.magic_lists[unit_idx]:
+                    null_deactivated_skills(unit_idx, magic)
         if alternate:
-            handle_alternate(alternates, refrains)
+            magic_to_check = list()
+            if is_magic:
+                for _ in self.magic_set:
+                    if self.alt_magic_copy[_ // 5]:
+                        magic_to_check.append(_)
+                cached_magic_to_check = dict()
+                for _ in magic_to_check:
+                    cached_magic_to_check[_] = np_v[:, :, self.live.unit.get_card(_).color.value, _].copy()
+            handle_alternate(alternates, refrains, magic_to_check)
         if refrain:
             handle_refrain(refrains)
+        if is_magic and not first_pass:
+            handle_magic_pass_two()
         return np_v, np_b
 
     def _helper_initialize_skill_activations(self, grand, times, time_offset=0.0, fail_simulate=False):
@@ -662,6 +744,12 @@ class Simulator:
         has_alternate = False
         has_support = False
         has_refrain = False
+        has_magic = False
+        self.magic_copies = defaultdict(set)
+        self.ls_magic_copies = defaultdict(set)
+        self.alt_magic_copy = dict()
+        self.magic_lists = defaultdict(list)
+        self.magic_set = set()
 
         if fail_simulate:
             logger.debug("Simulating fail play")
@@ -677,13 +765,27 @@ class Simulator:
                     has_alternate = True
                 elif skill.skill_type == 40:
                     has_refrain = True
+                elif skill.skill_type == 41:
+                    has_magic = True
                 if skill.v3 > 0 and not skill.boost:
                     # Use for early termination
                     has_support = True
+
         for unit_idx, unit in enumerate(self.live.unit.all_units):
             for card_idx, card in enumerate(unit.all_cards()):
                 skill = card.skill
                 probability = self.live.get_probability(unit_idx * 5 + card_idx)
+
+                if probability > 0 and skill.skill_type != 41 and skill.skill_type != 40:
+                    if skill.skill_type == 25:
+                        self.ls_magic_copies[unit_idx].add(card_idx)
+                    elif skill.skill_type == 39:
+                        self.alt_magic_copy[unit_idx] = True
+                    else:
+                        self.magic_copies[unit_idx].add(card_idx)
+                if probability > 0 and skill.skill_type == 41:
+                    self.magic_lists[unit_idx].append(card_idx)
+
                 skill_times = int((self.notes_data.iloc[-1].sec - 3) // skill.interval)
                 if skill_times == 0:
                     self.notes_data['skill_{}'.format(unit_idx * 5 + card_idx)] = 0
@@ -733,4 +835,13 @@ class Simulator:
                                                     'skill_{}_l'.format(unit_idx * 5 + card_idx)] = left
                                 self.notes_data.loc[(note_times > left) & (note_times <= right),
                                                     'skill_{}_r'.format(unit_idx * 5 + card_idx)] = right
-        return has_sparkle, has_support, has_alternate, has_refrain
+        if not has_magic:
+            self.magic_copies = dict()
+            self.ls_magic_copies = dict()
+        else:
+            for unit_idx, unit in enumerate(self.live.unit.all_units):
+                for magic in self.magic_lists[unit_idx]:
+                    self.magic_set.add(unit_idx * 5 + magic)
+                    self.notes_data['magic_{}'.format(unit_idx * 5 + magic)] = self.notes_data[
+                        'skill_{}'.format(unit_idx * 5 + magic)]
+        return has_sparkle, has_support, has_alternate, has_refrain, has_magic

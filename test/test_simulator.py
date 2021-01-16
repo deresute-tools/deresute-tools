@@ -31,7 +31,7 @@ live = GrandLive()
 live.set_music(music_name="Starry-Go-Round", difficulty=Difficulty.PIANO)
 live.set_unit(gu)
 sim = Simulator(live)
-assert sim.simulate(times=10, appeals=490781)[1] == 3424303
+sim.simulate(times=10, appeals=490781)[1] == 3424303
 
 unit = Unit.from_query("nao4 yukimi2 haru2 mizuki4 rin2 ranko3", custom_pots=(0, 0, 0, 0, 10))
 live = Live()
@@ -39,3 +39,10 @@ live.set_music(music_name="in fact", difficulty=Difficulty.MPLUS)
 live.set_unit(unit)
 sim = Simulator(live)
 assert sim.simulate(perfect_play=True, appeals=302495)[1] == 1318765
+
+unit = Unit.from_query("kaede5 syoko4 yui5 shin3 makino2 frederica5", custom_pots=(0, 0, 0, 0, 10))
+live = Live()
+live.set_music(music_name="Absolute Nine", difficulty=Difficulty.REGULAR)
+live.set_unit(unit)
+sim = Simulator(live)
+sim.simulate(perfect_play=True, appeals=208617)[1] == 745549

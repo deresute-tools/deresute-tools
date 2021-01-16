@@ -37,6 +37,7 @@ SKILL_BASE = {
     38: {"id": 38, "name": "Tricolor Symphony", "keywords": ["sym"], "color": (255, 0, 238)},
     39: {"id": 39, "name": "Alternate", "keywords": ["alt"], "color": (158, 158, 158)},
     40: {"id": 40, "name": "Refrain", "keywords": ["ref"], "color": (100, 26, 20)},
+    41: {"id": 41, "name": "Magic", "keywords": ["mag"], "color": (185, 242, 136)},
 }
 
 SKILL_COLOR_BY_NAME = {
