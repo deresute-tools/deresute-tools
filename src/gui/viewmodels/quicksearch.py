@@ -6,9 +6,9 @@ from src.logic.search import search_engine
 
 
 class ShortcutQuickSearchWidget(QLineEdit):
-    def __init__(self, parent, card_model, *__args):
+    def __init__(self, parent, base_model, *__args):
         super().__init__(parent, *__args)
-        self.card_model = card_model
+        self.card_model = base_model
 
     def keyPressEvent(self, event):
         key = event.key()
@@ -91,9 +91,14 @@ class QuickSearchModel:
         self.options['partial_match'].setToolTip("This option might significantly increase query time!")
 
 
+class SongShortcutQuickSearchWidget(ShortcutQuickSearchWidget):
+    def keyPressEvent(self, event):
+        super(ShortcutQuickSearchWidget, self).keyPressEvent(event)
+
+
 class SongQuickSearchView:
     def __init__(self, main, song_model):
-        self.widget = ShortcutQuickSearchWidget(main, song_model)
+        self.widget = SongShortcutQuickSearchWidget(main, song_model)
         self.widget.setMaximumSize(QSize(2000, 25))
         self.model = None
 
