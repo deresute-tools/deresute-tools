@@ -364,7 +364,20 @@ class Simulator:
         np_b[:, :3, :, :][np_b[:, :3, :, :] != 0] = np.clip(np_b[:, :3, :, :][np_b[:, :3, :, :] != 0] - 1000,
                                                             a_min=-9000, a_max=9000)
         # Pre-calculate total/max boosts to reduce redundant computations
-        np_b_sum = np_b.sum(axis=3)
+        if all(map(lambda _: len(_) <= 1, self.magic_lists.values())):
+            np_b_sum = np_b.sum(axis=3)
+        else:
+            np_b_sum = np.zeros((len(self.notes_data), 4, 3))
+            for unit_idx, magics in self.magic_lists.items():
+                if len(magics) <= 1:
+                    unit_sum = np_b[:, :, :, unit_idx * 5:(unit_idx + 1) * 5].sum(axis=3)
+                else:
+                    offset_magics = [_ + unit_idx * 5 for _ in magics]
+                    non_magics = [_ + unit_idx * 5 for _ in range(5) if _ not in magics]
+                    magic_b_sum = np_b[:, :, :, offset_magics].max(axis=3)
+                    non_magic_b_sum = np_b[:, :, :, non_magics].sum(axis=3)
+                    unit_sum = np.add(magic_b_sum, non_magic_b_sum)
+                np_b_sum = np.add(np_b_sum, unit_sum)
         np_b_max = np_b.max(axis=3)
 
         # Apply boosts to values
@@ -392,7 +405,20 @@ class Simulator:
                     mask = np_v[:, 3, :, card_idx] == 0
                     np_v[:, 3, :, card_idx] += boost_array[:, 3]
                     np_v[:, 3, :, card_idx][mask] = 0
+
+            magics = self.magic_lists[unit_idx]
+            if unit.resonance and len(magics) > 1:
+                offset_magics = [_ + unit_idx * 5 for _ in magics]
+                stacking_df = self.notes_data[["skill_{}".format(_) for _ in offset_magics]]
+                stacking_mask = stacking_df.sum(axis=1) > 1
+                stacking_mask = np.array(stacking_mask).nonzero()[0]
+                stacked_magic_values = np_v[:, :, :, offset_magics].max(axis=3).max(axis=2)
+                stacked_magic_values = stacked_magic_values[stacking_mask]
+                for _ in offset_magics[1:]:
+                    np_v[stacking_mask, :, :, _] = 0
+                np_v[stacking_mask, :, unit.get_card(magics[0]).color.value, offset_magics[0]] = stacked_magic_values
             np_vu[:, :, :, unit_idx] = agg_func(np_v[:, :, :, unit_idx * 5: (unit_idx + 1) * 5], axis=3)
+
             if self.has_alternate:
                 min_tensor = np_v[:, :, :, unit_idx * 5: (unit_idx + 1) * 5].min(axis=3)
                 mask = np.logical_and(np_vu[:, :, :, unit_idx] == 0, min_tensor < 0)
@@ -730,6 +756,9 @@ class Simulator:
             handle_refrain(refrains)
         if is_magic and not first_pass:
             handle_magic_pass_two()
+            for unit_idx, unit in enumerate(self.live.unit.all_units):
+                for magic in self.magic_lists[unit_idx]:
+                    null_deactivated_skills(unit_idx, magic)
         return np_v, np_b
 
     def _helper_initialize_skill_activations(self, grand, times, time_offset=0.0, fail_simulate=False):

@@ -45,4 +45,12 @@ live = Live()
 live.set_music(music_name="Absolute Nine", difficulty=Difficulty.REGULAR)
 live.set_unit(unit)
 sim = Simulator(live)
-sim.simulate(perfect_play=True, appeals=208617)[1] == 745549
+assert sim.simulate(perfect_play=True, appeals=208617)[1] == 745549
+
+unit = Unit.from_query("kaede5 rin5 riina5 yasuha1 nono4 karen4", custom_pots=(0, 0, 0, 0, 10))
+unit.get_card(5).li = 50
+live = Live()
+live.set_music(music_name="バベル", difficulty=Difficulty.MASTER)
+live.set_unit(unit)
+sim = Simulator(live)
+assert sim.simulate(perfect_play=True, appeals=217911)[1] == 1412638
