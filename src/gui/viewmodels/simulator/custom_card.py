@@ -1,10 +1,11 @@
 from PyQt5 import QtWidgets
+from PyQt5.QtGui import QIntValidator, QDoubleValidator
 from PyQt5.QtWidgets import QAbstractItemView
 
 from src.gui.viewmodels.utils import NumericalTableWidgetItem
 from src.static.color import Color
 
-HEADERS = ["Color ID",
+HEADERS = ["Color",
            "Vocal", "Dance", "Visual", "Life", "Skill Duration", "Skill Interval",
            "Vocal Potential", "Dance Potential", "Visual Potential", "Life Potential", "Skill Potential",
            "Star Rank"]
@@ -79,6 +80,7 @@ class CustomCardModel:
         v = self.view.widget.item(r_idx, 0).text()
         if r_idx == 0:
             self.card.color = Color(int(v))
+            self.card.skill.color = Color(int(v))
         elif r_idx == 1:
             self.card.base_vo = float(v)
         elif r_idx == 2:

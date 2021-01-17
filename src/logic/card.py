@@ -83,8 +83,8 @@ class Card:
                    da=card_data['dance_max'] + bonuses[2],
                    li=card_data['hp_max'] + bonuses[3],
                    base_vo=card_data['vocal_max'],
-                   base_da=card_data['visual_max'],
-                   base_vi=card_data['dance_max'],
+                   base_vi=card_data['visual_max'],
+                   base_da=card_data['dance_max'],
                    base_li=card_data['hp_max'],
                    ra=card_data['rarity'],
                    vo_pots=potentials[0],
@@ -121,8 +121,8 @@ class Card:
                             SELECT value_rare_{} FROM potential_value_{} WHERE potential_level = ?
                         """.format(rarity, key), [potentials[idx]])[0]
         self.vo = self.base_vo + bonuses[0]
-        self.vi = self.base_da + bonuses[1]
-        self.da = self.base_vi + bonuses[2]
+        self.vi = self.base_vi + bonuses[1]
+        self.da = self.base_da + bonuses[2]
         self.li = self.base_li + bonuses[3]
         self.sk.probability = self.sk.max_probability + bonuses[4]
 
