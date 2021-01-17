@@ -38,12 +38,12 @@ def import_from_gameid(game_id):
         for card in cards:
             card_dict[card] += 1
         for card_id, number in card_dict.items():
-            z = db.cachedb.execute_and_fetchone("SELECT number FROM owned_card WHERE card_id = ?", [card_id])
-            if z[0] < number:
+            z = list(zip(*db.cachedb.execute_and_fetchall("SELECT number FROM owned_card WHERE card_id = ? OR card_id = ?", [card_id, card_id - 1])))[0]
+            if z[0] + z[1] < number:
                 db.cachedb.execute("""
                     INSERT OR REPLACE INTO owned_card (card_id, number)
                     VALUES (?,?)
-                """, [card_id, number])
+                """, [card_id, number - z[0]])
         db.cachedb.commit()
         logger.info("Imported {} cards successfully".format(len(card_dict)))
         return list(card_dict.keys())
