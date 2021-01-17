@@ -47,6 +47,8 @@ class DroppableCalculatorWidget(QTableWidget):
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Delete:
             self.calculator_view.delete_unit()
+        if QApplication.keyboardModifiers() == Qt.ControlModifier and event.key() == Qt.Key_D:
+            self.calculator_view.duplicate_unit()
         else:
             super().keyPressEvent(event)
 
@@ -134,6 +136,16 @@ class CalculatorView:
     def delete_unit(self):
         selected_row = self.widget.selectionModel().selectedRows()[0].row()
         self.widget.removeRow(selected_row)
+
+    def duplicate_unit(self):
+        selected_row = self.widget.selectionModel().selectedRows()[0].row()
+        cell_widget = self.widget.cellWidget(selected_row, 0)
+        card_ids = cell_widget.card_ids
+        if len(card_ids) == 15:
+            for unit_idx in range(3):
+                self.add_unit(card_ids[unit_idx * 5 : (unit_idx + 1) * 5])
+        else:
+            self.add_unit(card_ids)
 
     def clear_units(self):
         for i in reversed(range(self.widget.rowCount())):
