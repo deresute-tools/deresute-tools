@@ -78,8 +78,6 @@ class Simulator:
         if perfect_play:
             times = 1
             logger.debug("Only need 1 simulation for perfect play.")
-        if times == 1:
-            perfect_play = True
         res = self._simulate(times, appeals=appeals, extra_bonus=extra_bonus, support=support,
                              perfect_play=perfect_play,
                              chara_bonus_set=chara_bonus_set, chara_bonus_value=chara_bonus_value,

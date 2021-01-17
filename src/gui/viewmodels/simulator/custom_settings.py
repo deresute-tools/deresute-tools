@@ -17,6 +17,7 @@ class CustomSettingsView:
         self.custom_appeal_checkbox = QtWidgets.QCheckBox("Total Appeal", self.main)
         self.custom_appeal_checkbox.setToolTip("This option will ignore support appeal.")
         self.custom_support_checkbox = QtWidgets.QCheckBox("Support Appeal", self.main)
+        self.custom_perfect_play_checkbox = QtWidgets.QCheckBox("Perfect Simulation", self.main)
         self.custom_appeal_text = QtWidgets.QLineEdit(self.main)
         self.custom_appeal_text.setValidator(QIntValidator(0, 1E6, None))  # Only number allowed
         self.custom_support_text = QtWidgets.QLineEdit(self.main)
@@ -29,22 +30,24 @@ class CustomSettingsView:
         self._setup_valid_potential_values()
 
     def _setup_positions(self):
-        self.layout.addWidget(self.custom_potential_checkbox, 2, 0, 1, 3)
-        self.layout.addWidget(self.custom_appeal_checkbox, 2, 4, 1, 1)
-        self.layout.addWidget(self.custom_support_checkbox, 2, 5, 1, 1)
-        self.layout.addWidget(self.custom_appeal_text, 1, 4, 1, 1)
-        self.layout.addWidget(self.custom_support_text, 1, 5, 1, 1)
+        self.layout.addWidget(self.custom_perfect_play_checkbox, 2, 0, 1, 3)
+        self.layout.addWidget(self.custom_potential_checkbox, 2, 3, 1, 2)
+        self.layout.addWidget(self.custom_appeal_checkbox, 2, 5, 1, 1)
+        self.layout.addWidget(self.custom_support_checkbox, 2, 6, 1, 1)
+        self.layout.addWidget(self.custom_appeal_text, 1, 5, 1, 1)
+        self.layout.addWidget(self.custom_support_text, 1, 6, 1, 1)
         self.layout.addWidget(self.custom_vocal, 1, 0, 1, 1)
         self.layout.addWidget(self.custom_dance, 1, 1, 1, 1)
         self.layout.addWidget(self.custom_visual, 1, 2, 1, 1)
         self.layout.addWidget(self.custom_life, 1, 3, 1, 1)
-        self.layout.addWidget(self.custom_skill, 2, 3, 1, 1)
+        self.layout.addWidget(self.custom_skill, 1, 4, 1, 1)
         self.layout.setColumnStretch(0, 1)
         self.layout.setColumnStretch(1, 1)
         self.layout.setColumnStretch(2, 1)
         self.layout.setColumnStretch(3, 1)
         self.layout.setColumnStretch(4, 1)
         self.layout.setColumnStretch(5, 1)
+        self.layout.setColumnStretch(6, 1)
 
     def _setup_valid_potential_values(self):
         for key, combobox in zip(
@@ -94,3 +97,6 @@ class CustomSettingsModel:
         if self.view.custom_support_text.text() == "":
             return None
         return int(self.view.custom_support_text.text())
+
+    def get_perfect_play(self):
+        return self.view.custom_perfect_play_checkbox.isChecked()

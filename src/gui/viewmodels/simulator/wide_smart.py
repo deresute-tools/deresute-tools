@@ -160,11 +160,13 @@ class MainView:
             return
         times = self.get_times()
         all_cards = self.get_table_model().get_all_cards()
+        perfect_play = self.custom_settings_model.get_perfect_play()
         custom_pots = self.custom_settings_model.get_custom_pots()
         appeals = self.custom_settings_model.get_appeals()
         support = self.custom_settings_model.get_support()
         extra_bonus, special_option, special_value = self.custom_bonus_model.get_bonus()
         self.model.simulate_internal(
+            perfect_play=perfect_play,
             score_id=score_id, diff_id=diff_id, times=times, all_cards=all_cards, custom_pots=custom_pots,
             appeals=appeals, support=support, extra_bonus=extra_bonus,
             special_option=special_option, special_value=special_value,
@@ -181,9 +183,8 @@ class MainModel:
     def __init__(self, view):
         self.view = view
 
-    def simulate_internal(self, score_id, diff_id, times, all_cards, custom_pots, appeals, support, extra_bonus,
-                          special_option, special_value,
-                          row=None):
+    def simulate_internal(self, perfect_play, score_id, diff_id, times, all_cards, custom_pots, appeals, support,
+                          extra_bonus, special_option, special_value, row=None):
         results = list()
         if len(all_cards) == 0:
             logger.info("Nothing to simulate")
@@ -211,9 +212,9 @@ class MainModel:
 
             live.set_unit(unit)
             sim = Simulator(live)
-            results.append(sim.simulate(times=times, appeals=appeals, extra_bonus=extra_bonus, support=support,
-                                        special_option=special_option, special_value=special_value,
-                                        perfect_play=False))
+            results.append(sim.simulate(perfect_play=perfect_play,
+                                        times=times, appeals=appeals, extra_bonus=extra_bonus, support=support,
+                                        special_option=special_option, special_value=special_value))
         self.process_results(results, row)
 
     def process_results(self, results, row=None):
