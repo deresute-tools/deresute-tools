@@ -395,6 +395,14 @@ class Live(BaseLive):
     def get_chara_bonus_set(self):
         if self.chara_bonus_set:
             return self.chara_bonus_set
-        self.chara_bonus_set = set(
-            list(zip(*db.masterdb.execute_and_fetchall("SELECT chara_id FROM carnival_performer_idol")))[0])
+        self.chara_bonus_set = Live.static_get_chara_bonus_set()
         return self.chara_bonus_set
+
+    @classmethod
+    def static_get_chara_bonus_set(cls, get_name=False):
+        id_set = set(list(zip(*db.masterdb.execute_and_fetchall("SELECT chara_id FROM carnival_performer_idol")))[0])
+        if get_name:
+            return set(list(zip(*db.cachedb.execute_and_fetchall(
+                "SELECT full_name FROM chara_cache WHERE chara_id IN ({})".format(",".join(map(str, id_set))))))[0])
+        else:
+            return id_set

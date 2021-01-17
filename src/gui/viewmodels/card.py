@@ -1,5 +1,5 @@
 from PyQt5.QtCore import QSize, QMimeData, Qt, QPoint
-from PyQt5.QtGui import QDrag, QPixmap, QPainter, QColor, QBrush
+from PyQt5.QtGui import QDrag, QPixmap, QPainter, QColor
 from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QComboBox, QAbstractItemView, QApplication
 
 from settings import IMAGE_PATH64, IMAGE_PATH, IMAGE_PATH32
@@ -7,6 +7,7 @@ from src import customlogger as logger
 from src.db import db
 from src.gui.viewmodels.mime_headers import CARD
 from src.gui.viewmodels.utils import ImageWidget, NumericalTableWidgetItem
+from src.logic.live import Live
 from src.logic.profile import card_storage
 from src.network import meta_updater
 from src.static.skill import SKILL_COLOR_BY_NAME
@@ -269,6 +270,18 @@ class CardModel:
             logger.info("No card at index {}".format(idx))
             return
         self.calculator_view.get_table_view().push_card(int(cell_widget.text()))
+
+    def highlight_event_cards(self, checked):
+        highlight_set = Live.static_get_chara_bonus_set(get_name=True)
+        for r_idx in range(self.view.widget.rowCount()):
+            if self.view.widget.item(r_idx, 5).text() not in highlight_set:
+                continue
+            for c_idx in range(4,5):
+                item = self.view.widget.item(r_idx, c_idx)
+                if checked:
+                    item.setBackground(QColor(50, 100, 100, 80))
+                else:
+                    item.setBackground(QColor(0, 0, 0, 0))
 
 
 class IconLoaderView:

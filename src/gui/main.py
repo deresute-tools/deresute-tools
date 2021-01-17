@@ -1,7 +1,7 @@
 from PyQt5.QtCore import QMetaObject, QRect, QCoreApplication, Qt
 from PyQt5.QtGui import QIntValidator, QIcon
 from PyQt5.QtWidgets import QWidget, QGridLayout, QVBoxLayout, QHBoxLayout, QTabWidget, QPushButton, QMenuBar, \
-    QMenu, QStatusBar, QAction, QApplication, QMainWindow, QLineEdit
+    QMenu, QStatusBar, QAction, QApplication, QMainWindow, QLineEdit, QCheckBox
 
 from chihiro import ROOT_DIR
 from src import customlogger as logger
@@ -125,6 +125,10 @@ class UiMainWindow:
         self.quicksearch_view.set_model(self.quicksearch_model)
         self.card_quicksearch_layout.addLayout(self.quicksearch_layout)
         self.quicksearch_layout.addWidget(self.quicksearch_view.widget)
+        self.highlight_checkbox = QCheckBox(self.central_widget)
+        self.highlight_checkbox.setText("Highlight Carnival Idols")
+        self.highlight_checkbox.clicked.connect(lambda _: self.card_model.highlight_event_cards(_))
+        self.quicksearch_layout.addWidget(self.highlight_checkbox)
         self.quicksearch_model.add_options(self.quicksearch_layout, self.central_widget)
 
         # Then icon loader MV since it makes use of the card model
