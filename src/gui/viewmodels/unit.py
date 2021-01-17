@@ -80,7 +80,7 @@ class UnitWidget(QWidget):
         self.unitName.setText(unit_name)
 
     def set_card(self, idx, card_id):
-        if idx == 5:
+        if idx == 5 and len(self.cards) != 15:
             custom_pots = (10,10,10,0,5)
         else:
             custom_pots = None
