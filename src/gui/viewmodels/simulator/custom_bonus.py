@@ -141,6 +141,7 @@ class CustomBonusModel:
         elif appeal_idx == APPEAL_PRESETS["Vocal Groove"] \
                 or appeal_idx == APPEAL_PRESETS["Dance Groove"] \
                 or appeal_idx == APPEAL_PRESETS["Visual Groove"]:
+            self.clear_bonus_template()
             self.apply_groove_bonus(appeal_idx, color_idx)
             return
         elif appeal_idx == APPEAL_PRESETS["Vocal Only"]:
