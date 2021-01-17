@@ -4,6 +4,10 @@ from src.db import db
 from src.network import kirara_query
 from src.static.rarity import Rarity
 
+ALIASES = {
+    "santaclaus": "eve",
+    "anastasia": "anya"
+}
 
 def get_chara_dict():
     if not db.cachedb.execute_and_fetchone("""
@@ -38,6 +42,8 @@ def generate_short_names():
         if chara_id not in chara_data_dict:
             continue
         chara_name = chara_data_dict[chara_id]
+        if chara_name in ALIASES:
+            chara_name = ALIASES[chara_name]
         card_ids = card_ids.split(",")
         card_rarities = card_rarities.split(",")
         card_rarities = list(map(lambda x: Rarity(int(x)), card_rarities))
@@ -58,7 +64,7 @@ def generate_short_names():
             temp.append(short_name)
         for card_id, card_rarity, short_name in zip(card_ids, card_rarities, temp):
             db.cachedb.execute("""
-                INSERT OR IGNORE INTO card_name_cache (card_id,chara_id,card_rarity,card_short_name)
+                INSERT OR REPLACE INTO card_name_cache (card_id,chara_id,card_rarity,card_short_name)
                 VALUES (?,?,?,?)
             """, [card_id, chara_id, card_rarity.value, short_name])
     db.cachedb.commit()
