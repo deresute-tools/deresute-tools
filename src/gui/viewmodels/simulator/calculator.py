@@ -47,8 +47,10 @@ class DroppableCalculatorWidget(QTableWidget):
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Delete:
             self.calculator_view.delete_unit()
-        if QApplication.keyboardModifiers() == Qt.ControlModifier and event.key() == Qt.Key_D:
-            self.calculator_view.duplicate_unit()
+        if QApplication.keyboardModifiers() == (Qt.ShiftModifier | Qt.ControlModifier) and event.key() == Qt.Key_D:
+            self.calculator_view.duplicate_unit(True)
+        elif QApplication.keyboardModifiers() == Qt.ControlModifier and event.key() == Qt.Key_D:
+            self.calculator_view.duplicate_unit(False)
         else:
             super().keyPressEvent(event)
 
@@ -137,15 +139,19 @@ class CalculatorView:
         selected_row = self.widget.selectionModel().selectedRows()[0].row()
         self.widget.removeRow(selected_row)
 
-    def duplicate_unit(self):
+    def duplicate_unit(self, custom_card_data=False):
         selected_row = self.widget.selectionModel().selectedRows()[0].row()
         cell_widget = self.widget.cellWidget(selected_row, 0)
         card_ids = cell_widget.card_ids
-        if len(card_ids) == 15:
-            for unit_idx in range(3):
-                self.add_unit(card_ids[unit_idx * 5 : (unit_idx + 1) * 5])
-        else:
-            self.add_unit(card_ids)
+        self.add_unit(card_ids)
+        if custom_card_data:
+            cloned_card_internals = cell_widget.clone_internal()
+            new_unit = self.widget.cellWidget(self.widget.rowCount() - 1, 0)
+            new_unit.cards_internal = cloned_card_internals
+            for card in cloned_card_internals:
+                if card is None:
+                    continue
+                card.refresh_values()
 
     def clear_units(self):
         for i in reversed(range(self.widget.rowCount())):

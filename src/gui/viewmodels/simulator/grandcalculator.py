@@ -89,6 +89,11 @@ class GrandCalculatorView(CalculatorView):
     def add_unit(self, cards):
         if len(cards) == 6:
             cards = cards[:5]
+        if len(cards) == 15:
+            # Duplicate unit
+            self.add_empty_unit()
+            self.set_unit(row=self.widget.rowCount() - 1, unit=0, cards=cards)
+            return
         for r in range(self.widget.rowCount()):
             card_ids = self.widget.cellWidget(r, 0).card_ids
             for u_id in range(3):
