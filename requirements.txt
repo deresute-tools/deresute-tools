@@ -1,7 +1,7 @@
 lz4==3.0.2
 numpy==1.18.1
 pandas==1.0.1
-Pillow==8.1.0
+Pillow==7.0.0
 PyQt5==5.14.1
 requests==2.23.0
 Whoosh==2.7.4
