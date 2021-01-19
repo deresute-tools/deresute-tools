@@ -174,7 +174,9 @@ class MainView:
         )
 
     def display_results(self, results, row=None):
+        self.get_table_view().widget.setSortingEnabled(False)
         self.get_table_view().display_results(results, row=row)
+        self.get_table_view().widget.setSortingEnabled(True)
 
 
 class MainModel:
