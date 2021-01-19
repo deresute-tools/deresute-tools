@@ -125,6 +125,7 @@ class Card:
         self.da = self.base_da + bonuses[2]
         self.li = self.base_li + bonuses[3]
         self.sk.probability = self.sk.max_probability + bonuses[4]
+        self.sk.cached_probability = self.sk.probability
 
     @property
     def vocal(self):

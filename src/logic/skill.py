@@ -32,6 +32,7 @@ class Skill:
         self.color = color
         self.duration = duration
         self.probability = probability + bonus_skill
+        self.cached_probability = self.probability
         self.max_probability = probability
         self.interval = interval
         self.v0, self.v1, self.v2, self.v3 = tuple(values)

@@ -828,12 +828,9 @@ class Simulator:
                     for skill_activation, skill_range in enumerate(skills):
                         left, right = skill_range
                         self.notes_data.loc[(note_times > left) & (note_times <= right),
-                                            'skill_{}'.format(unit_idx * 5 + card_idx)] = 1
-                        if has_alternate or has_refrain:
-                            self.notes_data.loc[(note_times > left) & (note_times < right),
-                                                'skill_{}_l'.format(unit_idx * 5 + card_idx)] = left
-                            self.notes_data.loc[(note_times > left) & (note_times <= right),
-                                                'skill_{}_r'.format(unit_idx * 5 + card_idx)] = right
+                                            'skill_{}'.format(unit_idx * 5 + card_idx)] = 1 if probability > 0 else 0
+                        self._helper_fill_lr_time_alt_ref(card_idx, has_alternate, has_refrain, left,
+                                                          note_times, right, unit_idx)
                 else:
                     note_times = self.notes_data.sec + np.random.random(len(self.notes_data)) * 0.06 - 0.03
                     self.notes_data['skill_{}'.format(unit_idx * 5 + card_idx)] = 0
@@ -846,22 +843,14 @@ class Simulator:
                             self.notes_data.loc[(note_times > left) & (note_times <= right)
                                                 & (self.notes_data.rep.isin(rep_rolls)),
                                                 'skill_{}'.format(unit_idx * 5 + card_idx)] = 1
-                            if has_alternate or has_refrain:
-                                self.notes_data.loc[(note_times > left) & (note_times < right)
-                                                    & (self.notes_data.rep.isin(rep_rolls)),
-                                                    'skill_{}_l'.format(unit_idx * 5 + card_idx)] = left
-                                self.notes_data.loc[(note_times > left) & (note_times <= right)
-                                                    & (self.notes_data.rep.isin(rep_rolls)),
-                                                    'skill_{}_r'.format(unit_idx * 5 + card_idx)] = right
+                            self._helper_fill_lr_time_alt_ref(card_idx, has_alternate, has_refrain, left, note_times,
+                                                              right, unit_idx, rep_rolls=rep_rolls)
                         else:
                             # Save a bit more time
                             self.notes_data.loc[(note_times > left) & (note_times <= right),
                                                 'skill_{}'.format(unit_idx * 5 + card_idx)] = 1
-                            if has_alternate or has_refrain:
-                                self.notes_data.loc[(note_times > left) & (note_times < right),
-                                                    'skill_{}_l'.format(unit_idx * 5 + card_idx)] = left
-                                self.notes_data.loc[(note_times > left) & (note_times <= right),
-                                                    'skill_{}_r'.format(unit_idx * 5 + card_idx)] = right
+                            self._helper_fill_lr_time_alt_ref(card_idx, has_alternate, has_refrain, left, note_times,
+                                                              right, unit_idx)
         if not has_magic:
             self.magic_copies = dict()
             self.ls_magic_copies = dict()
@@ -872,3 +861,15 @@ class Simulator:
                     self.notes_data['magic_{}'.format(unit_idx * 5 + magic)] = self.notes_data[
                         'skill_{}'.format(unit_idx * 5 + magic)]
         return has_sparkle, has_support, has_alternate, has_refrain, has_magic
+
+    def _helper_fill_lr_time_alt_ref(self, card_idx, has_alternate, has_refrain, left, note_times, right,
+                                     unit_idx, rep_rolls=None):
+        if rep_rolls is not None:
+            rep_rolls_check = self.notes_data.rep.isin(rep_rolls)
+        else:
+            rep_rolls_check = True
+        if has_alternate or has_refrain:
+            self.notes_data.loc[(note_times > left) & (note_times < right) & rep_rolls_check,
+                                'skill_{}_l'.format(unit_idx * 5 + card_idx)] = left
+            self.notes_data.loc[(note_times > left) & (note_times <= right) & rep_rolls_check,
+                                'skill_{}_r'.format(unit_idx * 5 + card_idx)] = right

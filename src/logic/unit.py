@@ -143,6 +143,7 @@ class Unit(BaseUnit):
         for card in self.all_cards(guest=False):
             if card is None:
                 continue
+            card.skill.probability = card.skill.cached_probability
             if np.greater_equal(colors, card.skill.min_requirements).all() \
                     and np.less_equal(colors, card.skill.max_requirements).all():
                 continue
