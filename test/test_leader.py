@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from src.logic.leader import Leader
+from logic.leader import Leader
 
 
 class TestLeader(unittest.TestCase):

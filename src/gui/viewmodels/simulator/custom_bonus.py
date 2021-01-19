@@ -4,7 +4,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIntValidator
 from PyQt5.QtWidgets import QTableWidgetItem
 
-from src.static.appeal_presets import APPEAL_PRESETS, COLOR_PRESETS
+from static.appeal_presets import APPEAL_PRESETS, COLOR_PRESETS
 
 
 class CustomBonusView:

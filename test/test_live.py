@@ -1,10 +1,10 @@
 import unittest
 
-from src.exceptions import NoLiveFoundException
-from src.logic.card import Card
-from src.logic.live import Live
-from src.logic.unit import Unit
-from src.static.song_difficulty import Difficulty
+from exceptions import NoLiveFoundException
+from logic.card import Card
+from logic.live import Live
+from logic.unit import Unit
+from static.song_difficulty import Difficulty
 
 
 class TestLive(unittest.TestCase):

@@ -6,12 +6,12 @@ from io import StringIO
 import pandas as pd
 import requests
 
+import customlogger as logger
+from db import db
+from logic.live import classify_note
+from network import meta_updater
 from settings import REMOTE_TRANSLATED_SONG_URL, REMOTE_CACHE_SCORES_URL, MUSICSCORES_PATH
-from src import customlogger as logger
-from src.db import db
-from src.logic.live import classify_note
-from src.network import meta_updater
-from src.static.note_type import NoteType
+from static.note_type import NoteType
 
 BLACKLIST = "1901,1902,1903,1904,90001"
 

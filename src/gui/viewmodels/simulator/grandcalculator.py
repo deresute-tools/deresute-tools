@@ -4,11 +4,11 @@ from PyQt5.QtCore import QSize, Qt, QMimeData
 from PyQt5.QtGui import QDrag
 from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QApplication
 
+import customlogger as logger
+from gui.viewmodels.mime_headers import CALCULATOR_GRANDUNIT
+from gui.viewmodels.simulator.calculator import CalculatorView, DroppableCalculatorWidget
+from gui.viewmodels.unit import UnitWidget, UnitCard
 from settings import IMAGE_PATH32
-from src import customlogger as logger
-from src.gui.viewmodels.mime_headers import CALCULATOR_GRANDUNIT
-from src.gui.viewmodels.simulator.calculator import CalculatorView, DroppableCalculatorWidget
-from src.gui.viewmodels.unit import UnitWidget, UnitCard
 
 
 class GrandCalculatorUnitWidget(UnitWidget):

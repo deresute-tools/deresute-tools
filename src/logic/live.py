@@ -5,16 +5,16 @@ from collections import OrderedDict
 import numpy as np
 import pandas as pd
 
+import customlogger as logger
+from db import db
+from exceptions import NoLiveFoundException
+from logic.search import card_query
+from logic.unit import BaseUnit, Unit
 from settings import MUSICSCORES_PATH
-from src import customlogger as logger
-from src.db import db
-from src.exceptions import NoLiveFoundException
-from src.logic.search import card_query
-from src.logic.unit import BaseUnit, Unit
-from src.static.appeal_presets import APPEAL_PRESETS
-from src.static.color import Color
-from src.static.note_type import NoteType
-from src.static.song_difficulty import Difficulty
+from static.appeal_presets import APPEAL_PRESETS
+from static.color import Color
+from static.note_type import NoteType
+from static.song_difficulty import Difficulty
 
 
 def classify_note(row):

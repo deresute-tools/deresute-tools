@@ -13,7 +13,7 @@ def get_resources(data_type, resource_hash):
 
 
 def get_manifests():
-    from src.network import kirara_query
+    from network import kirara_query
     truth_version = kirara_query.get_truth_version()
     return requests.get(
         "https://asset-starlight-stage.akamaized.net/dl/{}/manifests/Android_AHigh_SHigh".format(truth_version),

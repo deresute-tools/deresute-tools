@@ -1,7 +1,7 @@
 from PyQt5 import QtWidgets
 from PyQt5.QtGui import QIntValidator
 
-from src import customlogger as logger
+import customlogger as logger
 
 
 class CustomSettingsView:

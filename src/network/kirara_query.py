@@ -2,7 +2,7 @@ import json
 
 import requests
 
-from src.db import db
+from db import db
 
 
 def _base_query(query):

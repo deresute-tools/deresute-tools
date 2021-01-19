@@ -1,8 +1,8 @@
 import numpy as np
 
-from src.db import db
-from src.static.color import Color
-from src.static.note_type import NoteType
+from db import db
+from static.color import Color
+from static.note_type import NoteType
 
 BOOST_TYPES = {20, 32, 33, 34, 38}
 COLOR_TARGETS = {21, 22, 23, 32, 33, 34}

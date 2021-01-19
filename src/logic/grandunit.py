@@ -1,4 +1,4 @@
-from src.logic.unit import Unit, BaseUnit
+from logic.unit import Unit, BaseUnit
 
 
 class GrandUnit(BaseUnit):

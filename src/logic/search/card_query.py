@@ -1,8 +1,8 @@
 from collections import defaultdict
 
-from src.db import db
-from src.network import kirara_query
-from src.static.rarity import Rarity
+from db import db
+from network import kirara_query
+from static.rarity import Rarity
 
 ALIASES = {
     "santaclaus": "eve",

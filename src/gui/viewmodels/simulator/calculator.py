@@ -4,12 +4,10 @@ from PyQt5.QtCore import QSize, Qt, QMimeData
 from PyQt5.QtGui import QDrag
 from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QAbstractItemView, QTableWidget, QApplication
 
-from src import customlogger as logger
-from src.gui.viewmodels.mime_headers import CALCULATOR_UNIT, UNIT_EDITOR_UNIT
-from src.gui.viewmodels.unit import UnitWidget, UnitView
-from src.gui.viewmodels.utils import NumericalTableWidgetItem
-from src.logic import card
-from src.logic.card import Card
+import customlogger as logger
+from gui.viewmodels.mime_headers import CALCULATOR_UNIT, UNIT_EDITOR_UNIT
+from gui.viewmodels.unit import UnitWidget, UnitView
+from gui.viewmodels.utils import NumericalTableWidgetItem
 
 
 class CalculatorUnitWidget(UnitWidget):

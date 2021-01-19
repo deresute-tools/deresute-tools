@@ -1,8 +1,8 @@
 import pandas as pd
 
-from src import customlogger as logger
-from src.db import db
-from src.logic.search import card_query
+import customlogger as logger
+from db import db
+from logic.search import card_query
 
 chara_dict = card_query.get_chara_dict()
 

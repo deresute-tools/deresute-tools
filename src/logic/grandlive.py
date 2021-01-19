@@ -1,8 +1,7 @@
 import numpy as np
 
-from src.logic.grandunit import GrandUnit
-from src.logic.live import BaseLive, Live
-from src.static.color import Color
+from logic.grandunit import GrandUnit
+from logic.live import BaseLive, Live
 
 
 class GrandLive(BaseLive):

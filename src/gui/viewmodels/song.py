@@ -1,11 +1,11 @@
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QTableWidget, QAbstractItemView, QTableWidgetItem, QHeaderView
+from PyQt5.QtWidgets import QTableWidget, QAbstractItemView, QTableWidgetItem
 
-from src import customlogger as logger
-from src.db import db
-from src.gui.viewmodels.utils import NumericalTableWidgetItem
-from src.static.color import Color
-from src.static.song_difficulty import Difficulty
+import customlogger as logger
+from db import db
+from gui.viewmodels.utils import NumericalTableWidgetItem
+from static.color import Color
+from static.song_difficulty import Difficulty
 
 
 class SongViewWidget(QTableWidget):

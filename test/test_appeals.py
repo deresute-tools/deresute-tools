@@ -1,11 +1,11 @@
 import unittest
 
-from src.logic.card import Card
-from src.logic.live import Live
-from src.logic.unit import Unit
-from src.simulator import Simulator
-from src.static.appeal_presets import APPEAL_PRESETS
-from src.static.song_difficulty import Difficulty
+from logic.card import Card
+from logic.live import Live
+from logic.unit import Unit
+from simulator import Simulator
+from static.appeal_presets import APPEAL_PRESETS
+from static.song_difficulty import Difficulty
 
 
 class TestAppeal(unittest.TestCase):

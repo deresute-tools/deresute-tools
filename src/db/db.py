@@ -1,7 +1,7 @@
 import sqlite3
 from collections import OrderedDict
 
-from src.network import meta_updater
+from network import meta_updater
 
 
 class CustomDB(object):

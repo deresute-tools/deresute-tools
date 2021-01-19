@@ -3,11 +3,11 @@ import sys
 
 import numpy as np
 
-from src.logic.card import Card
-from src.logic.live import Live
-from src.logic.unit import Unit
-from src.simulator import Simulator
-from src.static.song_difficulty import Difficulty
+from logic.card import Card
+from logic.live import Live
+from logic.unit import Unit
+from simulator import Simulator
+from static.song_difficulty import Difficulty
 
 if __name__ == '__main__':
     cards = list()

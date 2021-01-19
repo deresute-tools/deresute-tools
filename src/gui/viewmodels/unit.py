@@ -5,13 +5,13 @@ from PyQt5.QtGui import QDrag
 from PyQt5.QtWidgets import QListWidget, QWidget, QHBoxLayout, QVBoxLayout, QListWidgetItem, QLineEdit, QPushButton, \
     QApplication
 
+import customlogger as logger
+from db import db
+from gui.viewmodels.mime_headers import CARD, CALCULATOR_UNIT, UNIT_EDITOR_UNIT, CALCULATOR_GRANDUNIT
+from gui.viewmodels.utils import ImageWidget
+from logic.card import Card
+from logic.profile import unit_storage
 from settings import IMAGE_PATH64, IMAGE_PATH32, IMAGE_PATH
-from src import customlogger as logger
-from src.db import db
-from src.gui.viewmodels.mime_headers import CARD, CALCULATOR_UNIT, UNIT_EDITOR_UNIT, CALCULATOR_GRANDUNIT
-from src.gui.viewmodels.utils import ImageWidget
-from src.logic.card import Card
-from src.logic.profile import unit_storage
 
 
 class UnitCard(ImageWidget):

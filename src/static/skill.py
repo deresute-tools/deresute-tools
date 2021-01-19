@@ -1,7 +1,7 @@
 from collections import OrderedDict
 
-from src import customlogger as logger
-from src.db import db
+import customlogger as logger
+from db import db
 
 SKILL_BASE = {
     1: {"id": 1, "name": "SCORE Bonus", "keywords": ["su"], "color": (227, 98, 91)},

@@ -1,4 +1,4 @@
-from src.static import color, leader, probability_type, rarity, skill, song_difficulty
+from static import color, leader, probability_type, rarity, skill, song_difficulty
 
 assert color
 assert leader

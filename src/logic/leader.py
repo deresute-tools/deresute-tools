@@ -1,6 +1,6 @@
 import numpy as np
 
-from src.db import db
+from db import db
 
 
 class Leader:

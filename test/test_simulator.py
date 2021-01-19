@@ -1,11 +1,11 @@
-from src import customlogger as logger
-from src.logic.card import Card
-from src.logic.grandlive import GrandLive
-from src.logic.grandunit import GrandUnit
-from src.logic.live import Live
-from src.logic.unit import Unit
-from src.simulator import Simulator
-from src.static.song_difficulty import Difficulty
+import customlogger as logger
+from logic.card import Card
+from logic.grandlive import GrandLive
+from logic.grandunit import GrandUnit
+from logic.live import Live
+from logic.unit import Unit
+from simulator import Simulator
+from static.song_difficulty import Difficulty
 
 logger.print_debug()
 

@@ -1,4 +1,4 @@
-from src.db import db
+from db import db
 
 
 def initialize_personal_units():

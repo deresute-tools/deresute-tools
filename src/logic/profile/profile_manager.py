@@ -5,14 +5,14 @@ import subprocess
 import traceback
 from collections import defaultdict
 
+import customlogger as logger
+from db import db
+from logic.profile import card_storage, potential
+from logic.profile import unit_storage
+from logic.search import card_query
+from network import kirara_query
 from settings import PROFILE_PATH, TOOL_EXE, TEMP_PATH
-from src import customlogger as logger
-from src.db import db
-from src.logic.profile import card_storage, potential
-from src.logic.profile import unit_storage
-from src.logic.search import card_query
-from src.network import kirara_query
-from src.utils import storage
+from utils import storage
 
 keys = ["chara_id", "vo", "vi", "da", "li", "sk"]
 

@@ -2,11 +2,11 @@ from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QAbstractItemView, QTableWidgetItem
 
+import customlogger as logger
+from db import db
+from gui.viewmodels.utils import NumericalTableWidgetItem, ImageWidget
+from logic.profile import potential
 from settings import IMAGE_PATH64
-from src import customlogger as logger
-from src.db import db
-from src.gui.viewmodels.utils import NumericalTableWidgetItem, ImageWidget
-from src.logic.profile import potential
 
 
 class PotentialView:

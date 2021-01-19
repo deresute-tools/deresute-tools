@@ -4,12 +4,12 @@ import shutil
 from whoosh.fields import *
 from whoosh.index import create_in
 
+import customlogger as logger
+from db import db
+from network.meta_updater import get_masterdb_path
 from settings import INDEX_PATH
-from src import customlogger as logger
-from src.db import db
-from src.network.meta_updater import get_masterdb_path
-from src.static.color import Color
-from src.static.song_difficulty import Difficulty
+from static.color import Color
+from static.song_difficulty import Difficulty
 
 KEYWORD_KEYS_STR_ONLY = ["short", "chara", "rarity", "color", "skill", "leader", "time_prob_key", "fes",
                          "main_attribute"]

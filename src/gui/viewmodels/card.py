@@ -2,15 +2,15 @@ from PyQt5.QtCore import QSize, QMimeData, Qt, QPoint
 from PyQt5.QtGui import QDrag, QPixmap, QPainter, QColor
 from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QComboBox, QAbstractItemView, QApplication
 
+import customlogger as logger
+from db import db
+from gui.viewmodels.mime_headers import CARD
+from gui.viewmodels.utils import ImageWidget, NumericalTableWidgetItem
+from logic.live import Live
+from logic.profile import card_storage
+from network import meta_updater
 from settings import IMAGE_PATH64, IMAGE_PATH, IMAGE_PATH32
-from src import customlogger as logger
-from src.db import db
-from src.gui.viewmodels.mime_headers import CARD
-from src.gui.viewmodels.utils import ImageWidget, NumericalTableWidgetItem
-from src.logic.live import Live
-from src.logic.profile import card_storage
-from src.network import meta_updater
-from src.static.skill import SKILL_COLOR_BY_NAME
+from static.skill import SKILL_COLOR_BY_NAME
 
 
 class CustomCardTable(QTableWidget):

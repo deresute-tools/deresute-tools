@@ -1,8 +1,8 @@
-from src.db import db
-from src.logic.leader import Leader
-from src.logic.search import card_query
-from src.logic.skill import Skill
-from src.static.color import Color
+from db import db
+from logic.leader import Leader
+from logic.search import card_query
+from logic.skill import Skill
+from static.color import Color
 
 
 class Card:

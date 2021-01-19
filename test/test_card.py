@@ -1,7 +1,7 @@
 import unittest
 
-from src.logic.card import Card
-from src.static.color import Color
+from logic.card import Card
+from static.color import Color
 
 
 class TestCard(unittest.TestCase):

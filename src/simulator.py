@@ -3,11 +3,11 @@ from collections import defaultdict
 
 import numpy as np
 
-from src import customlogger as logger
-from src.static.color import Color
-from src.static.live_values import WEIGHT_RANGE, DIFF_MULTIPLIERS
-from src.static.note_type import NoteType
-from src.static.skill import get_sparkle_bonus
+import customlogger as logger
+from static.color import Color
+from static.live_values import WEIGHT_RANGE, DIFF_MULTIPLIERS
+from static.note_type import NoteType
+from static.skill import get_sparkle_bonus
 
 
 def has_skill(timestamp, upskills):

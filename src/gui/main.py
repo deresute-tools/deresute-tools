@@ -3,16 +3,16 @@ from PyQt5.QtGui import QIntValidator, QIcon
 from PyQt5.QtWidgets import QWidget, QGridLayout, QVBoxLayout, QHBoxLayout, QTabWidget, QPushButton, QMenuBar, \
     QMenu, QStatusBar, QAction, QApplication, QMainWindow, QLineEdit, QCheckBox
 
+import customlogger as logger
 from chihiro import ROOT_DIR
-from src import customlogger as logger
-from src.gui.viewmodels.card import CardView, CardModel, IconLoaderView, IconLoaderModel
-from src.gui.viewmodels.potential import PotentialView, PotentialModel
-from src.gui.viewmodels.quicksearch import QuickSearchView, QuickSearchModel, SongQuickSearchView, SongQuickSearchModel
-from src.gui.viewmodels.simulator.wide_smart import MainView, MainModel
-from src.gui.viewmodels.song import SongView, SongModel
-from src.gui.viewmodels.unit import UnitView, UnitModel
-from src.logic.profile import profile_manager, unit_storage
-from src.logic.search import indexer, search_engine
+from gui.viewmodels.card import CardView, CardModel, IconLoaderView, IconLoaderModel
+from gui.viewmodels.potential import PotentialView, PotentialModel
+from gui.viewmodels.quicksearch import QuickSearchView, QuickSearchModel, SongQuickSearchView, SongQuickSearchModel
+from gui.viewmodels.simulator.wide_smart import MainView, MainModel
+from gui.viewmodels.song import SongView, SongModel
+from gui.viewmodels.unit import UnitView, UnitModel
+from logic.profile import profile_manager, unit_storage
+from logic.search import indexer, search_engine
 
 
 class CustomMainWindow(QMainWindow):

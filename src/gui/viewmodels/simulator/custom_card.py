@@ -1,9 +1,8 @@
 from PyQt5 import QtWidgets
-from PyQt5.QtGui import QIntValidator, QDoubleValidator
 from PyQt5.QtWidgets import QAbstractItemView
 
-from src.gui.viewmodels.utils import NumericalTableWidgetItem
-from src.static.color import Color
+from gui.viewmodels.utils import NumericalTableWidgetItem
+from static.color import Color
 
 HEADERS = ["Color",
            "Vocal", "Dance", "Visual", "Life", "Skill Duration", "Skill Interval",

@@ -1,7 +1,7 @@
 import unittest
 
-from src.logic.search import card_query
-from src.logic.search.search_engine import engine, song_engine
+from logic.search import card_query
+from logic.search.search_engine import engine, song_engine
 
 
 class TestSearchEngine(unittest.TestCase):

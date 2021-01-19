@@ -2,8 +2,8 @@ import unittest
 
 import numpy as np
 
-from src.logic.unit import Unit
-from src.static.color import Color
+from logic.unit import Unit
+from static.color import Color
 
 
 class TestSkill(unittest.TestCase):

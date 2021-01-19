@@ -1,12 +1,12 @@
 import logging
 
+import customlogger as logger
+from db import db
+from network import cgss_query
+from network import meta_updater
 from settings import MANIFEST_PATH, MUSICSCORES_PATH
-from src import customlogger as logger
-from src.db import db
-from src.network import cgss_query
-from src.network import meta_updater
-from src.utils import storage
-from src.utils.misc import decompress
+from utils import storage
+from utils.misc import decompress
 
 
 def _score_cache_db_exists():

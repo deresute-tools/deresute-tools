@@ -1,7 +1,7 @@
 import unittest
 
-from src.logic.search.card_query import convert_short_name_to_id
-from src.logic.search.search_engine import advanced_single_query
+from logic.search.card_query import convert_short_name_to_id
+from logic.search.search_engine import advanced_single_query
 
 
 class TestQueryCard(unittest.TestCase):

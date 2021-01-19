@@ -2,10 +2,10 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 
-from src.db import db
-from src.exceptions import InvalidUnit
-from src.logic.card import Card
-from src.logic.search import card_query
+from db import db
+from exceptions import InvalidUnit
+from logic.card import Card
+from logic.search import card_query
 
 
 class BaseUnit(ABC):

@@ -1,8 +1,8 @@
 from PyQt5.QtCore import QSize, Qt
 from PyQt5.QtWidgets import QCheckBox, QLineEdit, QApplication
 
-from src import customlogger as logger
-from src.logic.search import search_engine
+import customlogger as logger
+from logic.search import search_engine
 
 
 class ShortcutQuickSearchWidget(QLineEdit):

@@ -1,11 +1,11 @@
 import logging
 import sqlite3
 
+import customlogger as logger
+from network import cgss_query
 from settings import *
-from src import customlogger as logger
-from src.network import cgss_query
-from src.utils import storage
-from src.utils.misc import decompress
+from utils import storage
+from utils.misc import decompress
 
 
 def _update_manifest():

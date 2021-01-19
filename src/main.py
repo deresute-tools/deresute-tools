@@ -2,8 +2,8 @@ import atexit
 import sys
 import traceback
 
-from src import customlogger as logger
-from src import initializer
+import customlogger as logger
+import initializer
 
 logger.log_to_file()
 
@@ -18,7 +18,7 @@ def main():
 
     try:
         initializer.setup(True)
-        from src.gui.main import setup_gui
+        from gui.main import setup_gui
 
         app, main = setup_gui(sys.argv)
         main.show()

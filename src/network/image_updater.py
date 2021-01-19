@@ -6,10 +6,10 @@ from concurrent.futures.thread import ThreadPoolExecutor
 import requests
 from PIL import Image
 
+import customlogger as logger
+from network.kirara_query import _base_query
 from settings import IMAGE_PATH, IMAGE_PATH32, IMAGE_PATH64, ZIP_PATH, MAX_WORKERS
-from src import customlogger as logger
-from src.network.kirara_query import _base_query
-from src.utils import storage
+from utils import storage
 
 FORMAT = "https://hidamarirhodonite.kirara.ca/icon_card/{:06d}.png"
 

@@ -1,7 +1,7 @@
 from enum import Enum
 
-from src import customlogger as logger
-from src.db import db
+import customlogger as logger
+from db import db
 
 
 class Difficulty(Enum):

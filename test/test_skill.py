@@ -1,7 +1,7 @@
 import unittest
 
-from src.logic.skill import Skill
-from src.logic.unit import Unit
+from logic.skill import Skill
+from logic.unit import Unit
 
 
 class TestSkill(unittest.TestCase):
