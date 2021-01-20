@@ -357,10 +357,11 @@ class Simulator:
         units = 3 if grand else 1
         np_vu = np.zeros((len(self.notes_data), 4, 3, units))  # Notes x Values x Color x Units
         # Normalize boosts
-        np_v[:, :2, :, :][np_v[:, :2, :, :] != 0] = np.clip(np_v[:, :2, :, :][np_v[:, :2, :, :] != 0] - 100,
-                                                            a_min=-5000, a_max=5000)
-        np_b[:, :3, :, :][np_b[:, :3, :, :] != 0] = np.clip(np_b[:, :3, :, :][np_b[:, :3, :, :] != 0] - 1000,
-                                                            a_min=-9000, a_max=9000)
+        v_mask = np_v[:, :2, :, :] != 0
+        b_mask = np_b[:, :3, :, :] != 0
+        np_v[:, :2, :, :][v_mask] = np_v[:, :2, :, :][v_mask] - 100
+        np_b[:, :3, :, :][b_mask] = np_b[:, :3, :, :][b_mask] - 1000
+
         # Pre-calculate total/max boosts to reduce redundant computations
         if all(map(lambda _: len(_) <= 1, self.magic_lists.values())):
             np_b_sum = np_b.sum(axis=3)
@@ -391,18 +392,32 @@ class Simulator:
                 # And the final skill values of the unit are maxed over the unit
                 agg_func = np.max
 
+            # Cache first, reset combo bonus to negative using mask later
+            alt_original_values = dict()
+            # Only run values 0,1,2 on non support, only run value 3 on support.
+            # Support builds are not the main focus so no optimization for support.
+            non_support_list = list()
+            # Ignore healing boost and cut tensor product size if false
+            has_healing = False
             for card_idx in range(unit_idx * 5, (unit_idx + 1) * 5):
                 skill = unit.get_card(card_idx % 5).skill
+                if skill.values[2] == 0:
+                    has_healing = True
                 if skill.is_alternate:
                     alternate_mask = np_v[:, 1, :, card_idx] < 0
                     original_value = np_v[:, 1, :, card_idx][alternate_mask]
-                np_v[:, :3, :, card_idx] = np.ceil(np_v[:, :3, :, card_idx] * (1 + boost_array[:, :3] / 1000))
-                if skill.is_alternate:
-                    np_v[:, 1, :, card_idx][alternate_mask] = original_value
+                    alt_original_values[card_idx] = alternate_mask, original_value
                 if skill.is_support:
                     mask = np_v[:, 3, :, card_idx] == 0
                     np_v[:, 3, :, card_idx] += boost_array[:, 3]
                     np_v[:, 3, :, card_idx][mask] = 0
+                else:
+                    non_support_list.append(card_idx)
+            stop_idx = 3 if has_healing else 2
+            np_v[:, :stop_idx, :, non_support_list] = np.ceil(
+                np_v[:, :stop_idx, :, non_support_list] * (1 + boost_array[:, :stop_idx] / 1000)[:, :, :, None])
+            for card_idx, (alternate_mask, original_value) in alt_original_values.items():
+                np_v[:, 1, :, card_idx][alternate_mask] = original_value
 
             magics = self.magic_lists[unit_idx]
             if unit.resonance and len(magics) > 1:
@@ -421,7 +436,6 @@ class Simulator:
                 min_tensor = np_v[:, :, :, unit_idx * 5: (unit_idx + 1) * 5].min(axis=3)
                 mask = np.logical_and(np_vu[:, :, :, unit_idx] == 0, min_tensor < 0)
                 np_vu[:, :, :, unit_idx][mask] = min_tensor[mask]
-
         # Unify effects per unit / across colors
         skill_bonuses = np.zeros((len(self.notes_data), 4, 3))  # Notes x Values x Units
         for unit_idx, unit in enumerate(self.live.unit.all_units):
@@ -697,14 +711,10 @@ class Simulator:
                 card_range = range(unit_idx * 5, (unit_idx + 1) * 5)
                 idx_range = range(5)
             value_range = 4 if self.has_support else 3
-            for i in range(value_range):
-                for j in range(3):
-                    np_v[:, i, j, card_range] = \
-                        np_v[:, i, j, card_range] \
-                        * self.notes_data[['skill_{}'.format(unit_idx * 5 + _) for _ in idx_range]]
-                    np_b[:, i, j, card_range] = \
-                        np_b[:, i, j, card_range] \
-                        * self.notes_data[['skill_{}'.format(unit_idx * 5 + _) for _ in idx_range]]
+            np_v[:, :value_range, :, card_range] *= np.array(
+                self.notes_data[['skill_{}'.format(unit_idx * 5 + _) for _ in idx_range]])[:, None, None, :]
+            np_b[:, :value_range, :, card_range] *= np.array(
+                self.notes_data[['skill_{}'.format(unit_idx * 5 + _) for _ in idx_range]])[:, None, None, :]
 
         units = 3 if grand else 1
         first_pass = np_v is None and np_b is None
