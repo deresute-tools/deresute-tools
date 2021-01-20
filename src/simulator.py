@@ -398,11 +398,8 @@ class Simulator:
             # Support builds are not the main focus so no optimization for support.
             non_support_list = list()
             # Ignore healing boost and cut tensor product size if false
-            has_healing = False
             for card_idx in range(unit_idx * 5, (unit_idx + 1) * 5):
                 skill = unit.get_card(card_idx % 5).skill
-                if skill.values[2] == 0:
-                    has_healing = True
                 if skill.is_alternate:
                     alternate_mask = np_v[:, 1, :, card_idx] < 0
                     original_value = np_v[:, 1, :, card_idx][alternate_mask]
@@ -413,7 +410,7 @@ class Simulator:
                     np_v[:, 3, :, card_idx][mask] = 0
                 else:
                     non_support_list.append(card_idx)
-            stop_idx = 3 if has_healing else 2
+            stop_idx = 3 if self.has_healing[unit_idx] else 2
             np_v[:, :stop_idx, :, non_support_list] = np.ceil(
                 np_v[:, :stop_idx, :, non_support_list] * (1 + boost_array[:, :stop_idx] / 1000)[:, :, :, None])
             for card_idx, (alternate_mask, original_value) in alt_original_values.items():
@@ -710,7 +707,12 @@ class Simulator:
             else:
                 card_range = range(unit_idx * 5, (unit_idx + 1) * 5)
                 idx_range = range(5)
-            value_range = 4 if self.has_support else 3
+            if self.has_support:
+                value_range = 4
+            elif self.has_healing[unit_idx]:
+                value_range = 3
+            else:
+                value_range = 2
             np_v[:, :value_range, :, card_range] *= np.array(
                 self.notes_data[['skill_{}'.format(unit_idx * 5 + _) for _ in idx_range]])[:, None, None, :]
             np_b[:, :value_range, :, card_range] *= np.array(
@@ -782,6 +784,7 @@ class Simulator:
         has_support = False
         has_refrain = False
         has_magic = False
+        self.has_healing = list()
         self.magic_copies = defaultdict(set)
         self.ls_magic_copies = defaultdict(set)
         self.alt_magic_copy = dict()
@@ -809,9 +812,13 @@ class Simulator:
                     has_support = True
 
         for unit_idx, unit in enumerate(self.live.unit.all_units):
+            has_healing = False
             for card_idx, card in enumerate(unit.all_cards()):
                 skill = card.skill
                 probability = self.live.get_probability(unit_idx * 5 + card_idx)
+
+                if probability > 0 and skill.values[2] > 0:
+                    has_healing = True
 
                 if probability > 0 and skill.skill_type != 41 and skill.skill_type != 40:
                     if skill.skill_type == 25:
@@ -861,6 +868,9 @@ class Simulator:
                                                 'skill_{}'.format(unit_idx * 5 + card_idx)] = 1
                             self._helper_fill_lr_time_alt_ref(card_idx, has_alternate, has_refrain, left, note_times,
                                                               right, unit_idx)
+
+            self.has_healing.append(has_healing)
+
         if not has_magic:
             self.magic_copies = dict()
             self.ls_magic_copies = dict()
