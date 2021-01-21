@@ -458,10 +458,13 @@ class Simulator:
             for _ in range(value_range):
                 self.notes_data["bonuses_{}".format(_)] = skill_bonuses_final[:, _]
             # Evaluate HP
-            self.notes_data['life'] = np.clip(
-                self.live.get_life()
-                + self.notes_data['bonuses_2'].groupby(self.notes_data.index // self.note_count).cumsum(),
-                a_min=0, a_max=2 * self.live.get_life())
+            if any(self.has_healing):
+                self.notes_data['life'] = np.clip(
+                    self.live.get_life()
+                    + self.notes_data['bonuses_2'].groupby(self.notes_data.index // self.note_count).cumsum(),
+                    a_min=0, a_max=2 * self.live.get_life())
+            else:
+                self.notes_data['life'] = self.live.get_life()
         return skill_bonuses_final
 
     def _helper_initialize_skill_bonuses(self, grand, np_v=None, np_b=None, sparkle=False, alternate=False,
@@ -532,11 +535,9 @@ class Simulator:
                         self.notes_data.is_long,
                         np.invert(np.logical_or(self.notes_data.is_slide, self.notes_data.is_long))
                     ]:
-                        self.notes_data.loc[
-                            (self.notes_data['note_type'] == note_type) & mask
-                            , 'alternate_bonus_per_note'] = np.maximum.accumulate(
-                            self.notes_data.loc[(self.notes_data['note_type'] == note_type) & mask,
-                                                'alternate_bonus_per_note'], axis=0)
+                        inner_mask = np.logical_and(self.notes_data['note_type'] == note_type, mask)
+                        self.notes_data.loc[inner_mask, 'alternate_bonus_per_note'] = np.maximum.accumulate(
+                            self.notes_data.loc[inner_mask, 'alternate_bonus_per_note'], axis=0)
                 alternate_value = np.array(self.notes_data['alternate_bonus_per_note'])
 
                 for skill_idx in alternates:
@@ -607,11 +608,9 @@ class Simulator:
                         self.notes_data.is_long,
                         np.invert(np.logical_or(self.notes_data.is_slide, self.notes_data.is_long))
                     ]:
-                        self.notes_data.loc[
-                            (self.notes_data['note_type'] == note_type) & mask
-                            , 'ref_score_bonus_per_note'] = np.maximum.accumulate(
-                            self.notes_data.loc[(self.notes_data['note_type'] == note_type) & mask,
-                                                'ref_score_bonus_per_note'], axis=0)
+                        inner_mask = np.logical_and(self.notes_data['note_type'] == note_type, mask)
+                        self.notes_data.loc[inner_mask, 'ref_score_bonus_per_note'] = np.maximum.accumulate(
+                            self.notes_data.loc[inner_mask, 'ref_score_bonus_per_note'], axis=0)
                 self.notes_data['ref_combo_bonus_per_note'] = np.maximum.accumulate(
                     self.notes_data['ref_combo_bonus_per_note'], axis=0)
                 ref_score_value = np.array(self.notes_data['ref_score_bonus_per_note'])
@@ -884,12 +883,9 @@ class Simulator:
 
     def _helper_fill_lr_time_alt_ref(self, card_idx, has_alternate, has_refrain, left, note_times, right,
                                      unit_idx, rep_rolls=None):
-        if rep_rolls is not None:
-            rep_rolls_check = self.notes_data.rep.isin(rep_rolls)
-        else:
-            rep_rolls_check = True
         if has_alternate or has_refrain:
-            self.notes_data.loc[(note_times > left) & (note_times < right) & rep_rolls_check,
-                                'skill_{}_l'.format(unit_idx * 5 + card_idx)] = left
-            self.notes_data.loc[(note_times > left) & (note_times <= right) & rep_rolls_check,
-                                'skill_{}_r'.format(unit_idx * 5 + card_idx)] = right
+            mask = np.logical_and(note_times > left, note_times < right)
+            if rep_rolls is not None:
+                mask = np.logical_and(mask, self.notes_data.rep.isin(rep_rolls))
+            self.notes_data.loc[mask, 'skill_{}_l'.format(unit_idx * 5 + card_idx)] = left
+            self.notes_data.loc[mask, 'skill_{}_r'.format(unit_idx * 5 + card_idx)] = right
