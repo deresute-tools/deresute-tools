@@ -5,7 +5,19 @@ from settings import MANIFEST_PATH, MASTERDB_PATH
 from utils import storage
 
 
+def load_static():
+    from static import color, leader, probability_type, rarity, skill, song_difficulty
+
+    assert color
+    assert leader
+    assert probability_type
+    assert rarity
+    assert skill
+    assert song_difficulty
+
+
 def setup(update=False):
+    load_static()
     if not (storage.exists(MANIFEST_PATH) and storage.exists(MASTERDB_PATH)):
         update = True
     from db import db
