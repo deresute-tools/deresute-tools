@@ -18,6 +18,20 @@ def has_skill(timestamp, upskills):
     return False
 
 
+def check_long(notes_data, mask):
+    stack = dict()
+    for idx, row in notes_data.iterrows():
+        if not mask[idx]:
+            continue
+        lane = row['finishPos']
+        if row['note_type'] == NoteType.LONG and lane not in stack:
+            stack[lane] = idx
+        elif lane in stack:
+            stack.pop(lane)
+            notes_data.loc[idx, 'is_long'] = True
+
+
+
 class Simulator:
     def __init__(self, live=None):
         self.live = live
@@ -37,10 +51,10 @@ class Simulator:
         is_long = self.notes_data['note_type'] == NoteType.LONG
         is_slide = self.notes_data['note_type'] == NoteType.SLIDE
         is_slide = np.logical_or(is_slide, np.logical_and(self.notes_data['type'] == 3, is_flick))
-        is_long = np.logical_or(is_long, np.logical_and(self.notes_data['type'] == 2, is_flick))
         self.notes_data['is_flick'] = is_flick
         self.notes_data['is_long'] = is_long
         self.notes_data['is_slide'] = is_slide
+        check_long(self.notes_data, np.logical_or(is_long, is_flick))
 
         weight_range = np.array(WEIGHT_RANGE)
         weight_range[:, 0] = np.trunc(WEIGHT_RANGE[:, 0] / 100 * len(self.notes_data) - 1)

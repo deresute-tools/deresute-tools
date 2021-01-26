@@ -53,4 +53,4 @@ live = Live()
 live.set_music(music_name="バベル", difficulty=Difficulty.MASTER)
 live.set_unit(unit)
 sim = Simulator(live)
-assert sim.simulate(perfect_play=True, appeals=217911)[1] == 1412638
+assert sim.simulate(perfect_play=True, appeals=217911)[1] == 1412046
