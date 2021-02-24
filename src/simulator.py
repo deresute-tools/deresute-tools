@@ -769,7 +769,7 @@ class Simulator:
             magic_to_check = list()
             if is_magic:
                 for _ in self.magic_set:
-                    if self.alt_magic_copy[_ // 5]:
+                    if int(_ // 5) in self.alt_magic_copy:
                         magic_to_check.append(_)
                 cached_magic_to_check = dict()
                 for _ in magic_to_check:
@@ -800,7 +800,7 @@ class Simulator:
         self.has_healing = list()
         self.magic_copies = defaultdict(set)
         self.ls_magic_copies = defaultdict(set)
-        self.alt_magic_copy = dict()
+        self.alt_magic_copy = set()
         self.magic_lists = defaultdict(list)
         self.magic_set = set()
 
@@ -837,7 +837,7 @@ class Simulator:
                     if skill.skill_type == 25:
                         self.ls_magic_copies[unit_idx].add(card_idx)
                     elif skill.skill_type == 39:
-                        self.alt_magic_copy[unit_idx] = True
+                        self.alt_magic_copy.add(unit_idx)
                     else:
                         self.magic_copies[unit_idx].add(card_idx)
                 if probability > 0 and skill.skill_type == 41:
