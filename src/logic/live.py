@@ -289,6 +289,10 @@ class BaseLive(ABC):
     def is_grand(self):
         pass
 
+    @property
+    def is_grand_chart(self):
+        return self.difficulty == Difficulty.PIANO or self.difficulty == Difficulty.FORTE
+
 
 class Live(BaseLive):
 

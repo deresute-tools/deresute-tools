@@ -54,7 +54,7 @@ class Simulator:
         self.song_duration = self.notes_data.iloc[-1].sec
         self.note_count = len(self.notes_data)
 
-        if mirror and self.live.is_grand:
+        if mirror and self.live.is_grand_chart:
             start_lanes = 16 - (self.notes_data['finishPos'] + self.notes_data['status'] - 1)
             self.notes_data['finishPos'] = start_lanes
 
@@ -562,7 +562,7 @@ class Simulator:
 
         # Drain slides
         for slide_group in slide_group_set:
-            if not self.live.is_grand:
+            if not self.live.is_grand_chart:
                 slide_idxes = self.notes_data[
                     (self.notes_data['groupId'] == slide_group) & (self.notes_data['type'] == 3)].index
             else:
@@ -577,15 +577,15 @@ class Simulator:
                 drain_modifier[first_slide_miss] = 2
             else:
                 first_slide_miss = -1
-                bug_check = self.live.is_grand \
+                bug_check = self.live.is_grand_chart \
                             and self.notes_data.loc[slide_idxes[0], 'finishPos'] \
                             + self.notes_data.loc[slide_idxes[0], 'status'] > 10
                 for l, r in zip(slide_idxes[:-1], slide_idxes[1:]):
                     check_series = self.notes_fail.loc[self.notes_data.loc[l, 'sec']:self.notes_data.loc[r, 'sec']]
-                    wide_bug_condition = self.live.is_grand \
+                    wide_bug_condition = self.live.is_grand_chart \
                                          and self.notes_data.loc[r, 'finishPos'] == 3 \
                                          and self.notes_data.loc[r, 'checkpoints']
-                    grand_bug_condition = self.live.is_grand \
+                    grand_bug_condition = self.live.is_grand_chart \
                                           and self.notes_data.loc[r, 'finishPos'] < 10 \
                                           and self.notes_data.loc[r, 'finishPos'] + self.notes_data.loc[r, 'status'] > 6 \
                                           and self.notes_data.loc[r, 'checkpoints']
