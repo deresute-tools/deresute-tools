@@ -529,6 +529,7 @@ class Simulator:
 
         # Handle the trivial case first
         simple_note_mask = ~self.notes_data.index.isin(slide_set.union(long_set))
+        drain_modifier = np.ones((len(self.notes_data),))
         drainable = np.ones((len(self.notes_data),))
         drainable[simple_note_mask] = True
 
@@ -561,6 +562,7 @@ class Simulator:
             first_slide_time = self.notes_data.loc[slide_idxes[0], 'sec']
             if is_miss[slide_idxes[0]]:
                 first_slide_miss = slide_idxes[0]
+                drain_modifier[first_slide_miss] = 2
             else:
                 first_slide_miss = -1
                 bug_check = self.live.is_grand \
@@ -625,6 +627,7 @@ class Simulator:
 
         # Calculate combo
         self.notes_data['drainable'] = drainable
+        self.notes_data['drain_modifier'] = drain_modifier
         self.notes_data['is_miss'] = is_miss
         self.notes_data = self.notes_data.sort_values(by='sec', kind='mergesort', ignore_index=True)
         self._helpter_calculate_combo()
@@ -781,7 +784,7 @@ class Simulator:
                 current_life = start_life
                 life_array = list()
                 for _, row in self.notes_data.iterrows():
-                    current_life = current_life - row['drain'] + row['bonuses_2']
+                    current_life = current_life - row['drain'] * row['drain_modifier'] + row['bonuses_2']
                     if current_life > clipped_life:
                         current_life = clipped_life
                     life_array.append(current_life)
