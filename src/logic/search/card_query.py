@@ -9,11 +9,9 @@ ALIASES = {
     "anastasia": "anya"
 }
 
+
 def get_chara_dict():
-    if not db.cachedb.execute_and_fetchone("""
-        SELECT name FROM sqlite_master WHERE type='table' AND name='chara_cache'
-    """):
-        kirara_query.update_chara_data()
+    kirara_query.update_chara_data()
     results = db.cachedb.execute_and_fetchall("""
         SELECT chara_id, conventional FROM chara_cache
     """)
