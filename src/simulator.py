@@ -421,7 +421,9 @@ class Simulator:
         logger.debug("Auto score: {}".format(int(score)))
         logger.debug("Lowest life: {} - Note {}/{}s".format(lowest_life, lowest_life_idx, lowest_life_time))
         logger.debug("Perfects: {}".format(perfects))
+        logger.debug("Misses: {}".format(len(self.notes_data[np.logical_and(self.notes_data['drainable'], self.notes_data['is_miss'])])))
         logger.debug("Max combo: {}".format(max_combo))
+        logger.debug("Total life drained: {}".format(self.notes_data['drain'].sum()))
         return score, perfects, max_combo, lowest_life, lowest_life_time, self.all_100
 
     def _helper_mark_slide_checkpoints(self):
@@ -774,11 +776,17 @@ class Simulator:
                 self.notes_data["bonuses_{}".format(_)] = skill_bonuses_final[:, _]
             # Evaluate HP
             if auto:
-                self.notes_data['life_preclip'] = self.live.get_life() - self.notes_data['drain'].groupby(
-                    self.notes_data.index // self.note_count).cumsum() + self.notes_data['bonuses_2'].groupby(
-                    self.notes_data.index // self.note_count).cumsum()
-                self.notes_data['life'] = np.clip(self.notes_data['life_preclip'], a_min=0,
-                                                  a_max=2 * self.live.get_life())
+                clipped_life = 2 * self.live.get_life()
+                start_life = self.live.get_life()
+                current_life = start_life
+                life_array = list()
+                for _, row in self.notes_data.iterrows():
+                    current_life = current_life - row['drain'] + row['bonuses_2']
+                    if current_life > clipped_life:
+                        current_life = clipped_life
+                    life_array.append(current_life)
+                self.notes_data['life_preclip'] = life_array
+                self.notes_data['life'] = np.clip(self.notes_data['life_preclip'], a_min=0, a_max=clipped_life)
             elif any(self.has_healing):
                 self.notes_data['life'] = np.clip(
                     self.live.get_life()
