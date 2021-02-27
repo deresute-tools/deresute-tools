@@ -25,12 +25,12 @@ def setup(update=False):
     from network import meta_updater
     if update:
         meta_updater.update_database()
+    from logic.search import card_query
+    assert card_query
     from network import music_updater
     music_updater.update_musicscores()
     from network import chart_cache_updater
     chart_cache_updater.update_cache_scores()
-    from logic.search import card_query
-    assert card_query
     from network import image_updater
     assert image_updater
     from logic.profile import profile_manager

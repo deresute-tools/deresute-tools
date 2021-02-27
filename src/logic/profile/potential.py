@@ -39,7 +39,7 @@ def copy_card_data_from_master(update_all=True, chara_id=None):
                   ('da', 'dance'),
                   ('li', 'hp'),
                   ('sk', 'skill')]
-    card_df = card_df.merge(pot_df, on='chara_id', how='left')
+    card_df = card_df.merge(pot_df, on='chara_id', how='left').fillna(0)
     pots = {
         key: pd.read_sql_query("SELECT * FROM potential_value_{}".format(key),
                                db.masterdb.get_connection())
