@@ -1,3 +1,4 @@
+import sys
 from collections import defaultdict
 
 from db import db
@@ -9,17 +10,28 @@ ALIASES = {
     "anastasia": "anya"
 }
 
+gettrace = getattr(sys, 'gettrace', None)
+queried_to_kirara = False
 
-def get_chara_dict():
-    kirara_query.update_chara_data()
+
+def get_chara_dict(debug=False):
+    global queried_to_kirara
+    # Prevent query if debugging
+    if not queried_to_kirara and (
+            not debug or not db.cachedb.execute_and_fetchone("""
+            SELECT name FROM sqlite_master WHERE type='table' AND name='chara_cache'
+        """)):
+        kirara_query.update_chara_data()
+        # Prevent redundant queries
+        queried_to_kirara = True
     results = db.cachedb.execute_and_fetchall("""
         SELECT chara_id, conventional FROM chara_cache
     """)
     return {_: __ for _, __ in results}
 
 
-def generate_short_names():
-    chara_data_dict = get_chara_dict()
+def generate_short_names(debug=False):
+    chara_data_dict = get_chara_dict(debug)
     card_chara_rarity = db.masterdb.execute_and_fetchall(
         """
         SELECT chara_id, GROUP_CONCAT(id), GROUP_CONCAT(rarity)
@@ -104,4 +116,4 @@ def convert_id_to_short_name(query):
     return results
 
 
-generate_short_names()
+generate_short_names(gettrace is not None)
