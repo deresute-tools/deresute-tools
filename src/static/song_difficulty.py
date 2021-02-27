@@ -16,6 +16,27 @@ class Difficulty(Enum):
     PIANO = 21
     FORTE = 22
 
+FLICK_DRAIN = {
+    Difficulty.DEBUT: 0,
+    Difficulty.REGULAR: 0,
+    Difficulty.PRO: 8,
+    Difficulty.MASTER: 10,
+    Difficulty.MPLUS: 10,
+    Difficulty.LEGACY: 10,
+    Difficulty.PIANO: 10,
+    Difficulty.FORTE: 10,
+}
+
+NONFLICK_DRAIN = {
+    Difficulty.DEBUT: 10,
+    Difficulty.REGULAR: 12,
+    Difficulty.PRO: 15,
+    Difficulty.MASTER: 20,
+    Difficulty.MPLUS: 20,
+    Difficulty.LEGACY: 20,
+    Difficulty.PIANO: 10,
+    Difficulty.FORTE: 10,
+}
 
 logger.debug("Creating chihiro.difficulty_text...")
 

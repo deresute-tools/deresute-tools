@@ -54,3 +54,51 @@ live.set_music(music_name="バベル", difficulty=Difficulty.MASTER)
 live.set_unit(unit)
 sim = Simulator(live)
 assert sim.simulate(perfect_play=True, appeals=217911)[1] == 1412046
+
+unit = Unit.from_list([200946, 200058, 100076, 100396, 300530, 200294], custom_pots=(0, 0, 0, 0, 10))
+live = Live()
+live.set_music(music_name="Trust me", difficulty=Difficulty.MASTER)
+live.set_unit(unit)
+sim = Simulator(live, special_offset=0.075)
+assert sim.simulate_auto(appeals=277043, time_offset=120)[0] == 561672
+
+unit = Unit.from_list([200946, 200058, 100076, 100396, 300530, 200294], custom_pots=(0, 0, 0, 0, 10))
+live = Live()
+live.set_music(music_name="Brand new!", difficulty=Difficulty.MASTER)
+live.set_unit(unit)
+sim = Simulator(live, special_offset=0.075)
+assert sim.simulate_auto(appeals=277043, time_offset=110)[0] == 570342
+
+unit = Unit.from_list([200946, 200058, 100076, 100396, 300530, 200294], custom_pots=(0, 0, 0, 0, 10))
+live = Live()
+live.set_music(music_name="Never ends", difficulty=Difficulty.MPLUS)
+live.set_unit(unit)
+sim = Simulator(live, special_offset=0.075)
+sim.simulate_auto(appeals=277043, time_offset=400)
+
+unit = Unit.from_list([200946, 200058, 100076, 100396, 300530, 200294], custom_pots=(0, 0, 0, 0, 10))
+live = Live()
+live.set_music(music_name="Tulip", difficulty=Difficulty.MPLUS)
+live.set_unit(unit)
+sim = Simulator(live, special_offset=0.075)
+assert sim.simulate_auto(appeals=277043, time_offset=113)[0] == 653697
+
+unitA = Unit.from_list([200946, 200496, 100396, 300572, 200058], custom_pots=(0, 0, 0, 0, 10))
+unitB = Unit.from_list([100936, 300078, 100500, 200378, 200072], custom_pots=(0, 0, 0, 0, 10))
+unitC = Unit.from_list([300600, 100076, 200644, 100506, 200892], custom_pots=(0, 0, 0, 0, 10))
+gu = GrandUnit(unitA, unitB, unitC)
+live = GrandLive()
+live.set_music(music_name="M@GIC", difficulty=Difficulty.FORTE)
+live.set_unit(gu)
+sim = Simulator(live, special_offset=0.075)
+assert sim.simulate_auto(appeals=444572, time_offset=120)[0] == 991859
+
+unitA = Unit.from_list([200946, 200496, 100396, 300572, 200058], custom_pots=(0, 0, 0, 0, 10))
+unitB = Unit.from_list([100936, 300078, 200620, 200378, 200072], custom_pots=(0, 0, 0, 0, 10))
+unitC = Unit.from_list([300600, 100076, 200644, 100506, 200892], custom_pots=(0, 0, 0, 0, 10))
+gu = GrandUnit(unitA, unitB, unitC)
+live = GrandLive()
+live.set_music(music_name="M@GIC", difficulty=Difficulty.FORTE)
+live.set_unit(gu)
+sim = Simulator(live, special_offset=0.075)
+assert sim.simulate_auto(appeals=451228, time_offset=218, mirror=True)[0] == 936614

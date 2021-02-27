@@ -2,12 +2,16 @@ import time
 from collections import defaultdict
 
 import numpy as np
+import pandas as pd
 
 import customlogger as logger
 from static.color import Color
 from static.live_values import WEIGHT_RANGE, DIFF_MULTIPLIERS
 from static.note_type import NoteType
 from static.skill import get_sparkle_bonus
+from static.song_difficulty import FLICK_DRAIN, NONFLICK_DRAIN
+
+SPECIAL_OFFSET = 0.075
 
 
 def has_skill(timestamp, upskills):
@@ -31,13 +35,16 @@ def check_long(notes_data, mask):
             notes_data.loc[idx, 'is_long'] = True
 
 
-
 class Simulator:
-    def __init__(self, live=None):
+    def __init__(self, live=None, special_offset=None):
         self.live = live
+        if special_offset is None:
+            self.special_offset = 0
+        else:
+            self.special_offset = special_offset
 
     def _setup_simulator(self, appeals=None, support=None, extra_bonus=None, chara_bonus_set=None, chara_bonus_value=0,
-                         special_option=None, special_value=None):
+                         special_option=None, special_value=None, auto=False, mirror=False):
         self.live.set_chara_bonus(chara_bonus_set, chara_bonus_value)
         if extra_bonus is not None or special_option is not None:
             if extra_bonus is not None:
@@ -46,6 +53,10 @@ class Simulator:
         self.notes_data = self.live.notes
         self.song_duration = self.notes_data.iloc[-1].sec
         self.note_count = len(self.notes_data)
+
+        if mirror and self.live.is_grand:
+            start_lanes = 16 - (self.notes_data['finishPos'] + self.notes_data['status'] - 1)
+            self.notes_data['finishPos'] = start_lanes
 
         is_flick = self.notes_data['note_type'] == NoteType.FLICK
         is_long = self.notes_data['note_type'] == NoteType.LONG
@@ -70,7 +81,24 @@ class Simulator:
             self.total_appeal = self.live.get_appeals() + self.support
         self.base_score = DIFF_MULTIPLIERS[self.live.level] * self.total_appeal / len(self.notes_data)
 
-    def get_note_scores(self, skill_off=False, grouped=False):
+        if auto:
+            self.original_notes_data = self.notes_data
+            self.notes_data = pd.DataFrame(columns=self.notes_data.columns)
+            secs = list(set(self.original_notes_data['sec']).union(set(np.arange(9, self.song_duration + 1, 0.05))))
+            self.notes_data['sec'] = sorted(secs)
+            self.notes_data['type'] = 1
+            self.notes_data['startPos'] = 1
+            self.notes_data['finishPos'] = 1
+            self.notes_data['status'] = 0
+            self.notes_data['sync'] = 0
+            self.notes_data['groupId'] = 0
+            self.notes_data['noteType'] = NoteType.TAP
+            self.notes_data['is_flick'] = False
+            self.notes_data['is_long'] = False
+            self.notes_data['is_slide'] = False
+            self.notes_data['weight'] = 0
+
+    def get_note_scores(self, skill_off=False, grouped=False, auto=False):
         if not skill_off:
             bonuses_0 = (1 + self.notes_data['bonuses_0'] / 100)
             bonuses_1 = (1 + self.notes_data['bonuses_1'] / 100)
@@ -80,9 +108,13 @@ class Simulator:
         if grouped:
             self.notes_data['note_score'] = np.round(
                 self.base_score * self.notes_data['weight'] * bonuses_0 * bonuses_1)
-            return self.notes_data.groupby('rep')['note_score']
+            scores_without_miss = self.notes_data.groupby('rep')['note_score']
         else:
-            return np.round(self.base_score * self.notes_data['weight'] * bonuses_0 * bonuses_1)
+            scores_without_miss = np.round(self.base_score * self.notes_data['weight'] * bonuses_0 * bonuses_1)
+        if auto:
+            return scores_without_miss * (1 - self.notes_data['is_miss'])
+        else:
+            return scores_without_miss
 
     def simulate(self, times=100, appeals=None, extra_bonus=None, support=None, perfect_play=False,
                  chara_bonus_set=None, chara_bonus_value=0, special_option=None, special_value=None):
@@ -178,13 +210,7 @@ class Simulator:
         self._simulate_internal(times=1, grand=grand, time_offset=0, fail_simulate=False)
         perfect_score = self.get_note_scores().copy()
 
-        self.notes_data['checkpoints'] = False
-        self.notes_data.loc[self.notes_data['note_type'] == NoteType.SLIDE, 'checkpoints'] = True
-        for group_id in self.notes_data[self.notes_data['note_type'] == NoteType.SLIDE].groupId.unique():
-            group = self.notes_data[
-                (self.notes_data['groupId'] != 0) & (self.notes_data['groupId'] == group_id)]
-            self.notes_data.loc[group.iloc[-1].name, 'checkpoints'] = False
-            self.notes_data.loc[group.iloc[0].name, 'checkpoints'] = False
+        self._helper_mark_slide_checkpoints()
 
         cc_idxes = list()
         for unit_idx, unit in enumerate(self.live.unit.all_units):
@@ -335,6 +361,78 @@ class Simulator:
                   max_score[idx] - perfect_score[idx])
         return perfect_score, score_array
 
+    def simulate_auto(self, appeals=None, extra_bonus=None, support=None,
+                      chara_bonus_set=None, chara_bonus_value=0, special_option=None, special_value=None,
+                      time_offset=0, mirror=False):
+        logger.debug("Unit: {}".format(self.live.unit))
+        logger.debug("Song: {} - {} - Lv {}".format(self.live.music_name, self.live.difficulty, self.live.level))
+        res = self._simulate_auto(appeals=appeals, extra_bonus=extra_bonus, support=support,
+                                  chara_bonus_set=chara_bonus_set, chara_bonus_value=chara_bonus_value,
+                                  special_option=special_option, special_value=special_value,
+                                  time_offset=time_offset, mirror=mirror)
+        return res
+
+    def _simulate_auto(self,
+                       appeals=None,
+                       extra_bonus=None,
+                       support=None,
+                       chara_bonus_set=None,
+                       chara_bonus_value=0,
+                       special_option=None,
+                       special_value=None,
+                       time_offset=0,
+                       mirror=False
+                       ):
+
+        if time_offset >= 200:
+            self.special_offset = 0
+        elif 125 >= time_offset > 100:
+            self.special_offset = 0.075
+        elif time_offset > 125:
+            self.special_offset = 0.2 - time_offset
+
+        # Pump dummy notes to check for intervals where notes fail
+        self._setup_simulator(appeals=appeals, support=support, extra_bonus=extra_bonus,
+                              chara_bonus_set=chara_bonus_set, chara_bonus_value=chara_bonus_value,
+                              special_option=special_option, special_value=special_value,
+                              auto=True, mirror=mirror)
+        grand = self.live.is_grand
+        self._simulate_auto_internal(times=1, grand=grand, time_offset=time_offset / 1000, auto_pass=0)
+
+        # Then revert
+        self.notes_fail = self.notes_data[['sec', 'is_miss']].set_index('sec')
+        self.notes_data = self.original_notes_data
+        self._helper_mark_slide_checkpoints()
+        self._simulate_auto_internal(times=1, grand=grand, time_offset=time_offset / 1000, auto_pass=1)
+
+        score = self.get_note_scores(auto=True).sum()
+        self.notes_data["note_score"] = self.get_note_scores(auto=True)
+        self.notes_data["total_score"] = self.get_note_scores(auto=True).cumsum()
+
+        perfects = int((1 - self.notes_data['is_miss']).sum())
+        max_combo = int(self.notes_data['combo'].max())
+        lowest_life = int(self.notes_data['life_preclip'].min())
+        lowest_life_idx = int(self.notes_data['life_preclip'].idxmin())
+        lowest_life_time = self.notes_data.loc[lowest_life_idx, 'sec']
+        logger.debug("Tensor size: {}".format(self.notes_data.shape))
+        logger.debug("Appeal: {}".format(int(self.total_appeal)))
+        logger.debug("Support: {}".format(int(self.live.get_support())))
+        logger.debug("Support team: {}".format(self.live.print_support_team()))
+        logger.debug("Auto score: {}".format(int(score)))
+        logger.debug("Lowest life: {} - Note {}/{}s".format(lowest_life, lowest_life_idx, lowest_life_time))
+        logger.debug("Perfects: {}".format(perfects))
+        logger.debug("Max combo: {}".format(max_combo))
+        return score, perfects, max_combo, lowest_life, lowest_life_time, self.all_100
+
+    def _helper_mark_slide_checkpoints(self):
+        self.notes_data['checkpoints'] = False
+        self.notes_data.loc[self.notes_data['note_type'] == NoteType.SLIDE, 'checkpoints'] = True
+        for group_id in self.notes_data[self.notes_data['note_type'] == NoteType.SLIDE].groupId.unique():
+            group = self.notes_data[
+                (self.notes_data['groupId'] != 0) & (self.notes_data['groupId'] == group_id)]
+            self.notes_data.loc[group.iloc[-1].name, 'checkpoints'] = False
+            self.notes_data.loc[group.iloc[0].name, 'checkpoints'] = False
+
     def _simulate_internal(self, grand, times, fail_simulate=False, time_offset=0.0):
         results = self._helper_initialize_skill_activations(times=times, grand=grand,
                                                             time_offset=time_offset,
@@ -358,7 +456,205 @@ class Simulator:
                                                                is_magic=self.has_magic)
             self._helper_evaluate_skill_bonuses(np_v, np_b, grand=grand)
 
-    def _helper_evaluate_skill_bonuses(self, np_v, np_b, grand, mutate_df=True):
+    def _simulate_auto_internal(self, times, grand, time_offset=0.0, auto_pass=0):
+        results = self._helper_initialize_skill_activations(times=times, grand=grand,
+                                                            time_offset=time_offset,
+                                                            fail_simulate=False)
+        self.has_sparkle, self.has_support, self.has_alternate, self.has_refrain, self.has_magic = results
+
+        # In case of Alternate and LS, to save one redundant Alternate evaluation, only evaluate together with LS
+        np_v, np_b = self._helper_initialize_skill_bonuses(grand=grand,
+                                                           sparkle=False,
+                                                           alternate=self.has_alternate and not self.has_sparkle,
+                                                           refrain=self.has_refrain and not self.has_sparkle,
+                                                           is_magic=self.has_magic)
+        self._helper_evaluate_skill_bonuses(np_v, np_b, grand=grand, auto=False)
+        self._helper_miss_notes_in_auto(time_offset)
+        if auto_pass == 0:
+            return
+        np_v, np_b = self._helper_initialize_skill_bonuses(grand=grand,
+                                                           sparkle=False,
+                                                           alternate=self.has_alternate and not self.has_sparkle,
+                                                           refrain=self.has_refrain and not self.has_sparkle,
+                                                           is_magic=self.has_magic)
+        self._helper_evaluate_skill_bonuses(np_v, np_b, grand=grand, auto=True)
+
+        if self.has_sparkle:
+            np_v, np_b = self._helper_initialize_skill_bonuses(grand=grand,
+                                                               np_v=np_v, np_b=np_b,
+                                                               sparkle=self.has_sparkle,
+                                                               alternate=self.has_alternate,
+                                                               refrain=self.has_refrain,
+                                                               is_magic=self.has_magic)
+            self._helper_miss_notes_in_auto(time_offset)
+            self._helper_evaluate_skill_bonuses(np_v, np_b, grand=grand, auto=True)
+
+    def _helper_miss_notes_in_auto(self, offset):
+        # Register miss when support level below 4
+        #   PERFECT GREAT   NICE    BAD MISS
+        #   0       1       2       3   4
+        is_miss = self.notes_data['bonuses_3'] < 4
+
+        # Get all the guarded notes
+        # Normal guards
+        guard_idxes = {_ for _, c in enumerate(self.live.unit.all_cards()) if c.skill.skill_type == 12}
+        # Magic guards
+        units_with_guard = {_ // 5 for _ in guard_idxes}
+        for magic in self.magic_set:
+            if magic // 5 in units_with_guard:
+                guard_idxes.add(magic)
+        is_guarded = self.notes_data[['skill_{}'.format(_) for _ in guard_idxes]].sum(axis=1) > 0
+
+        # Get all pairs of longs
+        long_set = set()
+        long_pairs = list()
+        long_stack = dict()
+        for idx, row in self.notes_data.iterrows():
+            lane = row['finishPos']
+            if lane in long_stack:
+                long_start = long_stack.pop(lane)
+                long_end = idx
+                long_pairs.append((long_start, long_end))
+                long_set.add(long_start)
+                long_set.add(long_end)
+                continue
+            if row['note_type'] == NoteType.LONG:
+                long_stack[lane] = idx
+
+        # Get all sets of slides
+        slide_group_set = set(self.notes_data[self.notes_data['note_type'] == NoteType.SLIDE].groupId.unique().tolist())
+        slide_set = set(self.notes_data[self.notes_data['groupId'].isin(slide_group_set)].index)
+
+        # Handle the trivial case first
+        simple_note_mask = ~self.notes_data.index.isin(slide_set.union(long_set))
+        drainable = np.ones((len(self.notes_data),))
+        drainable[simple_note_mask] = True
+
+        secs = list(self.notes_data['sec'])
+        # Drain longs
+        for (long_start, long_end) in long_pairs:
+            # Miss long start => long end gone
+            if is_miss[long_start]:
+                drainable[long_end] = False
+                is_miss[long_end] = True
+            else:
+                check_series = self.notes_fail.loc[secs[long_start]: secs[long_end]]
+                if check_series.any()[0]:
+                    # Hit long start but fail in the middle
+                    drainable[long_end] = True
+                    is_miss[long_end] = True
+                    self.notes_data.loc[long_end, 'sec'] = check_series[check_series['is_miss'].values].index[0]
+
+        # Drain slides
+        for slide_group in slide_group_set:
+            if not self.live.is_grand:
+                slide_idxes = self.notes_data[
+                    (self.notes_data['groupId'] == slide_group) & (self.notes_data['type'] == 3)].index
+            else:
+                slide_idxes = self.notes_data[self.notes_data['groupId'] == slide_group].index
+
+            # Find first slide miss
+            # Trivial case where the very first slide fails
+            bug_check = False
+            first_slide_time = self.notes_data.loc[slide_idxes[0], 'sec']
+            if is_miss[slide_idxes[0]]:
+                first_slide_miss = slide_idxes[0]
+            else:
+                first_slide_miss = -1
+                bug_check = self.live.is_grand \
+                            and self.notes_data.loc[slide_idxes[0], 'finishPos'] \
+                            + self.notes_data.loc[slide_idxes[0], 'status'] > 10
+                for l, r in zip(slide_idxes[:-1], slide_idxes[1:]):
+                    check_series = self.notes_fail.loc[self.notes_data.loc[l, 'sec']:self.notes_data.loc[r, 'sec']]
+                    wide_bug_condition = self.live.is_grand \
+                                         and self.notes_data.loc[r, 'finishPos'] == 3 \
+                                         and self.notes_data.loc[r, 'checkpoints']
+                    grand_bug_condition = self.live.is_grand \
+                                          and self.notes_data.loc[r, 'finishPos'] < 10 \
+                                          and self.notes_data.loc[r, 'finishPos'] + self.notes_data.loc[r, 'status'] > 6 \
+                                          and self.notes_data.loc[r, 'checkpoints']
+                    if wide_bug_condition or grand_bug_condition:
+                        # Dumb lane 3 bug
+                        first_to_hit = max(self.notes_data.loc[r, 'sec'] - offset, first_slide_time)
+                        original_checkpoint_time = self.notes_data.loc[r, 'sec']
+                        self.notes_data.loc[r, 'sec'] = first_to_hit
+                        check_series = self.notes_fail.loc[self.notes_data.loc[l, 'sec']:self.notes_data.loc[r, 'sec']]
+                        if check_series.any()[0]:
+                            self.notes_data.loc[r, 'sec'] = original_checkpoint_time
+                            first_slide_miss = r
+                            if not bug_check:
+                                self.notes_data.loc[first_slide_miss, 'sec'] = \
+                                    check_series[check_series['is_miss'].values].index[0]
+                            break
+                        else:
+                            is_miss[r] = False
+                        continue
+                    elif check_series.any()[0]:
+                        first_slide_miss = r
+                        if not bug_check:
+                            self.notes_data.loc[first_slide_miss, 'sec'] = \
+                                check_series[check_series['is_miss'].values].index[0]
+                        break
+
+            # If there's no miss, ignore
+            if first_slide_miss == -1:
+                continue
+            # Check for grand bug where slides start from unit C get special treatment
+            if not bug_check:
+                for _ in slide_idxes:
+                    if _ > first_slide_miss:
+                        drainable[_] = False
+                    # Mark first checkpoint as miss and drainable but all checkpoints after that are not drainable,
+                    # even though they are misses as well
+                    if _ >= first_slide_miss:
+                        is_miss[_] = True
+                continue
+            # Handle the stupid bug
+            for _ in slide_idxes:
+                if _ > first_slide_miss:
+                    drainable[_] = True
+                if _ >= first_slide_miss:
+                    if self.notes_data.loc[_, 'finishPos'] < 10 \
+                            and self.notes_data.loc[_, 'finishPos'] + self.notes_data.loc[_, 'status'] > 6 \
+                            and self.notes_data.loc[_, 'checkpoints']:
+                        is_miss[_] = False
+                    else:
+                        is_miss[_] = True
+
+        # Calculate combo
+        self.notes_data['drainable'] = drainable
+        self.notes_data['is_miss'] = is_miss
+        self.notes_data = self.notes_data.sort_values(by='sec', kind='mergesort', ignore_index=True)
+        self._helpter_calculate_combo()
+
+        is_drained = np.logical_and(np.logical_and(is_miss, drainable), 1 - is_guarded)
+        self.notes_data['drain'] = 0
+        self.notes_data.loc[is_drained & self.notes_data['is_flick'], 'drain'] = FLICK_DRAIN[self.live.difficulty]
+        self.notes_data.loc[is_drained & ~self.notes_data['is_flick'], 'drain'] = NONFLICK_DRAIN[self.live.difficulty]
+
+    def _helpter_calculate_combo(self):
+        combo = list()
+        current_combo = 0
+        for drain, missed in zip(self.notes_data['drainable'], self.notes_data['is_miss']):
+            if missed:
+                # Do not reset combo in case of not drainable (missed checkpoints due to missed slide start, etc.)
+                if drain:
+                    current_combo = 0
+                combo.append(current_combo)
+            else:
+                combo.append(current_combo)
+                current_combo += 1
+        weight_dict = dict()
+        weight_range = np.array(WEIGHT_RANGE)
+        weight_range[:, 0] = np.trunc(WEIGHT_RANGE[:, 0] / 100 * len(self.notes_data) - 1)
+        for idx, (bound_l, bound_r) in enumerate(zip(weight_range[:-1, 0], weight_range[1:, 0])):
+            for _ in range(int(bound_l), int(bound_r)):
+                weight_dict[_] = weight_range[idx][1]
+        self.notes_data['combo'] = combo
+        self.notes_data['weight'] = self.notes_data['combo'].map(weight_dict)
+        self.notes_data['combo'] += 1
+
+    def _helper_evaluate_skill_bonuses(self, np_v, np_b, grand, mutate_df=True, auto=False):
         """
         Evaluates and unifies skill bonuses.
         :param np_v: Numpy array of unnormalized (e.g. 120) skill values (no boost), shape: Notes x Values x Colors x Cards
@@ -418,11 +714,11 @@ class Simulator:
                     alternate_mask = np_v[:, 1, :, card_idx] < 0
                     original_value = np_v[:, 1, :, card_idx][alternate_mask]
                     alt_original_values[card_idx] = alternate_mask, original_value
-                if skill.is_support:
+                if skill.is_support or card_idx in self.magic_set and self.has_support:
                     mask = np_v[:, 3, :, card_idx] == 0
                     np_v[:, 3, :, card_idx] += boost_array[:, 3]
                     np_v[:, 3, :, card_idx][mask] = 0
-                else:
+                if not skill.is_support:
                     non_support_list.append(card_idx)
             stop_idx = 3 if self.has_healing[unit_idx] else 2
             np_v[:, :stop_idx, :, non_support_list] = np.ceil(
@@ -466,13 +762,24 @@ class Simulator:
             min_tensor = skill_bonuses.min(axis=2)
             mask = np.logical_and(skill_bonuses_final == 0, min_tensor < 0)
             skill_bonuses_final[mask] = min_tensor[mask]
+
+        if auto:
+            skill_bonuses_final[self.notes_data['is_miss']] = 0
+            skill_bonuses_final[self.notes_data['combo'] == 1, 1] = 0
+
         if mutate_df:
             # Fill values into DataFrame
             value_range = 4 if self.has_support else 3
             for _ in range(value_range):
                 self.notes_data["bonuses_{}".format(_)] = skill_bonuses_final[:, _]
             # Evaluate HP
-            if any(self.has_healing):
+            if auto:
+                self.notes_data['life_preclip'] = self.live.get_life() - self.notes_data['drain'].groupby(
+                    self.notes_data.index // self.note_count).cumsum() + self.notes_data['bonuses_2'].groupby(
+                    self.notes_data.index // self.note_count).cumsum()
+                self.notes_data['life'] = np.clip(self.notes_data['life_preclip'], a_min=0,
+                                                  a_max=2 * self.live.get_life())
+            elif any(self.has_healing):
                 self.notes_data['life'] = np.clip(
                     self.live.get_life()
                     + self.notes_data['bonuses_2'].groupby(self.notes_data.index // self.note_count).cumsum(),
@@ -784,7 +1091,8 @@ class Simulator:
                     null_deactivated_skills(unit_idx, magic)
         return np_v, np_b
 
-    def _helper_initialize_skill_activations(self, grand, times, time_offset=0.0, fail_simulate=False):
+    def _helper_initialize_skill_activations(self, grand, times, time_offset=0.0, fail_simulate=False,
+                                             reset_notes_data=False):
         """
         Fills in the DataFrame where each skill activates. 1 means active skill, else 0
         :param grand: True if GRAND LIVE, else False.
@@ -803,11 +1111,20 @@ class Simulator:
         self.alt_magic_copy = set()
         self.magic_lists = defaultdict(list)
         self.magic_set = set()
+        self.all_100 = True
+
+        if reset_notes_data:
+            self.notes_data = self.original_notes_data.copy()
 
         if fail_simulate:
             logger.debug("Simulating fail play")
             self.notes_data = self.notes_data.append([self.notes_data] * (times - 1), ignore_index=True)
             self.notes_data['rep'] = np.repeat(np.arange(times), self.note_count)
+
+        if self.special_offset != 0:
+            self.notes_data.loc[self.notes_data['note_type'] == NoteType.FLICK, 'sec'] += self.special_offset
+            self.notes_data.loc[self.notes_data['note_type'] == NoteType.LONG, 'sec'] += self.special_offset
+            self.notes_data.loc[self.notes_data['note_type'] == NoteType.SLIDE, 'sec'] += self.special_offset
 
         for unit_idx, unit in enumerate(self.live.unit.all_units):
             for card_idx, card in enumerate(unit.all_cards()):
@@ -829,6 +1146,9 @@ class Simulator:
             for card_idx, card in enumerate(unit.all_cards()):
                 skill = card.skill
                 probability = self.live.get_probability(unit_idx * 5 + card_idx)
+
+                if probability < 1:
+                    self.all_100 = False
 
                 if probability > 0 and skill.values[2] > 0:
                     has_healing = True
