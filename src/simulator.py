@@ -117,7 +117,8 @@ class Simulator:
             return scores_without_miss
 
     def simulate(self, times=100, appeals=None, extra_bonus=None, support=None, perfect_play=False,
-                 chara_bonus_set=None, chara_bonus_value=0, special_option=None, special_value=None):
+                 chara_bonus_set=None, chara_bonus_value=0, special_option=None, special_value=None,
+                 doublelife=False):
         start = time.time()
         logger.debug("Unit: {}".format(self.live.unit))
         logger.debug("Song: {} - {} - Lv {}".format(self.live.music_name, self.live.difficulty, self.live.level))
@@ -127,7 +128,8 @@ class Simulator:
         res = self._simulate(times, appeals=appeals, extra_bonus=extra_bonus, support=support,
                              perfect_play=perfect_play,
                              chara_bonus_set=chara_bonus_set, chara_bonus_value=chara_bonus_value,
-                             special_option=special_option, special_value=special_value)
+                             special_option=special_option, special_value=special_value,
+                             doublelife=doublelife)
         logger.debug("Total run time for {} trials: {:04.2f}s".format(times, time.time() - start))
         return res
 
@@ -141,6 +143,7 @@ class Simulator:
                   chara_bonus_value=0,
                   special_option=None,
                   special_value=None,
+                  doublelife=False
                   ):
 
         self._setup_simulator(appeals=appeals, support=support, extra_bonus=extra_bonus,
@@ -148,7 +151,7 @@ class Simulator:
                               special_option=special_option, special_value=special_value)
         grand = self.live.is_grand
 
-        self._simulate_internal(times=times, grand=grand, time_offset=0, fail_simulate=False)
+        self._simulate_internal(times=times, grand=grand, time_offset=0, fail_simulate=False, doublelife=doublelife)
         perfect_score = self.get_note_scores().sum()
         skill_off = self.get_note_scores(skill_off=True).sum()
 
@@ -159,7 +162,7 @@ class Simulator:
             base = perfect_score
             deltas = np.zeros(1)
         else:
-            self._simulate_internal(times=times, grand=grand, time_offset=0, fail_simulate=True)
+            self._simulate_internal(times=times, grand=grand, time_offset=0, fail_simulate=True, doublelife=doublelife)
             grouped_note_scores = self.get_note_scores(grouped=True)
             totals = grouped_note_scores.sum()
             base = totals.mean()
@@ -363,13 +366,13 @@ class Simulator:
 
     def simulate_auto(self, appeals=None, extra_bonus=None, support=None,
                       chara_bonus_set=None, chara_bonus_value=0, special_option=None, special_value=None,
-                      time_offset=0, mirror=False):
+                      time_offset=0, mirror=False, doublelife=False):
         logger.debug("Unit: {}".format(self.live.unit))
         logger.debug("Song: {} - {} - Lv {}".format(self.live.music_name, self.live.difficulty, self.live.level))
         res = self._simulate_auto(appeals=appeals, extra_bonus=extra_bonus, support=support,
                                   chara_bonus_set=chara_bonus_set, chara_bonus_value=chara_bonus_value,
                                   special_option=special_option, special_value=special_value,
-                                  time_offset=time_offset, mirror=mirror)
+                                  time_offset=time_offset, mirror=mirror, doublelife=doublelife)
         return res
 
     def _simulate_auto(self,
@@ -381,7 +384,8 @@ class Simulator:
                        special_option=None,
                        special_value=None,
                        time_offset=0,
-                       mirror=False
+                       mirror=False,
+                       doublelife=False
                        ):
 
         if time_offset >= 200:
@@ -397,19 +401,24 @@ class Simulator:
                               special_option=special_option, special_value=special_value,
                               auto=True, mirror=mirror)
         grand = self.live.is_grand
-        self._simulate_auto_internal(times=1, grand=grand, time_offset=time_offset / 1000, auto_pass=0)
+        self._simulate_auto_internal(times=1, grand=grand, time_offset=time_offset / 1000, auto_pass=0,
+                                     doublelife=doublelife)
 
         # Then revert
         self.notes_fail = self.notes_data[['sec', 'is_miss']].set_index('sec')
         self.notes_data = self.original_notes_data
         self._helper_mark_slide_checkpoints()
-        self._simulate_auto_internal(times=1, grand=grand, time_offset=time_offset / 1000, auto_pass=1)
+        self._simulate_auto_internal(times=1, grand=grand, time_offset=time_offset / 1000, auto_pass=1,
+                                     doublelife=doublelife)
 
         score = self.get_note_scores(auto=True).sum()
         self.notes_data["note_score"] = self.get_note_scores(auto=True)
         self.notes_data["total_score"] = self.get_note_scores(auto=True).cumsum()
 
+        miss_mask = np.logical_and(self.notes_data['drainable'], self.notes_data['is_miss'])
+        self.notes_data.loc[miss_mask, 'combo'] = 0
         perfects = int((1 - self.notes_data['is_miss']).sum())
+        misses = len(self.notes_data[miss_mask])
         max_combo = int(self.notes_data['combo'].max())
         lowest_life = int(self.notes_data['life_preclip'].min())
         lowest_life_idx = int(self.notes_data['life_preclip'].idxmin())
@@ -421,10 +430,10 @@ class Simulator:
         logger.debug("Auto score: {}".format(int(score)))
         logger.debug("Lowest life: {} - Note {}/{}s".format(lowest_life, lowest_life_idx, lowest_life_time))
         logger.debug("Perfects: {}".format(perfects))
-        logger.debug("Misses: {}".format(len(self.notes_data[np.logical_and(self.notes_data['drainable'], self.notes_data['is_miss'])])))
+        logger.debug("Misses: {}".format(misses))
         logger.debug("Max combo: {}".format(max_combo))
         logger.debug("Total life drained: {}".format(self.notes_data['drain'].sum()))
-        return score, perfects, max_combo, lowest_life, lowest_life_time, self.all_100
+        return self.total_appeal, self.live.get_life(), score, perfects, misses, max_combo, lowest_life, lowest_life_time, self.all_100
 
     def _helper_mark_slide_checkpoints(self):
         self.notes_data['checkpoints'] = False
@@ -435,7 +444,7 @@ class Simulator:
             self.notes_data.loc[group.iloc[-1].name, 'checkpoints'] = False
             self.notes_data.loc[group.iloc[0].name, 'checkpoints'] = False
 
-    def _simulate_internal(self, grand, times, fail_simulate=False, time_offset=0.0):
+    def _simulate_internal(self, grand, times, fail_simulate=False, time_offset=0.0, doublelife=False):
         results = self._helper_initialize_skill_activations(times=times, grand=grand,
                                                             time_offset=time_offset,
                                                             fail_simulate=fail_simulate)
@@ -447,7 +456,7 @@ class Simulator:
                                                            alternate=self.has_alternate and not self.has_sparkle,
                                                            refrain=self.has_refrain and not self.has_sparkle,
                                                            is_magic=self.has_magic)
-        self._helper_evaluate_skill_bonuses(np_v, np_b, grand=grand)
+        self._helper_evaluate_skill_bonuses(np_v, np_b, grand=grand, doublelife=doublelife)
 
         if self.has_sparkle:
             np_v, np_b = self._helper_initialize_skill_bonuses(grand=grand,
@@ -456,9 +465,9 @@ class Simulator:
                                                                alternate=self.has_alternate,
                                                                refrain=self.has_refrain,
                                                                is_magic=self.has_magic)
-            self._helper_evaluate_skill_bonuses(np_v, np_b, grand=grand)
+            self._helper_evaluate_skill_bonuses(np_v, np_b, grand=grand, doublelife=doublelife)
 
-    def _simulate_auto_internal(self, times, grand, time_offset=0.0, auto_pass=0):
+    def _simulate_auto_internal(self, times, grand, time_offset=0.0, auto_pass=0, doublelife=False):
         results = self._helper_initialize_skill_activations(times=times, grand=grand,
                                                             time_offset=time_offset,
                                                             fail_simulate=False)
@@ -470,7 +479,7 @@ class Simulator:
                                                            alternate=self.has_alternate and not self.has_sparkle,
                                                            refrain=self.has_refrain and not self.has_sparkle,
                                                            is_magic=self.has_magic)
-        self._helper_evaluate_skill_bonuses(np_v, np_b, grand=grand, auto=False)
+        self._helper_evaluate_skill_bonuses(np_v, np_b, grand=grand, auto=False, doublelife=doublelife)
         self._helper_miss_notes_in_auto(time_offset)
         if auto_pass == 0:
             return
@@ -479,7 +488,7 @@ class Simulator:
                                                            alternate=self.has_alternate and not self.has_sparkle,
                                                            refrain=self.has_refrain and not self.has_sparkle,
                                                            is_magic=self.has_magic)
-        self._helper_evaluate_skill_bonuses(np_v, np_b, grand=grand, auto=True)
+        self._helper_evaluate_skill_bonuses(np_v, np_b, grand=grand, auto=True, doublelife=doublelife)
 
         if self.has_sparkle:
             np_v, np_b = self._helper_initialize_skill_bonuses(grand=grand,
@@ -489,13 +498,16 @@ class Simulator:
                                                                refrain=self.has_refrain,
                                                                is_magic=self.has_magic)
             self._helper_miss_notes_in_auto(time_offset)
-            self._helper_evaluate_skill_bonuses(np_v, np_b, grand=grand, auto=True)
+            self._helper_evaluate_skill_bonuses(np_v, np_b, grand=grand, auto=True, doublelife=doublelife)
 
     def _helper_miss_notes_in_auto(self, offset):
         # Register miss when support level below 4
         #   PERFECT GREAT   NICE    BAD MISS
         #   0       1       2       3   4
-        is_miss = self.notes_data['bonuses_3'] < 4
+        if 'bonuses_3' not in self.notes_data.columns:
+            is_miss = [True] * len(self.notes_data)
+        else:
+            is_miss = self.notes_data['bonuses_3'] < 4
 
         # Get all the guarded notes
         # Normal guards
@@ -659,7 +671,7 @@ class Simulator:
         self.notes_data['weight'] = self.notes_data['combo'].map(weight_dict)
         self.notes_data['combo'] += 1
 
-    def _helper_evaluate_skill_bonuses(self, np_v, np_b, grand, mutate_df=True, auto=False):
+    def _helper_evaluate_skill_bonuses(self, np_v, np_b, grand, mutate_df=True, auto=False, doublelife=False):
         """
         Evaluates and unifies skill bonuses.
         :param np_v: Numpy array of unnormalized (e.g. 120) skill values (no boost), shape: Notes x Values x Colors x Cards
@@ -780,7 +792,7 @@ class Simulator:
             # Evaluate HP
             if auto:
                 clipped_life = 2 * self.live.get_life()
-                start_life = self.live.get_life()
+                start_life = self.live.get_start_life(doublelife=doublelife)
                 current_life = start_life
                 life_array = list()
                 for _, row in self.notes_data.iterrows():
@@ -792,11 +804,11 @@ class Simulator:
                 self.notes_data['life'] = np.clip(self.notes_data['life_preclip'], a_min=0, a_max=clipped_life)
             elif any(self.has_healing):
                 self.notes_data['life'] = np.clip(
-                    self.live.get_life()
+                    self.live.get_start_life(doublelife=doublelife)
                     + self.notes_data['bonuses_2'].groupby(self.notes_data.index // self.note_count).cumsum(),
                     a_min=0, a_max=2 * self.live.get_life())
             else:
-                self.notes_data['life'] = self.live.get_life()
+                self.notes_data['life'] = self.live.get_start_life(doublelife=doublelife)
         return skill_bonuses_final
 
     def _helper_initialize_skill_bonuses(self, grand, np_v=None, np_b=None, sparkle=False, alternate=False,

@@ -278,6 +278,12 @@ class BaseLive(ABC):
     def get_life(self):
         pass
 
+    def get_start_life(self, doublelife=False):
+        if doublelife:
+            return self.get_life() * 2
+        else:
+            return self.get_life()
+
     @property
     @abstractmethod
     def is_grand(self):

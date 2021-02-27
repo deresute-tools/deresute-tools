@@ -18,6 +18,12 @@ class CustomSettingsView:
         self.custom_appeal_checkbox.setToolTip("This option will ignore support appeal.")
         self.custom_support_checkbox = QtWidgets.QCheckBox("Support Appeal", self.main)
         self.custom_perfect_play_checkbox = QtWidgets.QCheckBox("Perfect Simulation", self.main)
+        self.autoplay_mode_checkbox = QtWidgets.QCheckBox("Autoplay Mode", self.main)
+        self.mirror_checkbox = QtWidgets.QCheckBox("Mirror", self.main)
+        self.doublelife_checkbox = QtWidgets.QCheckBox("2x Life Start", self.main)
+        self.autoplay_offset_text = QtWidgets.QLineEdit(self.main)
+        self.autoplay_offset_text.setPlaceholderText("Set autoplay offset in milliseconds")
+        self.autoplay_offset_text.setValidator(QIntValidator(0, 1E3, None))  # Only number allowed
         self.custom_appeal_text = QtWidgets.QLineEdit(self.main)
         self.custom_appeal_text.setValidator(QIntValidator(0, 1E6, None))  # Only number allowed
         self.custom_support_text = QtWidgets.QLineEdit(self.main)
@@ -32,6 +38,10 @@ class CustomSettingsView:
     def _setup_positions(self):
         self.layout.addWidget(self.custom_perfect_play_checkbox, 2, 0, 1, 3)
         self.layout.addWidget(self.custom_potential_checkbox, 2, 3, 1, 2)
+        self.layout.addWidget(self.autoplay_mode_checkbox, 3, 0, 1, 2)
+        self.layout.addWidget(self.mirror_checkbox, 3, 2, 1, 1)
+        self.layout.addWidget(self.doublelife_checkbox, 3, 3, 1, 2)
+        self.layout.addWidget(self.autoplay_offset_text, 3, 5, 1, 2)
         self.layout.addWidget(self.custom_appeal_checkbox, 2, 5, 1, 1)
         self.layout.addWidget(self.custom_support_checkbox, 2, 6, 1, 1)
         self.layout.addWidget(self.custom_appeal_text, 1, 5, 1, 1)
@@ -100,3 +110,17 @@ class CustomSettingsModel:
 
     def get_perfect_play(self):
         return self.view.custom_perfect_play_checkbox.isChecked()
+
+    def get_mirror(self):
+        return self.view.mirror_checkbox.isChecked()
+
+    def get_doublelife(self):
+        return self.view.doublelife_checkbox.isChecked()
+
+    def get_autoplay(self):
+        return self.view.autoplay_mode_checkbox.isChecked()
+
+    def get_autoplay_offset(self):
+        if self.view.autoplay_offset_text.text() == "":
+            return 0
+        return int(self.view.autoplay_offset_text.text())

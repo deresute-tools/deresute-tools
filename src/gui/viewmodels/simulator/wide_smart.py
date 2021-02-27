@@ -164,18 +164,24 @@ class MainView:
         custom_pots = self.custom_settings_model.get_custom_pots()
         appeals = self.custom_settings_model.get_appeals()
         support = self.custom_settings_model.get_support()
+        mirror = self.custom_settings_model.get_mirror()
+        doublelife = self.custom_settings_model.get_doublelife()
+        autoplay = self.custom_settings_model.get_autoplay()
+        autoplay_offset = self.custom_settings_model.get_autoplay_offset()
         extra_bonus, special_option, special_value = self.custom_bonus_model.get_bonus()
         self.model.simulate_internal(
             perfect_play=perfect_play,
             score_id=score_id, diff_id=diff_id, times=times, all_cards=all_cards, custom_pots=custom_pots,
             appeals=appeals, support=support, extra_bonus=extra_bonus,
             special_option=special_option, special_value=special_value,
+            mirror=mirror, autoplay=autoplay, autoplay_offset=autoplay_offset,
+            doublelife=doublelife,
             row=row
         )
 
-    def display_results(self, results, row=None):
+    def display_results(self, results, row=None, autoplay=False):
         self.get_table_view().widget.setSortingEnabled(False)
-        self.get_table_view().display_results(results, row=row)
+        self.get_table_view().display_results(results, row=row, autoplay=autoplay)
         self.get_table_view().widget.setSortingEnabled(True)
 
 
@@ -186,7 +192,10 @@ class MainModel:
         self.view = view
 
     def simulate_internal(self, perfect_play, score_id, diff_id, times, all_cards, custom_pots, appeals, support,
-                          extra_bonus, special_option, special_value, row=None):
+                          extra_bonus, special_option, special_value,
+                          mirror, autoplay, autoplay_offset,
+                          doublelife,
+                          row=None):
         results = list()
         if len(all_cards) == 0:
             logger.info("Nothing to simulate")
@@ -213,13 +222,27 @@ class MainModel:
                 continue
 
             live.set_unit(unit)
-            sim = Simulator(live)
-            results.append(sim.simulate(perfect_play=perfect_play,
-                                        times=times, appeals=appeals, extra_bonus=extra_bonus, support=support,
-                                        special_option=special_option, special_value=special_value))
-        self.process_results(results, row)
+            if autoplay:
+                sim = Simulator(live, special_offset=0.075)
+                results.append(sim.simulate_auto(appeals=appeals, extra_bonus=extra_bonus, support=support,
+                                                 special_option=special_option, special_value=special_value,
+                                                 time_offset=autoplay_offset, mirror=mirror,
+                                                 doublelife=doublelife))
+            else:
+                sim = Simulator(live)
+                results.append(sim.simulate(perfect_play=perfect_play,
+                                            times=times, appeals=appeals, extra_bonus=extra_bonus, support=support,
+                                            special_option=special_option, special_value=special_value,
+                                            doublelife=doublelife))
+        self.process_results(results, row, autoplay)
 
-    def process_results(self, results, row=None):
+    def process_results(self, results, row=None, auto=False):
+        if auto:
+            self._process_auto_results(results, row)
+        else:
+            self._process_normal_results(results, row)
+
+    def _process_normal_results(self, results, row=None):
         # ["Perfect", "Mean", "Max", "Min", "Skill Off", "1%", "5%", "25%", "50%", "75%"])
         # results: appeals, perfect_score, skill_off, base, deltas
         res = list()
@@ -241,4 +264,26 @@ class MainModel:
             temp.append(base + np.percentile(deltas, 50))
             temp.append(base + np.percentile(deltas, 25))
             res.append(map(int, temp))
-        self.view.display_results(res, row)
+        self.view.display_results(res, row, autoplay=False)
+
+    def _process_auto_results(self, results, row=None):
+        # ["Auto Score", "Perfects", "Misses", "Max Combo", "Lowest Life", "Lowest Life Time", "All Skills 100%?"]
+        # results: score, perfects, misses. max_combo, lowest_life, lowest_life_time, self.all_100
+        res = list()
+        for result in results:
+            temp = list()
+            if result is None:
+                temp.append(None)
+                continue
+            appeals, life, score, perfects, misses, max_combo, lowest_life, lowest_life_time, all_100 = result
+            temp.append(int(appeals))
+            temp.append(int(life))
+            temp.append(int(score))
+            temp.append(int(perfects))
+            temp.append(int(misses))
+            temp.append(int(max_combo))
+            temp.append(int(lowest_life))
+            temp.append(float(lowest_life_time))
+            temp.append("Yes" if all_100 else "No")
+            res.append(temp)
+        self.view.display_results(res, row, autoplay=True)

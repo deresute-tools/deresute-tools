@@ -2,13 +2,17 @@ import ast
 
 from PyQt5.QtCore import QSize, Qt, QMimeData
 from PyQt5.QtGui import QDrag
-from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QAbstractItemView, QTableWidget, QApplication
+from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QAbstractItemView, QTableWidget, QApplication, QTableWidgetItem
 
 import customlogger as logger
 from gui.viewmodels.mime_headers import CALCULATOR_UNIT, UNIT_EDITOR_UNIT
 from gui.viewmodels.unit import UnitWidget, UnitView
 from gui.viewmodels.utils import NumericalTableWidgetItem
 
+UNIVERSAL_HEADERS = ["Unit", "Appeals", "Life"]
+NORMAL_SIM_HEADERS = ["Perfect", "Mean", "Max", "Min", "Skill Off", "5%", "25%", "50%", "75%"]
+AUTOPLAY_SIM_HEADERS = ["Auto Score", "Perfects", "Misses", "Max Combo", "Lowest Life", "Lowest Life Time (s)", "All Skills 100%?"]
+ALL_HEADERS = UNIVERSAL_HEADERS + NORMAL_SIM_HEADERS + AUTOPLAY_SIM_HEADERS
 
 class CalculatorUnitWidget(UnitWidget):
     def __init__(self, unit_view, parent=None, size=32):
@@ -92,6 +96,7 @@ class DroppableCalculatorWidget(QTableWidget):
 class CalculatorView:
     def __init__(self, main, main_view):
         self.main_view = main_view
+        self.auto_view = False
         self.initialize_widget(main)
         self.setup_widget()
 
@@ -101,24 +106,46 @@ class CalculatorView:
     def setup_widget(self):
         self.widget.setHorizontalScrollMode(1)  # Smooth scroll
         self.widget.setVerticalScrollMode(1)  # Smooth scroll
-        self.widget.setColumnCount(12)
+        self.widget.setColumnCount(len(ALL_HEADERS))
         self.widget.setRowCount(0)
         self.widget.verticalHeader().setDefaultSectionSize(50)
         self.widget.verticalHeader().setSectionResizeMode(2)
         self.widget.horizontalHeader().setSectionResizeMode(3)  # Auto fit
-        self.widget.setHorizontalHeaderLabels(
-            ["Unit", "Appeals", "Life", "Perfect", "Mean", "Max", "Min", "Skill Off", "5%", "25%", "50%", "75%"])
+        self.widget.setHorizontalHeaderLabels(ALL_HEADERS)
         self.widget.setColumnWidth(0, 40 * 6)
+        self.toggle_auto(False)
 
         self.widget.cellClicked.connect(lambda r, _: self.create_support_team(r))
         self.widget.cellDoubleClicked.connect(lambda r, _: self.main_view.simulate(r))
         self.add_empty_unit()
+
+    def toggle_auto(self, change=True):
+        if change:
+            self.auto_view = not self.auto_view
+        if not self.auto_view:
+            for r_idx in range(len(UNIVERSAL_HEADERS) + len(NORMAL_SIM_HEADERS), len(ALL_HEADERS) + 1):
+                self.widget.setColumnHidden(r_idx, True)
+            for r_idx in range(len(UNIVERSAL_HEADERS), len(UNIVERSAL_HEADERS) + len(NORMAL_SIM_HEADERS)):
+                self.widget.setColumnHidden(r_idx, False)
+        else:
+            for r_idx in range(len(UNIVERSAL_HEADERS) + len(NORMAL_SIM_HEADERS), len(ALL_HEADERS) + 1):
+                self.widget.setColumnHidden(r_idx, False)
+            for r_idx in range(len(UNIVERSAL_HEADERS), len(UNIVERSAL_HEADERS) + len(NORMAL_SIM_HEADERS)):
+                self.widget.setColumnHidden(r_idx, True)
 
     def set_support_model(self, support_model):
         self.support_model = support_model
 
     def attach_custom_settings_model(self, custom_settings_model):
         self.custom_settings_model = custom_settings_model
+        try:
+            self.custom_settings_model.view.autoplay_mode_checkbox.stateChanged.disconnect()
+        except:
+            pass
+        self.auto_view = self.custom_settings_model.view.autoplay_mode_checkbox.isChecked()
+        self.toggle_auto(False)
+        trigger = lambda: self.toggle_auto(True)
+        self.custom_settings_model.view.autoplay_mode_checkbox.stateChanged.connect(trigger)
 
     def set_model(self, model):
         self.model = model
@@ -196,22 +223,32 @@ class CalculatorView:
             support = int(self.custom_settings_model.get_support())
         self.widget.setItem(r, 1, NumericalTableWidgetItem(int(appeals + support)))
 
-    def display_results(self, results, row):
+    def display_results(self, results, row, autoplay):
         if len(results) == 0:
             return
         if row is not None and results[0] is not None:
             for c, value in enumerate(results[0]):
-                self.widget.setItem(row, c + 1, NumericalTableWidgetItem(value))
+                self._fillcolumn(autoplay, c, row, value)
             return
         for r, data in enumerate(results):
             if data is None:
                 continue
             for c, value in enumerate(data):
-                self.widget.setItem(r, c + 1, NumericalTableWidgetItem(value))
+                self._fillcolumn(autoplay, c, row, value)
+
+    def _fillcolumn(self, autoplay, c, row, value):
+        if c >= len(UNIVERSAL_HEADERS) - 1 and autoplay:
+            column = c + 1 + len(NORMAL_SIM_HEADERS)
+        else:
+            column = c + 1
+        if isinstance(value, int) or isinstance(value, float):
+            self.widget.setItem(row, column, NumericalTableWidgetItem(value))
+        else:
+            self.widget.setItem(row, column, QTableWidgetItem(value))
 
     def clear_results(self):
         for r in range(self.widget.rowCount()):
-            for c in range(10):
+            for c in range(len(ALL_HEADERS) - 1):
                 self.widget.removeCellWidget(r, c + 1)
 
 

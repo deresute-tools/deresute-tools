@@ -34,6 +34,7 @@ class ShortcutQuickSearchWidget(QLineEdit):
 class QuickSearchView:
     def __init__(self, main, card_model):
         self.widget = ShortcutQuickSearchWidget(main, card_model)
+        self.widget.setPlaceholderText("Search for card")
         self.widget.setMaximumSize(QSize(2000, 25))
         self.model = None
 
@@ -100,6 +101,7 @@ class SongQuickSearchView:
     def __init__(self, main, song_model):
         self.widget = SongShortcutQuickSearchWidget(main, song_model)
         self.widget.setMaximumSize(QSize(2000, 25))
+        self.widget.setPlaceholderText("Search for song")
         self.model = None
 
     def set_model(self, model):
