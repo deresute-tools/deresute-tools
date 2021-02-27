@@ -200,14 +200,14 @@ class MainModel:
         if len(all_cards) == 0:
             logger.info("Nothing to simulate")
             return
-        if len(all_cards[0]) == 15:
-            live = GrandLive()
-        else:
-            live = Live()
-        live.set_music(score_id=score_id, difficulty=diff_id)
         if row is not None:
             all_cards = [all_cards[row]]
         for cards in all_cards:
+            if len(cards) == 15:
+                live = GrandLive()
+            else:
+                live = Live()
+            live.set_music(score_id=score_id, difficulty=diff_id)
             # Load cards
             try:
                 if len(cards) == 15:

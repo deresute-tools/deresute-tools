@@ -234,7 +234,7 @@ class CalculatorView:
             if data is None:
                 continue
             for c, value in enumerate(data):
-                self._fillcolumn(autoplay, c, row, value)
+                self._fillcolumn(autoplay, c, r, value)
 
     def _fillcolumn(self, autoplay, c, row, value):
         if c >= len(UNIVERSAL_HEADERS) - 1 and autoplay:
