@@ -103,7 +103,7 @@ class Skill:
             values[1] = skill_values[0]
         elif skill_type == 31:  # Tuning
             values[1] = skill_values[0]
-            values[3] = skill_values[1]
+            values[3] = 2
         elif skill_type == 24:  # All-round
             values[0] = skill_values[0]
             values[2] = skill_values[1]
