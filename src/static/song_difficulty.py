@@ -17,6 +17,8 @@ class Difficulty(Enum):
     FORTE = 22
 
 FLICK_DRAIN = {
+    Difficulty.SMART: 0,
+    Difficulty.TRICK: 8,
     Difficulty.DEBUT: 0,
     Difficulty.REGULAR: 0,
     Difficulty.PRO: 8,
@@ -28,6 +30,8 @@ FLICK_DRAIN = {
 }
 
 NONFLICK_DRAIN = {
+    Difficulty.SMART: 10,
+    Difficulty.TRICK: 15,
     Difficulty.DEBUT: 10,
     Difficulty.REGULAR: 12,
     Difficulty.PRO: 15,
