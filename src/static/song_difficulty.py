@@ -11,13 +11,13 @@ class Difficulty(Enum):
     MASTER = 4
     MPLUS = 5
     LEGACY = 101
-    SMART = 11
+    LIGHT = 11
     TRICK = 12
     PIANO = 21
     FORTE = 22
 
 FLICK_DRAIN = {
-    Difficulty.SMART: 0,
+    Difficulty.LIGHT: 0,
     Difficulty.TRICK: 8,
     Difficulty.DEBUT: 0,
     Difficulty.REGULAR: 0,
@@ -30,7 +30,7 @@ FLICK_DRAIN = {
 }
 
 NONFLICK_DRAIN = {
-    Difficulty.SMART: 10,
+    Difficulty.LIGHT: 10,
     Difficulty.TRICK: 15,
     Difficulty.DEBUT: 10,
     Difficulty.REGULAR: 12,
