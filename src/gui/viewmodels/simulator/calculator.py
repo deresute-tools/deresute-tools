@@ -8,11 +8,14 @@ import customlogger as logger
 from gui.viewmodels.mime_headers import CALCULATOR_UNIT, UNIT_EDITOR_UNIT
 from gui.viewmodels.unit import UnitWidget, UnitView
 from gui.viewmodels.utils import NumericalTableWidgetItem
+from network.api_client import get_top_build
 
 UNIVERSAL_HEADERS = ["Unit", "Appeals", "Life"]
 NORMAL_SIM_HEADERS = ["Perfect", "Mean", "Max", "Min", "Skill Off", "5%", "25%", "50%", "75%"]
-AUTOPLAY_SIM_HEADERS = ["Auto Score", "Perfects", "Misses", "Max Combo", "Lowest Life", "Lowest Life Time (s)", "All Skills 100%?"]
+AUTOPLAY_SIM_HEADERS = ["Auto Score", "Perfects", "Misses", "Max Combo", "Lowest Life", "Lowest Life Time (s)",
+                        "All Skills 100%?"]
 ALL_HEADERS = UNIVERSAL_HEADERS + NORMAL_SIM_HEADERS + AUTOPLAY_SIM_HEADERS
+
 
 class CalculatorUnitWidget(UnitWidget):
     def __init__(self, unit_view, parent=None, size=32):
@@ -178,9 +181,15 @@ class CalculatorView:
                     continue
                 card.refresh_values()
 
-    def clear_units(self):
-        for i in reversed(range(self.widget.rowCount())):
-            self.widget.removeRow(i)
+    def yoink_unit(self):
+        _, _, live_detail_id = self.main_view.get_song()
+        try:
+            cards, support = get_top_build(live_detail_id)
+        except:
+            return
+        self.add_unit(cards)
+        self.custom_settings_model.set_support(support)
+        self.custom_settings_model.enable_custom_support()
 
     def push_card(self, card_id):
         for row in range(self.widget.rowCount()):
@@ -188,7 +197,7 @@ class CalculatorView:
             card_ids = cell_widget.card_ids
             for c_idx, card in enumerate(card_ids):
                 if card is None:
-                    cell_widget.set_card(idx=c_idx, card_id=card_id)
+                    cell_widget.set_card(idx=c_idx, card=card_id)
                     return
         self.add_unit([card_id, None, None, None, None, None])
 
@@ -198,10 +207,17 @@ class CalculatorView:
         for idx, card in enumerate(cards):
             if card is None:
                 continue
-            self.widget.cellWidget(row, 0).set_card(idx=idx, card_id=card)
+            self.widget.cellWidget(row, 0).set_card(idx=idx, card=card)
         logger.info("Inserted unit {} at row {}".format(cards, row))
 
     def add_unit(self, cards):
+        if len(cards) == 15:
+            for _ in range(3):
+                self.add_unit_int(cards[_ * 5: (_ + 1) * 5])
+        else:
+            self.add_unit_int(cards)
+
+    def add_unit_int(self, cards):
         for r in range(self.widget.rowCount()):
             if self.widget.cellWidget(r, 0).card_ids == [None] * 6:
                 logger.debug("Empty calculator unit at row {}".format(r))

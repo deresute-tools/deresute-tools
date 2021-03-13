@@ -103,19 +103,29 @@ class UnitWidget(QWidget):
     def set_unit_name(self, unit_name):
         self.unitName.setText(unit_name)
 
-    def set_card(self, idx, card_id):
-        if idx == 5 and len(self.cards) != 15:
-            custom_pots = (10,10,10,0,5)
+    def set_card(self, idx, card):
+        if isinstance(card, Card):
+            self.cards_internal[idx] = card
         else:
-            custom_pots = None
-        self.cards_internal[idx] = Card.from_id(card_id, custom_pots)
-        if card_id is None:
+            if idx == 5 and len(self.cards) != 15:
+                custom_pots = (10,10,10,0,5)
+            else:
+                custom_pots = None
+            self.cards_internal[idx] = Card.from_id(card, custom_pots)
+        if card is None:
             self.cards[idx].set_path(None)
         else:
+            if isinstance(card, Card):
+                card_id = card.card_id
+            else:
+                card_id = card
             self.cards[idx].set_path(str(self.path / "{:06d}.jpg".format(card_id)))
         self.cards[idx].repaint()
         if type(self) == UnitWidget:
             self.update_unit()
+
+    def set_card_internal(self, idx, card):
+        self.cards_internal[idx] = card
 
     def toggle_custom_card(self, idx):
         try:

@@ -100,6 +100,13 @@ class CustomSettingsModel:
             return None
         return int(self.view.custom_appeal_text.text())
 
+    def set_support(self, appeal):
+        try:
+            assert isinstance(appeal, int) and appeal > 0
+            self.view.custom_support_text.setText(str(appeal))
+        except AssertionError:
+            pass
+
     def get_support(self):
         if not self.view.custom_support_checkbox.isChecked():
             logger.debug("Not using custom support team")
@@ -107,6 +114,9 @@ class CustomSettingsModel:
         if self.view.custom_support_text.text() == "":
             return None
         return int(self.view.custom_support_text.text())
+
+    def enable_custom_support(self):
+        self.view.custom_support_checkbox.setChecked(True)
 
     def get_perfect_play(self):
         return self.view.custom_perfect_play_checkbox.isChecked()

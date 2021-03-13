@@ -83,12 +83,12 @@ class MainView:
         self.views[idx].set_model(self.calculator_table_model)
         try:
             self.add_button.pressed.disconnect()
-            self.clear_button.pressed.disconnect()
+            self.yoink_button.pressed.disconnect()
             self.permute_button.pressed.disconnect()
         except TypeError:
             pass
         self.add_button.pressed.connect(lambda: self.views[idx].add_empty_unit())
-        self.clear_button.pressed.connect(lambda: self.views[idx].clear_units())
+        self.yoink_button.pressed.connect(lambda: self.views[idx].yoink_unit())
         if idx == 1:
             self.permute_button.pressed.connect(lambda: self.views[idx].permute_units())
         self.calculator_table_view = self.views[idx]
@@ -105,7 +105,7 @@ class MainView:
         self.button_layout = QtWidgets.QGridLayout()
         self.big_button = QtWidgets.QPushButton("Run", self.widget)
         self.add_button = QtWidgets.QPushButton("Add Empty Unit", self.widget)
-        self.clear_button = QtWidgets.QPushButton("Clear All Units", self.widget)
+        self.yoink_button = QtWidgets.QPushButton("Yoink #1 Unit", self.widget)
         self.permute_button = QtWidgets.QPushButton("Permute Units", self.widget)
         self.times_text = QtWidgets.QLineEdit(self.widget)
         self.times_text.setValidator(QIntValidator(0, 100, None))  # Only number allowed
@@ -123,7 +123,7 @@ class MainView:
         self.button_layout.addWidget(self.times_text, 2, 0, 1, 1)
         self.button_layout.addWidget(self.times_label, 2, 1, 1, 1)
         self.button_layout.addWidget(self.add_button, 0, 2, 1, 1)
-        self.button_layout.addWidget(self.clear_button, 1, 2, 1, 1)
+        self.button_layout.addWidget(self.yoink_button, 1, 2, 1, 1)
         self.button_layout.addWidget(self.permute_button, 2, 2, 1, 1)
         self.bottom_row_layout.addLayout(self.button_layout)
 
@@ -142,10 +142,11 @@ class MainView:
     def get_song(self):
         row_idx = self.song_view.widget.selectionModel().currentIndex().row()
         if row_idx == -1:
-            return None, None
+            return None, None, None
+        live_detail_id = int(self.song_view.widget.item(row_idx, 0).text())
         score_id = int(self.song_view.widget.item(row_idx, 1).text())
         diff_id = int(self.song_view.widget.item(row_idx, 2).text())
-        return score_id, diff_id
+        return score_id, diff_id, live_detail_id
 
     def get_times(self):
         if self.times_text.text() == "" or self.times_text.text() == "0":
@@ -154,7 +155,7 @@ class MainView:
             return int(self.times_text.text())
 
     def simulate(self, row=None):
-        score_id, diff_id = self.get_song()
+        score_id, diff_id, live_detail_id = self.get_song()
         if diff_id is None:
             logger.info("No chart loaded")
             return

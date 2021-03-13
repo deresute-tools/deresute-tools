@@ -83,7 +83,7 @@ class GrandCalculatorView(CalculatorView):
         for idx, card in enumerate(cards):
             if card is None:
                 continue
-            self.widget.cellWidget(row, 0).set_card(idx=unit * 5 + idx, card_id=card)
+            self.widget.cellWidget(row, 0).set_card(idx=unit * 5 + idx, card=card)
         logger.info("Inserted unit {} at row {}".format(cards, row))
 
     def add_unit(self, cards):
