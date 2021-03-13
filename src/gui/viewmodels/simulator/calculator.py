@@ -187,6 +187,7 @@ class CalculatorView:
             cards, support = get_top_build(live_detail_id)
         except:
             return
+        self.custom_settings_model.disable_custom_pots()
         self.add_unit(cards)
         self.custom_settings_model.set_support(support)
         self.custom_settings_model.enable_custom_support()

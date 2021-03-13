@@ -61,7 +61,7 @@ class SongView:
         self.widget.setSortingEnabled(True)
         for r_idx, card_data in enumerate(data):
             for c_idx, (key, value) in enumerate(card_data.items()):
-                if isinstance(value, int) and 13 >= c_idx >= 7:
+                if isinstance(value, int) and 13 >= c_idx >= 7 or c_idx == 1:
                     item = NumericalTableWidgetItem(value)
                 elif value is None:
                     item = QTableWidgetItem("")
@@ -70,7 +70,6 @@ class SongView:
                 self.widget.setItem(r_idx, c_idx, item)
         logger.info("Loaded {} charts".format(len(data)))
         self.widget.setColumnHidden(0, True)
-        self.widget.setColumnHidden(1, True)
         self.widget.setColumnHidden(2, True)
         self.widget.setSortingEnabled(True)
         self.widget.sortItems(3, Qt.AscendingOrder)

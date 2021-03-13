@@ -170,6 +170,9 @@ class MainView:
         autoplay = self.custom_settings_model.get_autoplay()
         autoplay_offset = self.custom_settings_model.get_autoplay_offset()
         extra_bonus, special_option, special_value = self.custom_bonus_model.get_bonus()
+
+        hidden_feature_check = times > 0 and perfect_play is True and autoplay is False and autoplay_offset == 346
+
         self.model.simulate_internal(
             perfect_play=perfect_play,
             score_id=score_id, diff_id=diff_id, times=times, all_cards=all_cards, custom_pots=custom_pots,
@@ -177,6 +180,7 @@ class MainView:
             special_option=special_option, special_value=special_value,
             mirror=mirror, autoplay=autoplay, autoplay_offset=autoplay_offset,
             doublelife=doublelife,
+            hidden_feature_check=hidden_feature_check,
             row=row
         )
 
@@ -196,6 +200,7 @@ class MainModel:
                           extra_bonus, special_option, special_value,
                           mirror, autoplay, autoplay_offset,
                           doublelife,
+                          hidden_feature_check,
                           row=None):
         results = list()
         if len(all_cards) == 0:
@@ -229,6 +234,11 @@ class MainModel:
                                                  special_option=special_option, special_value=special_value,
                                                  time_offset=autoplay_offset, mirror=mirror,
                                                  doublelife=doublelife))
+            elif hidden_feature_check:
+                sim = Simulator(live)
+                results.append(sim.simulate_theoretical_max(appeals=appeals, extra_bonus=extra_bonus, support=support,
+                                                            special_option=special_option, special_value=special_value,
+                                                            left_boundary=-200, right_boundary=200, n_intervals=times))
             else:
                 sim = Simulator(live)
                 results.append(sim.simulate(perfect_play=perfect_play,

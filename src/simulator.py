@@ -1,3 +1,4 @@
+import csv
 import time
 from collections import defaultdict
 
@@ -352,17 +353,38 @@ class Simulator:
                 pass
             score_array[:, _] = self.notes_data['note_score']
         max_score = score_array.max(axis=1)
-        print(max_score.sum(), perfect_score.sum())
-        for idx in range(len(max_score)):
-            temp = np.array(range(1, n_intervals + 2)) * (score_array[idx, :] == max_score[idx])
-            temp = temp[temp != 0] - 1
-            print(idx, self.notes_data['sec'][idx], self.notes_data['note_type'][idx],
-                  self.notes_data['startPos'][idx],
-                  perfect_score[idx],
-                  left_boundary + temp.min() * delta,
-                  left_boundary + temp.max() * delta,
-                  max_score[idx] - perfect_score[idx])
-        return perfect_score, score_array
+        total_max = max_score.sum()
+        total_perfect = perfect_score.sum()
+        cumsum_max = max_score.cumsum()
+        cumsum_pft = perfect_score.cumsum()
+
+        with open("{}.csv".format(self.live.score_id), 'w', newline='') as fw:
+            csv_writer = csv.writer(fw)
+            csv_writer.writerow(["Card Name", "Card ID", "Vo", "Da", "Vi", "Lf", "Sk"])
+            for card in self.live.unit.all_cards():
+                csv_writer.writerow(
+                    [str(card), card.card_id, card.vo_pots, card.da_pots, card.vi_pots, card.li_pots, card.sk_pots])
+            csv_writer.writerow(["Support", self.support])
+            csv_writer.writerow([])
+            csv_writer.writerow(["Note", "Time", "Type", "Lane", "Perfect Score", "Left", "Right", "Delta", "Window",
+                                 "Cumulative Perfect Score", "Cumulative Max Score"])
+            for idx in range(len(max_score)):
+                temp = np.array(range(1, n_intervals + 2)) * (score_array[idx, :] == max_score[idx])
+                temp = temp[temp != 0] - 1
+                delta = max_score[idx] - perfect_score[idx]
+                csv_writer.writerow([idx, self.notes_data['sec'][idx], self.notes_data['note_type'][idx],
+                                     self.notes_data['finishPos'][idx],
+                                     perfect_score[idx],
+                                     -200 + temp.min() * 400 / n_intervals,
+                                     -200 + temp.max() * 400 / n_intervals,
+                                     delta,
+                                     (temp.max() - temp.min()) * 400 / n_intervals,
+                                     cumsum_pft[idx],
+                                     cumsum_max[idx]
+                                     ])
+
+        return self.total_appeal, total_perfect, 0, total_perfect, np.array(
+            [total_max - total_perfect, 0]), self.live.get_life()
 
     def simulate_auto(self, appeals=None, extra_bonus=None, support=None,
                       chara_bonus_set=None, chara_bonus_value=0, special_option=None, special_value=None,

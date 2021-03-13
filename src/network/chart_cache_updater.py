@@ -84,7 +84,7 @@ def _get_song_list():
                                 WHERE music_data_id = ?
                         """, (song_id,), out_dict=True)
             live_list.extend(query_res)
-        live_dict = _merge_live_list(live_list, song_name)
+        live_dict = _merge_live_list(live_list)
         for k, v in live_dict.items():
             value[k] = v
         value['sort'] = min(value.pop('song_id_list'))
@@ -119,9 +119,7 @@ def _get_special_keys(song_id):
     return ""
 
 
-def _merge_live_list(live_list, song_name):
-    if len(live_list) > 2:
-        logger.warning("More than 2 scores found for {}".format(song_name))
+def _merge_live_list(live_list):
     if len(live_list) == 1:
         release = live_list[0]
         event = defaultdict(int)

@@ -118,6 +118,9 @@ class CustomSettingsModel:
     def enable_custom_support(self):
         self.view.custom_support_checkbox.setChecked(True)
 
+    def disable_custom_pots(self):
+        self.view.custom_potential_checkbox.setChecked(False)
+
     def get_perfect_play(self):
         return self.view.custom_perfect_play_checkbox.isChecked()
 
