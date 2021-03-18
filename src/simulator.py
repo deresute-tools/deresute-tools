@@ -93,7 +93,7 @@ class Simulator:
             self.notes_data['status'] = 0
             self.notes_data['sync'] = 0
             self.notes_data['groupId'] = 0
-            self.notes_data['noteType'] = NoteType.TAP
+            self.notes_data['note_type'] = NoteType.TAP
             self.notes_data['is_flick'] = False
             self.notes_data['is_long'] = False
             self.notes_data['is_slide'] = False
