@@ -1,9 +1,11 @@
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QTableWidget, QAbstractItemView, QTableWidgetItem
+from PyQt5.QtWidgets import QTableWidget, QAbstractItemView, QTableWidgetItem, QMainWindow, QApplication
 
 import customlogger as logger
+from chart_pic_generator import ChartPicGenerator
 from db import db
 from gui.viewmodels.utils import NumericalTableWidgetItem
+from logic.unit import Unit
 from static.color import Color
 from static.song_difficulty import Difficulty
 
@@ -35,6 +37,8 @@ class SongView:
         self.percentage = False
 
         self.widget.cellClicked.connect(lambda r, _: self.ping_support(r))
+        self.widget.cellDoubleClicked.connect(lambda r, _: self.popup_chart(r))
+        self.chart_viewer = None
 
     def set_model(self, model):
         self.model = model
@@ -54,7 +58,8 @@ class SongView:
                 self.widget.setRowHidden(r_idx, True)
 
     def load_data(self, data):
-        DATA_COLS = ["LDID","LiveID","DifficultyInt","ID","Name","Color","Difficulty","Level","Duration (s)","Note Count","Tap","Long","Flick","Slide","Tap %","Long %","Flick %","Slide %"]
+        DATA_COLS = ["LDID", "LiveID", "DifficultyInt", "ID", "Name", "Color", "Difficulty", "Level", "Duration (s)",
+                     "Note Count", "Tap", "Long", "Flick", "Slide", "Tap %", "Long %", "Flick %", "Slide %"]
         self.widget.setColumnCount(len(DATA_COLS))
         self.widget.setRowCount(len(data))
         self.widget.setHorizontalHeaderLabels(DATA_COLS)
@@ -96,12 +101,42 @@ class SongView:
         self.support_model.set_music(song_id, difficulty)
         self.support_model.generate_support()
 
+    def popup_chart(self, r):
+        song_id = int(self.widget.item(r, 1).text())
+        difficulty = int(self.widget.item(r, 2).text())
+        if self.chart_viewer is not None:
+            self.chart_viewer.destroy()
+        # TODO: Add GRAND to chart viewer
+        if difficulty == "21" or difficulty == "22":
+            return
+        self.chart_viewer = ChartViewer(song_id=song_id, difficulty=difficulty)
+
     def toggle_auto_resize(self, on=False):
         if on:
             self.widget.horizontalHeader().setSectionResizeMode(3)  # Auto fit
             self.widget.horizontalHeader().setSectionResizeMode(4, 1)  # Auto fit
         else:
             self.widget.horizontalHeader().setSectionResizeMode(0)  # Resize
+
+
+class ChartViewer(QMainWindow):
+    def __init__(self, song_id, difficulty, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.generator = ChartPicGenerator(song_id, difficulty, self)
+        self.show()
+
+    def hook_simulation_results(self, all_cards, results, song_id, difficulty):
+        self.generator = ChartPicGenerator(song_id, difficulty, self)
+        self.generator.hook_simulation_results(all_cards, results)
+
+    def hook_unit(self, all_cards, song_id, difficulty):
+        self.generator = ChartPicGenerator(song_id, difficulty, self)
+        self.generator.set_unit(Unit.from_list(all_cards))
+
+    def keyPressEvent(self, event):
+        key = event.key()
+        if QApplication.keyboardModifiers() == Qt.ControlModifier and key == Qt.Key_S:
+            self.generator.save_image()
 
 
 class SongModel:

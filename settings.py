@@ -21,6 +21,8 @@ STATIC_PATH = ROOT_DIR
 TOOL_EXE = STATIC_PATH / "tool.exe"
 TEMP_PATH = STATIC_PATH / "temppp"
 
+RHYTHM_ICONS_PATH = ROOT_DIR / "img"
+
 INDEX_PATH = DATA_PATH / "index"
 
 REMOTE_CACHE_SCORES_URL = "https://raw.githubusercontent.com/deresute-tools/chihiro-static/master/live_detail_cache.csv"
