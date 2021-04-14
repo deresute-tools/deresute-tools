@@ -57,7 +57,7 @@ def fetch_chart(base_music_name, base_score_id, base_difficulty, event=False, sk
                     SELECT live_data.id, live_data.type, live_detail.level_vocal
                     FROM live_data, live_detail WHERE live_data.music_data_id IN (
                         SELECT id FROM music_data WHERE name LIKE ?
-                    ) AND event_type == ? AND live_detail.live_data_id = live_data.id AND live_detail.difficulty_type = ?
+                    ) AND event_type >= ? AND live_detail.live_data_id = live_data.id AND live_detail.difficulty_type = ?
                     """,
                     [music_name, event, difficulty]
                 )

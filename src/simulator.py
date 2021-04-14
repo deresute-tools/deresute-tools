@@ -384,7 +384,7 @@ class Simulator:
                                      ])
 
         return self.total_appeal, total_perfect, 0, total_perfect, np.array(
-            [total_max - total_perfect, 0]), self.live.get_life()
+            [total_max - total_perfect, 0]), self.live.get_life(), perfect_score, score_array
 
     def simulate_auto(self, appeals=None, extra_bonus=None, support=None,
                       chara_bonus_set=None, chara_bonus_value=0, special_option=None, special_value=None,
@@ -1058,7 +1058,7 @@ class Simulator:
             trimmed_life = (self.notes_data['life'] // 10).astype(int)
             for unit_idx, unit in enumerate(self.live.unit.all_units):
                 for magic_idx, magic_copy in enumerate(self.ls_magic_copies[unit_idx]):
-                    card = unit.get_card(magic_idx)
+                    card = unit.get_card(magic_copy)
                     ls_value = trimmed_life.map(get_sparkle_bonus(rarity=card.rarity, grand=grand))
                     for magic in self.magic_lists[unit_idx]:
                         np_v[:, 1, unit.get_card(magic).color.value, unit_idx * 5 + magic] = np.maximum(

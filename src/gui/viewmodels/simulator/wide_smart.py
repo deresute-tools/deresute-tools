@@ -173,7 +173,7 @@ class MainView:
 
         hidden_feature_check = times > 0 and perfect_play is True and autoplay is False and autoplay_offset == 346
 
-        self.model.simulate_internal(
+        results = self.model.simulate_internal(
             perfect_play=perfect_play,
             score_id=score_id, diff_id=diff_id, times=times, all_cards=all_cards, custom_pots=custom_pots,
             appeals=appeals, support=support, extra_bonus=extra_bonus,
@@ -183,6 +183,10 @@ class MainView:
             hidden_feature_check=hidden_feature_check,
             row=row
         )
+
+        # Only accept for double click
+        if row is not None and self.song_view.chart_viewer is not None and hidden_feature_check:
+            self.song_view.chart_viewer.hook_simulation_results(all_cards, results, score_id, diff_id)
 
     def display_results(self, results, row=None, autoplay=False):
         self.get_table_view().widget.setSortingEnabled(False)
@@ -208,6 +212,7 @@ class MainModel:
             return
         if row is not None:
             all_cards = [all_cards[row]]
+        extra_return = None
         for cards in all_cards:
             if len(cards) == 15:
                 live = GrandLive()
@@ -236,9 +241,11 @@ class MainModel:
                                                  doublelife=doublelife))
             elif hidden_feature_check:
                 sim = Simulator(live)
-                results.append(sim.simulate_theoretical_max(appeals=appeals, extra_bonus=extra_bonus, support=support,
+                result = sim.simulate_theoretical_max(appeals=appeals, extra_bonus=extra_bonus, support=support,
                                                             special_option=special_option, special_value=special_value,
-                                                            left_boundary=-200, right_boundary=200, n_intervals=times))
+                                                            left_boundary=-200, right_boundary=200, n_intervals=times)
+                extra_return = (result[-2], result[-1])
+                results.append(result[:-2])
             else:
                 sim = Simulator(live)
                 results.append(sim.simulate(perfect_play=perfect_play,
@@ -246,6 +253,7 @@ class MainModel:
                                             special_option=special_option, special_value=special_value,
                                             doublelife=doublelife))
         self.process_results(results, row, autoplay)
+        return results, extra_return
 
     def process_results(self, results, row=None, auto=False):
         if auto:
