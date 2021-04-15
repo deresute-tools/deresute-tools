@@ -1,14 +1,17 @@
 import os
 import sys
+from abc import abstractmethod, ABC
 from collections import defaultdict
 from math import ceil
 
 import numpy as np
-from PyQt5.QtCore import Qt, QPoint
-from PyQt5.QtGui import QPixmap, QPainter, QPen, QColor, QImage, QFont, QBrush, QPainterPath
+from PyQt5.QtCore import Qt, QPoint, QRectF
+from PyQt5.QtGui import QPixmap, QPainter, QPen, QColor, QImage, QFont, QBrush, QPainterPath, qRgba, QPolygonF
 from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QScrollArea
 
-from logic.live import fetch_chart, Live
+from logic.grandlive import GrandLive
+from logic.grandunit import GrandUnit
+from logic.live import fetch_chart
 from logic.unit import Unit
 from settings import RHYTHM_ICONS_PATH
 from simulator import Simulator
@@ -17,43 +20,96 @@ from static.skill import SKILL_BASE
 from static.song_difficulty import Difficulty
 
 SEC_HEIGHT = 500
-LANE_DISTANCE = 70
-SKILL_PAINT_WIDTH = 60
 X_MARGIN = 70
 Y_MARGIN = 70
 RIGHT_MARGIN = 75
 MAX_Y = 5000
 MAX_SECS_PER_GROUP = (MAX_Y - Y_MARGIN * 2) // SEC_HEIGHT
 
+LANE_DISTANCE = 70
+SKILL_PAINT_WIDTH = 60
+
+LANE_DISTANCE_GRAND = 25
+SKILL_PAINT_WIDTH_GRAND = 22
+
+WINDOW_HEIGHT = 800
+MAX_WINDOW_WIDTH = 1700
+
 NOTE_PICS = {
     filename: QImage(str(RHYTHM_ICONS_PATH / filename))
     for filename in os.listdir(str(RHYTHM_ICONS_PATH))
 }
 
-NOTE_TO_NOTE_CONVERSION = {
-    NoteType.TAP: ("tap.png", "tape.png"),
-    NoteType.LONG: ("long.png", "longe.png"),
-    NoteType.FLICK: ("flick.png", "flicke.png"),
-    NoteType.SLIDE: ("slide.png", "slidee.png"),
-}
+CACHED_GRAND_NOTE_PICS = dict()
 
 
 class ChartPicNote:
-    def __init__(self, sec, note_type, lane, sync, qgroup, group_id, delta, early, late, right_flick=False):
+    def __init__(self, sec, note_type, lane, sync, qgroup, group_id, delta, early, late, right_flick=False,
+                 grand=False, span=0):
         self.sec = sec
         self.lane = int(lane)
         self.sync = sync
         self.qgroup = qgroup
         self.group_id = group_id
         self.note_type = note_type
-        self.note_pic = NOTE_PICS[NOTE_TO_NOTE_CONVERSION[note_type][0]]
-        self.note_pic_smol = NOTE_PICS[NOTE_TO_NOTE_CONVERSION[note_type][1]]
-        if right_flick:
-            self.note_pic = self.note_pic.mirrored(horizontal=True, vertical=False)
-            self.note_pic_smol = self.note_pic_smol.mirrored(horizontal=True, vertical=False)
+        self.right_flick = right_flick
+        self.grand = grand
+        self.span = span
+
+        self.get_note_pic()
+
         self.delta = int(delta)
         self.early = int(early)
         self.late = int(late)
+
+    def get_note_pic(self):
+        if self.note_type == NoteType.TAP:
+            note_file_prefix = "tap"
+        elif self.note_type == NoteType.LONG:
+            note_file_prefix = "long"
+        elif self.note_type == NoteType.SLIDE:
+            note_file_prefix = "slide"
+        elif self.note_type == NoteType.FLICK and self.right_flick:
+            note_file_prefix = "flickr"
+        else:
+            note_file_prefix = "flickl"
+        if self.grand:
+            note_file_prefix = "g" + note_file_prefix
+            self.note_pic = ChartPicNote.get_grand_note(note_file_prefix, self.span, False)
+            self.note_pic_smol = ChartPicNote.get_grand_note(note_file_prefix + "e", self.span, True)
+        else:
+            self.note_pic = NOTE_PICS["{}.png".format(note_file_prefix)]
+            self.note_pic_smol = NOTE_PICS["{}e.png".format(note_file_prefix)]
+
+    @classmethod
+    def get_grand_note(cls, note_file_prefix, span, tiny=False):
+        if note_file_prefix in CACHED_GRAND_NOTE_PICS and span in CACHED_GRAND_NOTE_PICS[note_file_prefix]:
+            return CACHED_GRAND_NOTE_PICS[note_file_prefix][span]
+        if note_file_prefix not in CACHED_GRAND_NOTE_PICS:
+            CACHED_GRAND_NOTE_PICS[note_file_prefix] = dict()
+
+        CACHED_GRAND_NOTE_PICS[note_file_prefix][span] = ChartPicNote.generate_grand_note(note_file_prefix, span, tiny)
+        return CACHED_GRAND_NOTE_PICS[note_file_prefix][span]
+
+    @classmethod
+    def generate_grand_note(cls, note_file_prefix, span, tiny=False):
+        l = NOTE_PICS["{}1.png".format(note_file_prefix)]
+        m = NOTE_PICS["{}2.png".format(note_file_prefix)]
+        r = NOTE_PICS["{}3.png".format(note_file_prefix)]
+        w = span * LANE_DISTANCE_GRAND
+        if tiny:
+            w = w * 0.75
+        res = QImage(l.width()
+                     + r.width()
+                     + w,
+                     l.height(),
+                     QImage.Format_ARGB32)
+        res.fill(qRgba(0, 0, 0, 0))
+        painter = QPainter(res)
+        painter.drawImage(QPoint(0, 0), l)
+        painter.drawImage(QRectF(l.width(), 0, w, m.height()), m, QRectF(0, 0, m.width(), m.height()))
+        painter.drawImage(QPoint(l.width() + w, 0), r)
+        return res
 
 
 class DraggableQScrollArea(QScrollArea):
@@ -79,13 +135,20 @@ class DraggableQScrollArea(QScrollArea):
         self.horizontalScrollBar().setValue(self.original_x - delta.x())
 
 
-class ChartPicGenerator:
+class BaseChartPicGenerator(ABC):
+    LANE_DISTANCE = LANE_DISTANCE
+    SKILL_PAINT_WIDTH = SKILL_PAINT_WIDTH
 
-    def __init__(self, song_id, difficulty, main_window):
+    def __init__(self, song_id, difficulty, main_window, grand):
         self.song_id = song_id
-        if isinstance(difficulty, int):
-            difficulty = Difficulty(difficulty)
         self.difficulty = difficulty
+        self.main = main_window
+        self.grand = grand
+        if grand:
+            self.lane_count = 15
+        else:
+            self.lane_count = 5
+
         self.notes = fetch_chart(None, song_id, difficulty, event=False, skip_load_notes=False)[0]
         if self.notes is None:
             self.notes = fetch_chart(None, song_id, difficulty, event=True, skip_load_notes=False)[0]
@@ -93,7 +156,6 @@ class ChartPicGenerator:
         self.notes_into_group()
         self.generate_note_objects()
 
-        self.main = main_window
         self.initialize_ui()
 
         self.p = QPainter(self.label.pixmap())
@@ -101,9 +163,14 @@ class ChartPicGenerator:
         self.draw()
         self.label.repaint()
 
-    def hook_drag_move(self):
-        self.label.dragEnterEvent()
-        self.label.mousePressEvent()
+    @classmethod
+    def getGenerator(cls, song_id, difficulty, main_window):
+        if isinstance(difficulty, int):
+            difficulty = Difficulty(difficulty)
+        if difficulty == Difficulty.PIANO or difficulty == Difficulty.FORTE:
+            return GrandChartPicGenerator(song_id, difficulty, main_window, True)
+        else:
+            return BasicChartPicGenerator(song_id, difficulty, main_window, False)
 
     def set_unit(self, unit: Unit, redraw=True):
         self.unit = unit
@@ -134,7 +201,7 @@ class ChartPicGenerator:
 
     def initialize_ui(self):
         self.y_total = MAX_SECS_PER_GROUP * SEC_HEIGHT + 2 * Y_MARGIN
-        self.x_total = (2 * X_MARGIN + (5 - 1) * LANE_DISTANCE) * self.n_groups + RIGHT_MARGIN
+        self.x_total = (2 * X_MARGIN + (self.lane_count - 1) * self.LANE_DISTANCE) * self.n_groups + RIGHT_MARGIN
 
         self.label = QLabel()
         self.label.setAlignment(Qt.AlignBottom)
@@ -149,12 +216,13 @@ class ChartPicGenerator:
         vbar = scroll.verticalScrollBar()
         vbar.setValue(vbar.maximum())
         self.main.setCentralWidget(scroll)
-        self.y_max = 800
-        self.x_max = min(1700, self.x_total + 20)
+        self.y_max = WINDOW_HEIGHT
+        self.x_max = min(MAX_WINDOW_WIDTH, self.x_total + 20)
         self.main.setGeometry(200, 200, self.x_max, self.y_max)
 
     def get_x(self, lane, group):
-        return X_MARGIN + lane * LANE_DISTANCE + (2 * X_MARGIN + 4 * LANE_DISTANCE) * group
+        return X_MARGIN + lane * self.LANE_DISTANCE + (
+                2 * X_MARGIN + (self.lane_count - 1) * self.LANE_DISTANCE) * group
 
     # Lanes start from 0
     def get_y(self, sec, group=None, offset_group=0):
@@ -179,7 +247,10 @@ class ChartPicGenerator:
                                            delta=deltas[_] if deltas is not None else 0,
                                            early=windows[_][0] if windows is not None else 0,
                                            late=windows[_][1] if windows is not None else 0,
-                                           right_flick=row['status'] == 2 and row['note_type'] == NoteType.FLICK)
+                                           right_flick=row['note_type'] == NoteType.FLICK and
+                                                       (row['status'] == 2 and not self.grand)
+                                                       or (row['type'] == 7 and self.grand),
+                                           grand=self.grand, span=row['status'] - 1)
                 group.append(note_object)
             self.note_groups.append(group)
 
@@ -197,7 +268,7 @@ class ChartPicGenerator:
             skill_times = int((self.last_sec - 3) // interval)
             skill_time = 1
             group = 0
-            while skill_time <= skill_times:
+            while group < self.n_groups:
                 left = skill_time * interval
                 right = skill_time * interval + duration
                 #  Do not paint if skill entirely outside group
@@ -205,14 +276,26 @@ class ChartPicGenerator:
                     group += 1
                     skill_time -= 1
                     continue
+                if self.grand and (skill_time - 1) % 3 != skill.offset:
+                    skill_time += 1
+                    continue
+                if skill_time > skill_times:
+                    break
                 skill_brush = QBrush(QColor(*SKILL_BASE[skill.skill_type]['color'], 100))
                 self.p.setPen(QPen())
                 self.p.setBrush(skill_brush)
-                x = self.get_x(card_idx, group)
+                # Need to convert grand lane
+                draw_card_idx = card_idx
+                if self.grand:
+                    if card_idx < 5:
+                        draw_card_idx += 5
+                    elif 5 <= card_idx < 10:
+                        draw_card_idx -= 5
+                x = self.get_x(draw_card_idx, group)
                 y = self.get_y(right, group)
-                self.p.drawRect(x - SKILL_PAINT_WIDTH // 2,
+                self.p.drawRect(x - self.SKILL_PAINT_WIDTH // 2,
                                 y,
-                                SKILL_PAINT_WIDTH,
+                                self.SKILL_PAINT_WIDTH,
                                 duration * SEC_HEIGHT)
                 skill_time += 1
 
@@ -225,7 +308,7 @@ class ChartPicGenerator:
         vertical_grid_pen.setWidth(5)
         self.p.setPen(vertical_grid_pen)
         for group in range(self.n_groups):
-            for lane in range(5):
+            for lane in range(self.lane_count):
                 x = self.get_x(lane, group)
                 self.p.drawLine(x, 0, x, self.y_total)
 
@@ -240,15 +323,12 @@ class ChartPicGenerator:
                 else:
                     self.p.setPen(horizontal_grid_light_pen)
                 y = self.get_y(sec, group=0)
-                self.p.drawLine(self.get_x(0, group), y, self.get_x(4, group), y)
-                self.p.drawText(self.get_x(4, group) + 60, y, str(sec + MAX_SECS_PER_GROUP * group))
+                self.p.drawLine(self.get_x(0, group), y, self.get_x(self.lane_count - 1, group), y)
+                self.p.drawText(self.get_x(self.lane_count - 1, group) + 60, y, str(sec + MAX_SECS_PER_GROUP * group))
 
+    @abstractmethod
     def draw_notes(self):
-        for group_idx, group in enumerate(self.note_groups):
-            for note in group:
-                x = self.get_x(note.lane, group_idx) - note.note_pic.width() // 2
-                y = self.get_y(note.sec, group_idx) - note.note_pic.height() // 2
-                self.p.drawImage(QPoint(x, y), note.note_pic)
+        pass
 
     def _is_double_drawn_note(self, note: ChartPicNote):
         for _ in range(self.n_groups):
@@ -273,15 +353,9 @@ class ChartPicGenerator:
                 y = self.get_y(sec, group_idx)
                 self.p.drawLine(self.get_x(l, group_idx), y, self.get_x(r, group_idx), y)
 
+    @abstractmethod
     def _draw_group_line(self, note1, note2, group):
-        group_line_pen = QPen(QColor(180, 180, 180))
-        group_line_pen.setWidth(20)
-        self.p.setPen(group_line_pen)
-        x1 = self.get_x(note1['finishPos'], group)
-        x2 = self.get_x(note2['finishPos'], group)
-        y1 = self.get_y(note1['sec'], group)
-        y2 = self.get_y(note2['sec'], group)
-        self.p.drawLine(x1, y1, x2, y2)
+        pass
 
     def draw_group_lines(self):
         for group_idx, qt_group in enumerate(self.note_groups):
@@ -297,11 +371,11 @@ class ChartPicGenerator:
                     self._draw_group_line(l, r, group_idx)
 
     def hook_simulation_results(self, all_cards, results):
-        # TODO: Support grand chart
         all_cards = all_cards[0]
-        if len(all_cards) > 6:
-            return
-        self.set_unit(Unit.from_list(cards=all_cards), redraw=False)
+        if len(all_cards) == 15:
+            self.set_unit(GrandUnit.from_list(all_cards), redraw=False)
+        else:
+            self.set_unit(Unit.from_list(cards=all_cards), redraw=False)
 
         delta_list = list()
         window_list = list()
@@ -329,21 +403,21 @@ class ChartPicGenerator:
         if note.delta == 0:
             return
 
-        x_note = self.get_x(note.lane, group) - note.note_pic_smol.width() // 2
+        x_note = self.get_x(note.lane + note.span / 2, group) - note.note_pic_smol.width() // 2
         y_early = self.get_y(note.sec + note.early / 1000, group)
         shifted_y_early = y_early - note.note_pic_smol.height() // 2
         y_late = self.get_y(note.sec + note.late / 1000, group)
         shifted_y_late = y_late - note.note_pic_smol.height() // 2
         self.p.drawImage(QPoint(x_note, shifted_y_early), note.note_pic_smol)
         self.p.drawImage(QPoint(x_note, shifted_y_late), note.note_pic_smol)
-        lane0 = self.get_x(0, group)
-        lane4 = self.get_x(4, group)
+        lane_l = self.get_x(0, group)
+        lane_r = self.get_x(self.lane_count - 1, group)
         self.p.setPen(QPen(Qt.green))
-        self.p.drawLine(lane0, y_early, lane4, y_early)
+        self.p.drawLine(lane_l, y_early, lane_r, y_early)
         self.p.setPen(QPen(Qt.red))
-        self.p.drawLine(lane0, y_late, lane4, y_late)
+        self.p.drawLine(lane_l, y_late, lane_r, y_late)
 
-        x = self.get_x(note.lane, group) - note.note_pic.width() // 2
+        x = self.get_x(note.lane + note.span / 2, group) - note.note_pic.width() // 2
         y = self.get_y(note.sec, group) + note.note_pic.height()
         font = QFont()
         font.setBold(True)
@@ -367,16 +441,71 @@ class ChartPicGenerator:
         self.label.pixmap().save("{}-{}.png".format(self.song_id, self.difficulty))
 
 
+class BasicChartPicGenerator(BaseChartPicGenerator):
+    def _draw_group_line(self, note1, note2, group):
+        group_line_pen = QPen(QColor(180, 180, 180))
+        group_line_pen.setWidth(20)
+        self.p.setPen(group_line_pen)
+        x1 = self.get_x(note1['finishPos'], group)
+        x2 = self.get_x(note2['finishPos'], group)
+        y1 = self.get_y(note1['sec'], group)
+        y2 = self.get_y(note2['sec'], group)
+        self.p.drawLine(x1, y1, x2, y2)
+
+    def draw_notes(self):
+        for group_idx, group in enumerate(self.note_groups):
+            for note in group:
+                x = self.get_x(note.lane, group_idx) - note.note_pic.width() // 2
+                y = self.get_y(note.sec, group_idx) - note.note_pic.height() // 2
+                self.p.drawImage(QPoint(x, y), note.note_pic)
+
+
+class GrandChartPicGenerator(BaseChartPicGenerator):
+    LANE_DISTANCE = LANE_DISTANCE_GRAND
+    SKILL_PAINT_WIDTH = SKILL_PAINT_WIDTH_GRAND
+
+    def _draw_group_line(self, note1, note2, group):
+        group_line_pen = QPen(QColor(0, 0, 0, 0))
+        group_line_pen.setWidth(0)
+        self.p.setPen(group_line_pen)
+        group_line_brush = QBrush(QColor(180, 180, 180, 150))
+        self.p.setBrush(group_line_brush)
+        polygon = QPolygonF()
+        x1l = self.get_x(note1['finishPos'], group)
+        x1r = self.get_x(note1['finishPos'] + note1['status'] - 1, group)
+        x2l = self.get_x(note2['finishPos'], group)
+        x2r = self.get_x(note2['finishPos'] + note2['status'] - 1, group)
+        y1 = self.get_y(note1['sec'], group)
+        y2 = self.get_y(note2['sec'], group)
+        polygon.append(QPoint(x1l, y1))
+        polygon.append(QPoint(x1r, y1))
+        polygon.append(QPoint(x2r, y2))
+        polygon.append(QPoint(x2l, y2))
+        self.p.drawConvexPolygon(polygon)
+
+    def draw_notes(self):
+        for group_idx, group in enumerate(self.note_groups):
+            for note in group:
+                x = self.get_x(note.lane + note.span / 2, group_idx) - note.note_pic.width() // 2
+                y = self.get_y(note.sec, group_idx) - note.note_pic.height() // 2
+                self.p.drawImage(QPoint(x, y), note.note_pic)
+
+
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     app.setApplicationName("Bruh")
     main_window = QMainWindow()
     main_window.show()
-    unit = Unit.from_query("sae4 arisu3 riina5 riina5u hajime4 yui2")
-    live = Live()
-    live.set_music(score_id=55, difficulty=Difficulty.MPLUS)
+    unita = Unit.from_query("kaede2 rika4 rika4u momoka4 momoka4u")
+    unitb = Unit.from_query("sae4 arisu3 hajime4 yui2 riina5")
+    unitc = Unit.from_query("uzuki2 koume4 koume4u syoko5 syoko5u")
+    unit = GrandUnit(unita, unitb, unitc)
+    live = GrandLive()
+    live.set_music(score_id=375, difficulty=22)
     live.set_unit(unit)
     sim = Simulator(live)
-    cpg = ChartPicGenerator(55, Difficulty(5), main_window)
+    # res = [None, sim.simulate_theoretical_max(n_intervals=40)[-2:]]
+    cpg = BaseChartPicGenerator.getGenerator(375, Difficulty(22), main_window)
     cpg.set_unit(unit)
+    # cpg.hook_simulation_results([unit.all_cards()], res)
     app.exec_()
