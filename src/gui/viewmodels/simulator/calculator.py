@@ -6,7 +6,7 @@ from PyQt5.QtGui import QDrag
 from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QAbstractItemView, QTableWidget, QApplication, QTableWidgetItem
 
 import customlogger as logger
-from gui.events.ChartViewerEvents import HookUnitToChartViewerEvent
+from gui.events.chart_viewer_events import HookUnitToChartViewerEvent
 from gui.events.utils import eventbus
 from gui.viewmodels.mime_headers import CALCULATOR_UNIT, UNIT_EDITOR_UNIT
 from gui.viewmodels.unit import UnitWidget, UnitView

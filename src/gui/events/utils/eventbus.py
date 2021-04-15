@@ -1,7 +1,6 @@
-from PyQt5.QtCore import QThreadPool, QRunnable, pyqtSlot
+from PyQt5.QtCore import QRunnable, pyqtSlot
 
-threadpool = QThreadPool()
-threadpool.setMaxThreadCount(2)
+from gui.events.utils.threadpool import threadpool
 
 
 class MyRunnable(QRunnable):

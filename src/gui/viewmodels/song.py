@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import QTableWidget, QAbstractItemView, QTableWidgetItem, Q
 import customlogger as logger
 from chart_pic_generator import BaseChartPicGenerator
 from db import db
-from gui.events.ChartViewerEvents import HookUnitToChartViewerEvent
+from gui.events.chart_viewer_events import HookUnitToChartViewerEvent
 from gui.events.utils import eventbus
 from gui.events.utils.eventbus import subscribe
 from gui.viewmodels.utils import NumericalTableWidgetItem
