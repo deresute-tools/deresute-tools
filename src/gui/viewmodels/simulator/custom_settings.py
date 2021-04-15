@@ -2,6 +2,7 @@ from PyQt5 import QtWidgets
 from PyQt5.QtGui import QIntValidator
 
 import customlogger as logger
+from gui.events.chart_viewer_events import ToggleMirrorEvent
 from gui.events.flag_accessor_events import GetMirrorFlagEvent
 from gui.events.utils import eventbus
 from gui.events.utils.eventbus import subscribe
@@ -74,6 +75,7 @@ class CustomSettingsView:
 
     def set_model(self, model):
         self.model = model
+        self.model.hook_events()
 
 
 class CustomSettingsModel:
@@ -142,3 +144,8 @@ class CustomSettingsModel:
         if self.view.autoplay_offset_text.text() == "":
             return 0
         return int(self.view.autoplay_offset_text.text())
+
+    def hook_events(self):
+        self.view.mirror_checkbox.toggled.connect(
+            lambda: eventbus.eventbus.post(ToggleMirrorEvent(self.view.mirror_checkbox.isChecked()),
+                                           asynchronous=False))

@@ -6,7 +6,7 @@ from settings import LOGGER_NAME, LOG_DIR
 __logger = logging.getLogger(LOGGER_NAME)
 __logger.setLevel(logging.DEBUG)
 
-__formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(module)s - %(message)s',
+__formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s',
                                 datefmt='%d-%b-%y %H:%M:%S')
 
 stream_handler = logging.StreamHandler()

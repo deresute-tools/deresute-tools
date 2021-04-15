@@ -177,8 +177,8 @@ class BaseChartPicGenerator(ABC):
     def mirror_generator(self, mirrored):
         if self.mirrored == mirrored:
             return self
-        return BaseChartPicGenerator.get_generator(self.song_id, self.difficulty, self.main, self.grand,
-                                                   reset_main=True, mirrored=mirrored)
+        return BaseChartPicGenerator.get_generator(self.song_id, self.difficulty, self.main, reset_main=False,
+                                                   mirrored=mirrored)
 
     @classmethod
     def get_generator(cls, song_id, difficulty, main_window, reset_main=True, mirrored=False):
@@ -252,7 +252,7 @@ class BaseChartPicGenerator(ABC):
                                   (self.notes['sec'] <= (n + 1) * MAX_SECS_PER_GROUP + Y_MARGIN / SEC_HEIGHT)]
             for _, row in df_slice.iterrows():
                 right_flick = row['note_type'] == NoteType.FLICK and (row['status'] == 2 and not self.grand) or (
-                            row['type'] == 7 and self.grand)
+                        row['type'] == 7 and self.grand)
                 if self.mirrored:
                     right_flick = not not right_flick
                 note_object = ChartPicNote(sec=row['sec'], note_type=row['note_type'], lane=row['finishPos'],

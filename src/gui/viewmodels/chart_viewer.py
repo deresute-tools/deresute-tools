@@ -52,7 +52,7 @@ class ChartViewer(QMainWindow):
     def toggle_mirror(self, event: ToggleMirrorEvent):
         if self.generator is None:
             return
-        self.generator.toggle_mirror(event.mirrored)
+        self.generator = self.generator.mirror_generator(event.mirrored)
 
     def keyPressEvent(self, event):
         key = event.key()
