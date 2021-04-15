@@ -9,6 +9,18 @@ from logic.search import card_query
 
 
 class BaseUnit(ABC):
+    _cards = list()
+
+    def __eq__(self, other):
+        if self.__class__ != other.__class__:
+            return False
+        if len(self._cards) != len(other._cards):
+            return False
+        for (m, o) in zip(self._cards, other._cards):
+            if m != o:
+                return False
+        return True
+
     @classmethod
     @abstractmethod
     def from_list(cls, cards, custom_pots=None):

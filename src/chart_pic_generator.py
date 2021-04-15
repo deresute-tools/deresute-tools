@@ -139,6 +139,8 @@ class BaseChartPicGenerator(ABC):
     LANE_DISTANCE = LANE_DISTANCE
     SKILL_PAINT_WIDTH = SKILL_PAINT_WIDTH
 
+    unit = None
+
     def __init__(self, song_id, difficulty, main_window, grand):
         self.song_id = song_id
         self.difficulty = difficulty
@@ -171,13 +173,6 @@ class BaseChartPicGenerator(ABC):
             return GrandChartPicGenerator(song_id, difficulty, main_window, True)
         else:
             return BasicChartPicGenerator(song_id, difficulty, main_window, False)
-
-    def set_unit(self, unit: Unit, redraw=True):
-        self.unit = unit
-        self.paint_skill()
-        self.draw()
-        if redraw:
-            self.label.repaint()
 
     def notes_into_group(self):
         long_groups = list()
@@ -224,7 +219,6 @@ class BaseChartPicGenerator(ABC):
         return X_MARGIN + lane * self.LANE_DISTANCE + (
                 2 * X_MARGIN + (self.lane_count - 1) * self.LANE_DISTANCE) * group
 
-    # Lanes start from 0
     def get_y(self, sec, group=None, offset_group=0):
         if group is not None:
             return self.y_total - Y_MARGIN - (sec - group * MAX_SECS_PER_GROUP) * SEC_HEIGHT
@@ -232,6 +226,7 @@ class BaseChartPicGenerator(ABC):
             return self.y_total - Y_MARGIN - (
                     sec - (sec // MAX_SECS_PER_GROUP + offset_group) * MAX_SECS_PER_GROUP) * SEC_HEIGHT
 
+    # Lanes start from 0
     def generate_note_objects(self, deltas=None, windows=None):
         # Number of groups = ceil(last sec // MAX_SECS_PER_GROUP)
         self.last_sec = int(self.notes.sec.iloc[-1]) + 1
@@ -259,6 +254,17 @@ class BaseChartPicGenerator(ABC):
         self.draw_sync_lines()
         self.draw_group_lines()
         self.draw_notes()
+
+    def set_unit(self, unit: Unit, redraw=True):
+        # Skip drawing if same unit else reset drawing
+        if unit == self.unit:
+            return
+        self.p.fillRect(0, 0, self.x_total, self.y_total, Qt.black)
+        self.unit = unit
+        self.paint_skill()
+        self.draw()
+        if redraw:
+            self.label.repaint()
 
     def paint_skill(self):
         for card_idx, card in enumerate(self.unit.all_cards()):

@@ -174,3 +174,8 @@ class Card:
         short_name = db.cachedb.execute_and_fetchone("SELECT card_short_name FROM card_name_cache WHERE card_id = ?",
                                                      [self.card_id])
         return short_name[0]
+
+    def __eq__(self, other):
+        if other is None or not isinstance(other, Card):
+            return False
+        return self.card_id == other.card_id

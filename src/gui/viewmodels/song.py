@@ -2,9 +2,13 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QTableWidget, QAbstractItemView, QTableWidgetItem, QMainWindow, QApplication
 
 import customlogger as logger
-from chart_pic_generator import ChartPicGenerator
+from chart_pic_generator import BaseChartPicGenerator
 from db import db
+from gui.events.ChartViewerEvents import HookUnitToChartViewerEvent
+from gui.events.utils import eventbus
+from gui.events.utils.eventbus import subscribe
 from gui.viewmodels.utils import NumericalTableWidgetItem
+from logic.grandunit import GrandUnit
 from logic.unit import Unit
 from static.color import Color
 from static.song_difficulty import Difficulty
@@ -106,9 +110,6 @@ class SongView:
         difficulty = int(self.widget.item(r, 2).text())
         if self.chart_viewer is not None:
             self.chart_viewer.destroy()
-        # TODO: Add GRAND to chart viewer
-        if difficulty == "21" or difficulty == "22":
-            return
         self.chart_viewer = ChartViewer(song_id=song_id, difficulty=difficulty)
 
     def toggle_auto_resize(self, on=False):
@@ -122,16 +123,21 @@ class SongView:
 class ChartViewer(QMainWindow):
     def __init__(self, song_id, difficulty, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.generator = ChartPicGenerator(song_id, difficulty, self)
+        self.generator = BaseChartPicGenerator.getGenerator(song_id, difficulty, self)
+        eventbus.eventbus.register(self)
         self.show()
 
     def hook_simulation_results(self, all_cards, results, song_id, difficulty):
-        self.generator = ChartPicGenerator(song_id, difficulty, self)
+        self.generator = BaseChartPicGenerator.getGenerator(song_id, difficulty, self)
         self.generator.hook_simulation_results(all_cards, results)
 
-    def hook_unit(self, all_cards, song_id, difficulty):
-        self.generator = ChartPicGenerator(song_id, difficulty, self)
-        self.generator.set_unit(Unit.from_list(all_cards))
+    @subscribe(HookUnitToChartViewerEvent)
+    def hook_unit(self, event: HookUnitToChartViewerEvent):
+        if len(event.cards) == 15:
+            unit = GrandUnit.from_list(event.cards)
+        else:
+            unit = Unit.from_list(event.cards)
+        self.generator.set_unit(unit)
 
     def keyPressEvent(self, event):
         key = event.key()

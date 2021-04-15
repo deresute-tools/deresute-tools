@@ -1,10 +1,13 @@
 import ast
+import asyncio
 
 from PyQt5.QtCore import QSize, Qt, QMimeData
 from PyQt5.QtGui import QDrag
 from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QAbstractItemView, QTableWidget, QApplication, QTableWidgetItem
 
 import customlogger as logger
+from gui.events.ChartViewerEvents import HookUnitToChartViewerEvent
+from gui.events.utils import eventbus
 from gui.viewmodels.mime_headers import CALCULATOR_UNIT, UNIT_EDITOR_UNIT
 from gui.viewmodels.unit import UnitWidget, UnitView
 from gui.viewmodels.utils import NumericalTableWidgetItem
@@ -118,7 +121,7 @@ class CalculatorView:
         self.widget.setColumnWidth(0, 40 * 6)
         self.toggle_auto(False)
 
-        self.widget.cellClicked.connect(lambda r, _: self.create_support_team(r))
+        self.widget.cellClicked.connect(lambda r, _: self.handle_unit_click(r))
         self.widget.cellDoubleClicked.connect(lambda r, _: self.main_view.simulate(r))
         self.add_empty_unit()
 
@@ -268,6 +271,9 @@ class CalculatorView:
             for c in range(len(ALL_HEADERS) - 1):
                 self.widget.removeCellWidget(r, c + 1)
 
+    def handle_unit_click(self, r):
+        eventbus.eventbus.post(HookUnitToChartViewerEvent(self.widget.cellWidget(r, 0).cards_internal))
+        self.create_support_team(r)
 
 class CalculatorModel:
     view: CalculatorView
