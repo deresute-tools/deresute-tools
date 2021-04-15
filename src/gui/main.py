@@ -5,6 +5,8 @@ from PyQt5.QtWidgets import QWidget, QGridLayout, QVBoxLayout, QHBoxLayout, QTab
 
 import customlogger as logger
 from chihiro import ROOT_DIR
+from gui.events.chart_viewer_events import PopupChartViewerEvent
+from gui.events.utils import eventbus
 from gui.viewmodels.card import CardView, CardModel, IconLoaderView, IconLoaderModel
 from gui.viewmodels.potential import PotentialView, PotentialModel
 from gui.viewmodels.quicksearch import QuickSearchView, QuickSearchModel, SongQuickSearchView, SongQuickSearchModel
@@ -94,7 +96,12 @@ class UiMainWindow:
         self.songsearch_view = SongQuickSearchView(self.central_widget, self.song_model)
         self.songsearch_model = SongQuickSearchModel(self.songsearch_view, self.song_view)
         self.songsearch_view.set_model(self.songsearch_model)
-        self.song_layout.addWidget(self.songsearch_view.widget)
+        hl = QHBoxLayout()
+        hl.addWidget(self.songsearch_view.widget)
+        chart_viewer_button = QPushButton("Popup Chart Viewer")
+        hl.addWidget(chart_viewer_button)
+        chart_viewer_button.pressed.connect(lambda: eventbus.eventbus.post(PopupChartViewerEvent(), asynchronous=False))
+        self.song_layout.addLayout(hl)
 
         self.calculator_song_layout.addLayout(self.song_layout)
         self.calculator_song_layout.setStretch(0, 3)

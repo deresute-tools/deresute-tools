@@ -16,7 +16,7 @@ class BaseUnit(ABC):
             return False
         if len(self._cards) != len(other._cards):
             return False
-        for (m, o) in zip(self._cards, other._cards):
+        for (m, o) in zip(self.all_cards(), other.all_cards()):
             if m != o:
                 return False
         return True

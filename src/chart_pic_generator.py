@@ -9,6 +9,7 @@ from PyQt5.QtCore import Qt, QPoint, QRectF
 from PyQt5.QtGui import QPixmap, QPainter, QPen, QColor, QImage, QFont, QBrush, QPainterPath, qRgba, QPolygonF
 from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QScrollArea
 
+from exceptions import InvalidUnit
 from logic.grandlive import GrandLive
 from logic.grandunit import GrandUnit
 from logic.live import fetch_chart
@@ -141,7 +142,7 @@ class BaseChartPicGenerator(ABC):
 
     unit = None
 
-    def __init__(self, song_id, difficulty, main_window, grand):
+    def __init__(self, song_id, difficulty, main_window, grand, reset_main=True, mirrored=False):
         self.song_id = song_id
         self.difficulty = difficulty
         self.main = main_window
@@ -155,24 +156,38 @@ class BaseChartPicGenerator(ABC):
         if self.notes is None:
             self.notes = fetch_chart(None, song_id, difficulty, event=True, skip_load_notes=False)[0]
         self.notes['finishPos'] -= 1
+        self.mirrored = mirrored
+        if mirrored:
+            if not grand:
+                self.notes['finishPos'] = 4 - self.notes['finishPos']
+            else:
+                self.notes['finishPos'] = 15 - (self.notes['finishPos'] + self.notes['status'])
         self.notes_into_group()
         self.generate_note_objects()
 
         self.initialize_ui()
+        if reset_main:
+            self.main.setGeometry(200, 200, self.x_max, self.y_max)
 
         self.p = QPainter(self.label.pixmap())
         self.p.setRenderHint(QPainter.Antialiasing)
         self.draw()
         self.label.repaint()
 
+    def mirror_generator(self, mirrored):
+        if self.mirrored == mirrored:
+            return self
+        return BaseChartPicGenerator.get_generator(self.song_id, self.difficulty, self.main, self.grand,
+                                                   reset_main=True, mirrored=mirrored)
+
     @classmethod
-    def getGenerator(cls, song_id, difficulty, main_window):
+    def get_generator(cls, song_id, difficulty, main_window, reset_main=True, mirrored=False):
         if isinstance(difficulty, int):
             difficulty = Difficulty(difficulty)
         if difficulty == Difficulty.PIANO or difficulty == Difficulty.FORTE:
-            return GrandChartPicGenerator(song_id, difficulty, main_window, True)
+            return GrandChartPicGenerator(song_id, difficulty, main_window, True, reset_main, mirrored)
         else:
-            return BasicChartPicGenerator(song_id, difficulty, main_window, False)
+            return BasicChartPicGenerator(song_id, difficulty, main_window, False, reset_main, mirrored)
 
     def notes_into_group(self):
         long_groups = list()
@@ -213,7 +228,6 @@ class BaseChartPicGenerator(ABC):
         self.main.setCentralWidget(scroll)
         self.y_max = WINDOW_HEIGHT
         self.x_max = min(MAX_WINDOW_WIDTH, self.x_total + 20)
-        self.main.setGeometry(200, 200, self.x_max, self.y_max)
 
     def get_x(self, lane, group):
         return X_MARGIN + lane * self.LANE_DISTANCE + (
@@ -237,14 +251,16 @@ class BaseChartPicGenerator(ABC):
             df_slice = self.notes[(n * MAX_SECS_PER_GROUP - Y_MARGIN / SEC_HEIGHT <= self.notes['sec']) &
                                   (self.notes['sec'] <= (n + 1) * MAX_SECS_PER_GROUP + Y_MARGIN / SEC_HEIGHT)]
             for _, row in df_slice.iterrows():
+                right_flick = row['note_type'] == NoteType.FLICK and (row['status'] == 2 and not self.grand) or (
+                            row['type'] == 7 and self.grand)
+                if self.mirrored:
+                    right_flick = not not right_flick
                 note_object = ChartPicNote(sec=row['sec'], note_type=row['note_type'], lane=row['finishPos'],
                                            sync=row['sync'], qgroup=n, group_id=row['groupId'],
                                            delta=deltas[_] if deltas is not None else 0,
                                            early=windows[_][0] if windows is not None else 0,
                                            late=windows[_][1] if windows is not None else 0,
-                                           right_flick=row['note_type'] == NoteType.FLICK and
-                                                       (row['status'] == 2 and not self.grand)
-                                                       or (row['type'] == 7 and self.grand),
+                                           right_flick=right_flick,
                                            grand=self.grand, span=row['status'] - 1)
                 group.append(note_object)
             self.note_groups.append(group)
@@ -255,8 +271,17 @@ class BaseChartPicGenerator(ABC):
         self.draw_group_lines()
         self.draw_notes()
 
-    def set_unit(self, unit: Unit, redraw=True):
+    def hook_cards(self, all_cards, redraw=True):
+        try:
+            if len(all_cards) == 15:
+                unit = GrandUnit.from_list(all_cards)
+            else:
+                unit = Unit.from_list(cards=all_cards)
+        except InvalidUnit:
+            return
         # Skip drawing if same unit else reset drawing
+        if not self.grand and isinstance(unit, GrandUnit):
+            unit = unit.ua
         if unit == self.unit:
             return
         self.p.fillRect(0, 0, self.x_total, self.y_total, Qt.black)
@@ -376,17 +401,10 @@ class BaseChartPicGenerator(ABC):
                                 grouped_notes.iloc[:-1].T.to_dict().values()):
                     self._draw_group_line(l, r, group_idx)
 
-    def hook_simulation_results(self, all_cards, results):
-        all_cards = all_cards[0]
-        if len(all_cards) == 15:
-            self.set_unit(GrandUnit.from_list(all_cards), redraw=False)
-        else:
-            self.set_unit(Unit.from_list(cards=all_cards), redraw=False)
-
+    def hook_abuse(self, all_cards, score_matrix, perfect_score_array):
+        self.hook_cards(all_cards, False)
         delta_list = list()
         window_list = list()
-        perfect_score_array = results[1][0]
-        score_matrix = results[1][1]
         n_intervals = score_matrix.shape[1] - 1
         for i in range(len(perfect_score_array)):
             max_score = score_matrix[i, :].max()
@@ -511,7 +529,7 @@ if __name__ == '__main__':
     live.set_unit(unit)
     sim = Simulator(live)
     # res = [None, sim.simulate_theoretical_max(n_intervals=40)[-2:]]
-    cpg = BaseChartPicGenerator.getGenerator(375, Difficulty(22), main_window)
+    cpg = BaseChartPicGenerator.get_generator(375, Difficulty(5), main_window, mirrored=True)
     cpg.set_unit(unit)
     # cpg.hook_simulation_results([unit.all_cards()], res)
     app.exec_()

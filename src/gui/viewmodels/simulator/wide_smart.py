@@ -5,6 +5,8 @@ from PyQt5.QtWidgets import QSizePolicy, QTabWidget
 
 import customlogger as logger
 from exceptions import InvalidUnit
+from gui.events.chart_viewer_events import HookAbuseToChartViewerEvent
+from gui.events.utils import eventbus
 from gui.viewmodels.simulator.calculator import CalculatorModel, CalculatorView
 from gui.viewmodels.simulator.custom_bonus import CustomBonusView, CustomBonusModel
 from gui.viewmodels.simulator.custom_card import CustomCardView, CustomCardModel
@@ -185,8 +187,10 @@ class MainView:
         )
 
         # Only accept for double click
-        if row is not None and self.song_view.chart_viewer is not None and hidden_feature_check:
-            self.song_view.chart_viewer.hook_simulation_results(all_cards, results, score_id, diff_id)
+        if row is not None and hidden_feature_check:
+            results = results[-1]
+            eventbus.eventbus.post(HookAbuseToChartViewerEvent(all_cards[row], results[1], results[0]),
+                                   asynchronous=False)
 
     def display_results(self, results, row=None, autoplay=False):
         self.get_table_view().widget.setSortingEnabled(False)
@@ -242,8 +246,8 @@ class MainModel:
             elif hidden_feature_check:
                 sim = Simulator(live)
                 result = sim.simulate_theoretical_max(appeals=appeals, extra_bonus=extra_bonus, support=support,
-                                                            special_option=special_option, special_value=special_value,
-                                                            left_boundary=-200, right_boundary=200, n_intervals=times)
+                                                      special_option=special_option, special_value=special_value,
+                                                      left_boundary=-200, right_boundary=200, n_intervals=times)
                 extra_return = (result[-2], result[-1])
                 results.append(result[:-2])
             else:

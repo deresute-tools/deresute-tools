@@ -2,6 +2,9 @@ from PyQt5 import QtWidgets
 from PyQt5.QtGui import QIntValidator
 
 import customlogger as logger
+from gui.events.flag_accessor_events import FlagAccessorEvent
+from gui.events.utils import eventbus
+from gui.events.utils.eventbus import subscribe
 
 
 class CustomSettingsView:
@@ -79,6 +82,7 @@ class CustomSettingsModel:
     def __init__(self, view):
         self.view = view
         self.card_ids = None
+        eventbus.eventbus.register(self)
 
     def get_custom_pots(self):
         if not self.view.custom_potential_checkbox.isChecked():
@@ -124,7 +128,8 @@ class CustomSettingsModel:
     def get_perfect_play(self):
         return self.view.custom_perfect_play_checkbox.isChecked()
 
-    def get_mirror(self):
+    @subscribe(FlagAccessorEvent)
+    def get_mirror(self, event=None):
         return self.view.mirror_checkbox.isChecked()
 
     def get_doublelife(self):

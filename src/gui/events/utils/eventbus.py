@@ -4,13 +4,15 @@ from gui.events.utils.threadpool import threadpool
 
 
 class MyRunnable(QRunnable):
-    def __init__(self, func):
+    def __init__(self, subscriber, registrant, posted_event):
         super().__init__()
-        self.func = func
+        self.subscriber = subscriber
+        self.registrant = registrant
+        self.posted_event = posted_event
 
     @pyqtSlot()
     def run(self):
-        self.func()
+        self.subscriber(self.registrant, self.posted_event)
 
 
 class AsyncEventBus:
@@ -21,15 +23,36 @@ class AsyncEventBus:
     def __init__(self):
         pass
 
-    def post(self, posted_event):
+    def post(self, posted_event, high_priority=False, asynchronous=True):
         subscribed = {key: value for (key, value) in self._subscribers.items() if value == posted_event.__class__}
         for subscriber in subscribed:
             registrants = filter(lambda r: subscriber.__name__ in dir(r), self._registrants)
             for registrant in registrants:
-                threadpool.start(MyRunnable(lambda: subscriber(registrant, posted_event)))
+                # Just outright drop it if full and not high priority
+                if asynchronous:
+                    if high_priority:
+                        threadpool.start(MyRunnable(subscriber, registrant, posted_event))
+                    else:
+                        threadpool.tryStart(MyRunnable(subscriber, registrant, posted_event))
+                else:
+                    subscriber(registrant, posted_event)
+
+    # Only synchronous, for small operations
+    def post_and_get_first(self, posted_event):
+        subscribed = {key: value for (key, value) in self._subscribers.items() if value == posted_event.__class__}
+        for subscriber in subscribed:
+            registrants = filter(lambda r: subscriber.__name__ in dir(r), self._registrants)
+            for registrant in registrants:
+                return subscriber(registrant, posted_event)
 
     def register(self, registrant):
         self._registrants.append(registrant)
+
+    def unregister(self, registrant):
+        try:
+            self._registrants.remove(registrant)
+        except ValueError:
+            pass
 
     def subscribe(self, subscriber, event):
         self._subscribers[subscriber] = event

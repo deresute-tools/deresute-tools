@@ -38,6 +38,8 @@ def setup(update=False):
     from logic.search import indexer, search_engine
     assert indexer
     assert search_engine
+    from gui.viewmodels.chart_viewer import listener
+    assert listener
 
 
 if __name__ == '__main__':

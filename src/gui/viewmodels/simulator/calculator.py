@@ -1,5 +1,4 @@
 import ast
-import asyncio
 
 from PyQt5.QtCore import QSize, Qt, QMimeData
 from PyQt5.QtGui import QDrag
@@ -272,8 +271,10 @@ class CalculatorView:
                 self.widget.removeCellWidget(r, c + 1)
 
     def handle_unit_click(self, r):
-        eventbus.eventbus.post(HookUnitToChartViewerEvent(self.widget.cellWidget(r, 0).cards_internal))
+        eventbus.eventbus.post(HookUnitToChartViewerEvent(self.widget.cellWidget(r, 0).cards_internal),
+                               asynchronous=False)
         self.create_support_team(r)
+
 
 class CalculatorModel:
     view: CalculatorView

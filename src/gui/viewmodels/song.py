@@ -1,15 +1,11 @@
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QTableWidget, QAbstractItemView, QTableWidgetItem, QMainWindow, QApplication
+from PyQt5.QtWidgets import QTableWidget, QAbstractItemView, QTableWidgetItem
 
 import customlogger as logger
-from chart_pic_generator import BaseChartPicGenerator
 from db import db
-from gui.events.chart_viewer_events import HookUnitToChartViewerEvent
+from gui.events.chart_viewer_events import SendMusicEvent
 from gui.events.utils import eventbus
-from gui.events.utils.eventbus import subscribe
 from gui.viewmodels.utils import NumericalTableWidgetItem
-from logic.grandunit import GrandUnit
-from logic.unit import Unit
 from static.color import Color
 from static.song_difficulty import Difficulty
 
@@ -102,15 +98,9 @@ class SongView:
     def ping_support(self, r):
         song_id = int(self.widget.item(r, 1).text())
         difficulty = int(self.widget.item(r, 2).text())
+        self.model.send_music_to_chart_viewer(song_id, difficulty)
         self.support_model.set_music(song_id, difficulty)
         self.support_model.generate_support()
-
-    def popup_chart(self, r):
-        song_id = int(self.widget.item(r, 1).text())
-        difficulty = int(self.widget.item(r, 2).text())
-        if self.chart_viewer is not None:
-            self.chart_viewer.destroy()
-        self.chart_viewer = ChartViewer(song_id=song_id, difficulty=difficulty)
 
     def toggle_auto_resize(self, on=False):
         if on:
@@ -118,31 +108,6 @@ class SongView:
             self.widget.horizontalHeader().setSectionResizeMode(4, 1)  # Auto fit
         else:
             self.widget.horizontalHeader().setSectionResizeMode(0)  # Resize
-
-
-class ChartViewer(QMainWindow):
-    def __init__(self, song_id, difficulty, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.generator = BaseChartPicGenerator.getGenerator(song_id, difficulty, self)
-        eventbus.eventbus.register(self)
-        self.show()
-
-    def hook_simulation_results(self, all_cards, results, song_id, difficulty):
-        self.generator = BaseChartPicGenerator.getGenerator(song_id, difficulty, self)
-        self.generator.hook_simulation_results(all_cards, results)
-
-    @subscribe(HookUnitToChartViewerEvent)
-    def hook_unit(self, event: HookUnitToChartViewerEvent):
-        if len(event.cards) == 15:
-            unit = GrandUnit.from_list(event.cards)
-        else:
-            unit = Unit.from_list(event.cards)
-        self.generator.set_unit(unit)
-
-    def keyPressEvent(self, event):
-        key = event.key()
-        if QApplication.keyboardModifiers() == Qt.ControlModifier and key == Qt.Key_S:
-            self.generator.save_image()
 
 
 class SongModel:
@@ -179,3 +144,6 @@ class SongModel:
             _['FlickPct'] = "{:05.2f}%".format(_['Flick'] / _['Notes'] * 100)
             _['SlidePct'] = "{:05.2f}%".format(_['Slide'] / _['Notes'] * 100)
         self.view.load_data(data)
+
+    def send_music_to_chart_viewer(self, song_id, difficulty):
+        eventbus.eventbus.post(SendMusicEvent(song_id, difficulty), asynchronous=False)
