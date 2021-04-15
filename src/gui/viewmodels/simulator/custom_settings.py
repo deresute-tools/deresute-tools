@@ -2,7 +2,7 @@ from PyQt5 import QtWidgets
 from PyQt5.QtGui import QIntValidator
 
 import customlogger as logger
-from gui.events.flag_accessor_events import FlagAccessorEvent
+from gui.events.flag_accessor_events import GetMirrorFlagEvent
 from gui.events.utils import eventbus
 from gui.events.utils.eventbus import subscribe
 
@@ -128,7 +128,7 @@ class CustomSettingsModel:
     def get_perfect_play(self):
         return self.view.custom_perfect_play_checkbox.isChecked()
 
-    @subscribe(FlagAccessorEvent)
+    @subscribe(GetMirrorFlagEvent)
     def get_mirror(self, event=None):
         return self.view.mirror_checkbox.isChecked()
 

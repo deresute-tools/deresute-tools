@@ -37,7 +37,6 @@ class SongView:
         self.percentage = False
 
         self.widget.cellClicked.connect(lambda r, _: self.ping_support(r))
-        self.widget.cellDoubleClicked.connect(lambda r, _: self.popup_chart(r))
         self.chart_viewer = None
 
     def set_model(self, model):

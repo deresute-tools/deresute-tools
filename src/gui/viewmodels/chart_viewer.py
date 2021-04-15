@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import QMainWindow, QApplication
 from chart_pic_generator import BaseChartPicGenerator
 from gui.events.chart_viewer_events import SendMusicEvent, HookAbuseToChartViewerEvent, HookUnitToChartViewerEvent, \
     ToggleMirrorEvent, PopupChartViewerEvent
-from gui.events.flag_accessor_events import FlagAccessorEvent
+from gui.events.flag_accessor_events import GetMirrorFlagEvent
 from gui.events.utils import eventbus
 from gui.events.utils.eventbus import subscribe
 
@@ -26,11 +26,13 @@ class ChartViewer(QMainWindow):
         self.parent = parent
         self.generator = None
         eventbus.eventbus.register(self)
+        self.setGeometry(200, 200, 1700, 800)
+        self.setWindowTitle("Chart Viewer")
         self.show()
 
     @subscribe(SendMusicEvent)
     def hook_music(self, event: SendMusicEvent):
-        mirror_flag = eventbus.eventbus.post_and_get_first(FlagAccessorEvent())
+        mirror_flag = eventbus.eventbus.post_and_get_first(GetMirrorFlagEvent())
         self.generator = BaseChartPicGenerator.get_generator(event.song_id, event.difficulty, self, reset_main=False,
                                                              mirrored=mirror_flag)
 
