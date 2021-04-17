@@ -1,11 +1,13 @@
 import ast
 
+import numpy as np
 from PyQt5.QtCore import QSize, Qt, QMimeData
 from PyQt5.QtGui import QDrag
 from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QAbstractItemView, QTableWidget, QApplication, QTableWidgetItem
 
 import customlogger as logger
-from gui.events.calculator_view_events import GetAllCardsEvent
+from gui.events.calculator_view_events import GetAllCardsEvent, DisplaySimulationResultEvent, \
+    BaseSimulationResultWithUuid
 from gui.events.chart_viewer_events import HookUnitToChartViewerEvent
 from gui.events.song_view_events import GetSongDetailsEvent
 from gui.events.utils import eventbus
@@ -14,6 +16,7 @@ from gui.viewmodels.mime_headers import CALCULATOR_UNIT, UNIT_EDITOR_UNIT
 from gui.viewmodels.unit import UnitWidget, UnitView
 from gui.viewmodels.utils import NumericalTableWidgetItem, UniversalUniqueIdentifiable
 from network.api_client import get_top_build
+from simulator import SimulationResult, MaxSimulationResult, AutoSimulationResult
 
 UNIVERSAL_HEADERS = ["Unit", "Appeals", "Life"]
 NORMAL_SIM_HEADERS = ["Perfect", "Mean", "Max", "Min", "Skill Off", "5%", "25%", "50%", "75%"]
@@ -245,20 +248,7 @@ class CalculatorView:
             support = int(self.custom_settings_model.get_support())
         self.widget.setItem(r, 1, NumericalTableWidgetItem(int(appeals + support)))
 
-    def display_results(self, results, row, autoplay):
-        if len(results) == 0:
-            return
-        if row is not None and results[0] is not None:
-            for c, value in enumerate(results[0]):
-                self._fillcolumn(autoplay, c, row, value)
-            return
-        for r, data in enumerate(results):
-            if data is None:
-                continue
-            for c, value in enumerate(data):
-                self._fillcolumn(autoplay, c, r, value)
-
-    def _fillcolumn(self, autoplay, c, row, value):
+    def fill_column(self, autoplay, c, row, value):
         if c >= len(UNIVERSAL_HEADERS) - 1 and autoplay:
             column = c + 1 + len(NORMAL_SIM_HEADERS)
         else:
@@ -289,6 +279,68 @@ class CalculatorModel:
     @subscribe(GetAllCardsEvent)
     def get_all_cards(self, event=None):
         return [
-            self.view.widget.cellWidget(r_idx, 0).cards_internal
+            CardsWithUnitUuid(self.view.widget.cellWidget(r_idx, 0).uuid,
+                              self.view.widget.cellWidget(r_idx, 0).cards_internal)
             for r_idx in range(self.view.widget.rowCount())
         ]
+
+    @subscribe(DisplaySimulationResultEvent)
+    def display_simulation_result(self, event):
+        payload: BaseSimulationResultWithUuid = event.payload
+        row_to_change = -1
+        for r in range(self.view.widget.rowCount()):
+            uuid = self.view.widget.cellWidget(r, 0).uuid
+            if uuid == payload.uuid:
+                row_to_change = r
+                break
+        if row_to_change == -1:
+            return
+        if isinstance(payload.results, SimulationResult):
+            self._process_normal_results(payload.results, row_to_change)
+        elif isinstance(payload.results, MaxSimulationResult):
+            self._process_max_results(payload.results, row_to_change)
+        elif isinstance(payload.results, AutoSimulationResult):
+            self._process_auto_results(payload.results, row_to_change)
+
+    def _process_normal_results(self, results: SimulationResult, row=None):
+        # ["Perfect", "Mean", "Max", "Min", "Skill Off", "1%", "5%", "25%", "50%", "75%"])
+        self.view.fill_column(False, 0, row, int(results.total_appeal))
+        self.view.fill_column(False, 1, row, int(results.total_life))
+        self.view.fill_column(False, 2, row, int(results.perfect_score))
+        self.view.fill_column(False, 3, row, int(results.base + results.deltas.max()))
+        self.view.fill_column(False, 4, row, int(results.base + results.deltas.min()))
+        self.view.fill_column(False, 5, row, int(results.skill_off))
+        self.view.fill_column(False, 6, row, int(results.base + np.percentile(results.deltas, 95)))
+        self.view.fill_column(False, 7, row, int(results.base + np.percentile(results.deltas, 75)))
+        self.view.fill_column(False, 8, row, int(results.base + np.percentile(results.deltas, 50)))
+        self.view.fill_column(False, 9, row, int(results.base + np.percentile(results.deltas, 25)))
+
+    def _process_auto_results(self, results: AutoSimulationResult, row=None):
+        # ["Auto Score", "Perfects", "Misses", "Max Combo", "Lowest Life", "Lowest Life Time", "All Skills 100%?"]
+        self.view.fill_column(True, 0, row, int(results.total_appeal))
+        self.view.fill_column(True, 1, row, int(results.total_life))
+        self.view.fill_column(True, 2, row, int(results.score))
+        self.view.fill_column(True, 3, row, int(results.perfects))
+        self.view.fill_column(True, 4, row, int(results.misses))
+        self.view.fill_column(True, 5, row, int(results.max_combo))
+        self.view.fill_column(True, 6, row, int(results.lowest_life))
+        self.view.fill_column(True, 7, row, float(results.lowest_life_time))
+        self.view.fill_column(True, 8, row, "Yes" if results.all_100 else "No")
+
+    def _process_max_results(self, results: MaxSimulationResult, row=None):
+        self.view.fill_column(False, 0, row, int(results.total_appeal))
+        self.view.fill_column(False, 1, row, int(results.total_life))
+        self.view.fill_column(False, 2, row, int(results.perfect_score))
+        self.view.fill_column(False, 3, row, int(results.perfect_score + results.deltas.sum()))
+        self.view.fill_column(False, 4, row, 0)
+        self.view.fill_column(False, 5, row, 0)
+        self.view.fill_column(False, 6, row, 0)
+        self.view.fill_column(False, 7, row, 0)
+        self.view.fill_column(False, 8, row, 0)
+        self.view.fill_column(False, 9, row, 0)
+
+
+class CardsWithUnitUuid:
+    def __init__(self, uuid, cards):
+        self.uuid = uuid
+        self.cards = cards

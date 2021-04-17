@@ -36,6 +36,48 @@ def check_long(notes_data, mask):
             notes_data.loc[idx, 'is_long'] = True
 
 
+class BaseSimulationResult:
+    def __init__(self):
+        pass
+
+
+class SimulationResult(BaseSimulationResult):
+    def __init__(self, total_appeal, perfect_score, skill_off, base, deltas, total_life):
+        super().__init__()
+        self.total_appeal = total_appeal
+        self.perfect_score = perfect_score
+        self.skill_off = skill_off
+        self.base = base
+        self.deltas = deltas
+        self.total_life = total_life
+
+
+class MaxSimulationResult(BaseSimulationResult):
+    def __init__(self, total_appeal, total_perfect, deltas, total_life, perfect_score, score_array):
+        super().__init__()
+        self.total_appeal = total_appeal
+        self.total_perfect = total_perfect
+        self.deltas = deltas
+        self.total_life = total_life
+        self.perfect_score = perfect_score
+        self.score_array = score_array
+
+
+class AutoSimulationResult(BaseSimulationResult):
+    def __init__(self, total_appeal, total_life, score, perfects, misses, max_combo, lowest_life, lowest_life_time,
+                 all_100):
+        super().__init__()
+        self.total_appeal = total_appeal
+        self.total_life = total_life
+        self.score = score
+        self.perfects = perfects
+        self.misses = misses
+        self.max_combo = max_combo
+        self.lowest_life = lowest_life
+        self.lowest_life_time = lowest_life_time
+        self.all_100 = all_100
+
+
 class Simulator:
     def __init__(self, live=None, special_offset=None):
         self.live = live
@@ -179,7 +221,14 @@ class Simulator:
         logger.debug("Max: {}".format(int(base + deltas.max())))
         logger.debug("Min: {}".format(int(base + deltas.min())))
         logger.debug("Deviation: {}".format(int(np.round(np.std(deltas)))))
-        return self.total_appeal, perfect_score, skill_off, base, deltas, self.live.get_life()
+        return SimulationResult(
+            total_appeal=self.total_appeal,
+            perfect_score=perfect_score,
+            skill_off=skill_off,
+            base=base,
+            deltas=deltas,
+            total_life=self.live.get_life()
+        )
 
     def simulate_theoretical_max(self, appeals=None, extra_bonus=None, support=None,
                                  chara_bonus_set=None, chara_bonus_value=0, special_option=None, special_value=None,
@@ -383,8 +432,14 @@ class Simulator:
                                      cumsum_max[idx]
                                      ])
 
-        return self.total_appeal, total_perfect, 0, total_perfect, np.array(
-            [total_max - total_perfect, 0]), self.live.get_life(), perfect_score, score_array
+        return MaxSimulationResult(
+            total_appeal=self.total_appeal,
+            total_perfect=total_perfect,
+            deltas=np.array([total_max - total_perfect, 0]),
+            total_life=self.live.get_life(),
+            perfect_score=perfect_score,
+            score_array=score_array
+        )
 
     def simulate_auto(self, appeals=None, extra_bonus=None, support=None,
                       chara_bonus_set=None, chara_bonus_value=0, special_option=None, special_value=None,
@@ -455,7 +510,16 @@ class Simulator:
         logger.debug("Misses: {}".format(misses))
         logger.debug("Max combo: {}".format(max_combo))
         logger.debug("Total life drained: {}".format(self.notes_data['drain'].sum()))
-        return self.total_appeal, self.live.get_life(), score, perfects, misses, max_combo, lowest_life, lowest_life_time, self.all_100
+        return AutoSimulationResult(
+            total_appeal=self.total_appeal,
+            total_life=self.live.get_life(),
+            score=score,
+            perfects=perfects,
+            misses=misses,
+            max_combo=max_combo,
+            lowest_life=lowest_life,
+            lowest_life_time=lowest_life_time,
+            all_100=self.all_100)
 
     def _helper_mark_slide_checkpoints(self):
         self.notes_data['checkpoints'] = False

@@ -1,18 +1,22 @@
+from typing import List
+
 import numpy as np
 from PyQt5 import QtWidgets
+from PyQt5.QtCore import pyqtSignal, pyqtSlot, QObject
 from PyQt5.QtGui import QIntValidator
 from PyQt5.QtWidgets import QSizePolicy, QTabWidget
 
 import customlogger as logger
 from exceptions import InvalidUnit
-from gui.events.calculator_view_events import GetAllCardsEvent
-from gui.events.chart_viewer_events import HookAbuseToChartViewerEvent
+from gui.events.calculator_view_events import GetAllCardsEvent, SimulationEvent, DisplaySimulationResultEvent, \
+    BaseSimulationResultWithUuid
+from gui.events.song_view_events import GetSongDetailsEvent
+from gui.events.utils import eventbus
+from gui.events.utils.eventbus import subscribe
 from gui.events.value_accessor_events import GetAutoplayOffsetEvent, GetAutoplayFlagEvent, GetDoublelifeFlagEvent, \
     GetSupportEvent, GetAppealsEvent, GetCustomPotsEvent, GetPerfectPlayFlagEvent, GetMirrorFlagEvent, \
     GetCustomBonusEvent
-from gui.events.song_view_events import GetSongDetailsEvent
-from gui.events.utils import eventbus
-from gui.viewmodels.simulator.calculator import CalculatorModel, CalculatorView
+from gui.viewmodels.simulator.calculator import CalculatorModel, CalculatorView, CardsWithUnitUuid
 from gui.viewmodels.simulator.custom_bonus import CustomBonusView, CustomBonusModel
 from gui.viewmodels.simulator.custom_card import CustomCardView, CustomCardModel
 from gui.viewmodels.simulator.custom_settings import CustomSettingsView, CustomSettingsModel
@@ -105,9 +109,6 @@ class MainView:
     def get_table_view(self):
         return self.calculator_table_view
 
-    def get_table_model(self):
-        return self.calculator_table_model
-
     def _set_up_big_buttons(self):
         self.button_layout = QtWidgets.QGridLayout()
         self.big_button = QtWidgets.QPushButton("Run", self.widget)
@@ -158,7 +159,7 @@ class MainView:
             logger.info("No chart loaded")
             return
         times = self.get_times()
-        all_cards = eventbus.eventbus.post_and_get_first(GetAllCardsEvent())
+        all_cards: List[CardsWithUnitUuid] = eventbus.eventbus.post_and_get_first(GetAllCardsEvent())
         perfect_play = eventbus.eventbus.post_and_get_first(GetPerfectPlayFlagEvent())
         custom_pots = eventbus.eventbus.post_and_get_first(GetCustomPotsEvent())
         appeals = eventbus.eventbus.post_and_get_first(GetAppealsEvent())
@@ -171,7 +172,7 @@ class MainView:
 
         hidden_feature_check = times > 0 and perfect_play is True and autoplay is False and autoplay_offset == 346
 
-        results = self.model.simulate_internal(
+        self.model.simulate_internal(
             perfect_play=perfect_play,
             score_id=score_id, diff_id=diff_id, times=times, all_cards=all_cards, custom_pots=custom_pots,
             appeals=appeals, support=support, extra_bonus=extra_bonus,
@@ -182,30 +183,31 @@ class MainView:
             row=row
         )
 
-        # Only accept for double click
-        if row is not None and hidden_feature_check:
-            results = results[-1]
-            eventbus.eventbus.post(HookAbuseToChartViewerEvent(all_cards[row], results[1], results[0]),
-                                   asynchronous=False)
+        # # Only accept for double click
+        # if row is not None and hidden_feature_check:
+        #     results = results[-1]
+        #     eventbus.eventbus.post(HookAbuseToChartViewerEvent(all_cards[row].cards, results[1], results[0]),
+        #                            asynchronous=False)
 
-    def display_results(self, results, row=None, autoplay=False):
-        self.get_table_view().widget.setSortingEnabled(False)
-        self.get_table_view().display_results(results, row=row, autoplay=autoplay)
-        self.get_table_view().widget.setSortingEnabled(True)
-
-
-class MainModel:
+class MainModel(QObject):
     view: MainView
 
-    def __init__(self, view):
+    process_simulation_results_signal = pyqtSignal(BaseSimulationResultWithUuid)
+
+    def __init__(self, view, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.view = view
+        eventbus.eventbus.register(self)
+        self.process_simulation_results_signal.connect(lambda event: self.process_results(event))
 
     def simulate_internal(self, perfect_play, score_id, diff_id, times, all_cards, custom_pots, appeals, support,
-                          extra_bonus, special_option, special_value,
-                          mirror, autoplay, autoplay_offset,
-                          doublelife,
+                          extra_bonus, special_option, special_value, mirror, autoplay, autoplay_offset, doublelife,
                           hidden_feature_check,
                           row=None):
+        """
+
+        :type all_cards: List[CardsWithUnitUuid]
+        """
         results = list()
         if len(all_cards) == 0:
             logger.info("Nothing to simulate")
@@ -213,13 +215,23 @@ class MainModel:
         if row is not None:
             all_cards = [all_cards[row]]
         extra_return = None
-        for cards in all_cards:
+
+        # Initialize song first because SQLite DB thread lock
+        # Live objects are mutable so create one for each simulation
+        # TODO: Minor optimize by calling set_music only once then clone, but set_music shouldn't take too long to run so this is on low priority
+        live_objects = list()
+        for card_with_uuid in all_cards:
+            cards = card_with_uuid.cards
             if len(cards) == 15:
                 live = GrandLive()
             else:
                 live = Live()
             live.set_music(score_id=score_id, difficulty=diff_id)
-            # Load cards
+            live_objects.append(live)
+
+        # Load cards
+        for live, card_with_uuid in zip(live_objects, all_cards):
+            cards = card_with_uuid.cards
             try:
                 if len(cards) == 15:
                     unit = GrandUnit.from_list(cards, custom_pots)
@@ -232,77 +244,37 @@ class MainModel:
                 results.append(None)
                 continue
 
-            live.set_unit(unit)
-            if autoplay:
-                sim = Simulator(live, special_offset=0.075)
-                results.append(sim.simulate_auto(appeals=appeals, extra_bonus=extra_bonus, support=support,
-                                                 special_option=special_option, special_value=special_value,
-                                                 time_offset=autoplay_offset, mirror=mirror,
-                                                 doublelife=doublelife))
-            elif hidden_feature_check:
-                sim = Simulator(live)
-                result = sim.simulate_theoretical_max(appeals=appeals, extra_bonus=extra_bonus, support=support,
-                                                      special_option=special_option, special_value=special_value,
-                                                      left_boundary=-200, right_boundary=200, n_intervals=times)
-                extra_return = (result[-2], result[-1])
-                results.append(result[:-2])
-            else:
-                sim = Simulator(live)
-                results.append(sim.simulate(perfect_play=perfect_play,
-                                            times=times, appeals=appeals, extra_bonus=extra_bonus, support=support,
-                                            special_option=special_option, special_value=special_value,
-                                            doublelife=doublelife))
-        self.process_results(results, row, autoplay)
-        return results, extra_return
+            eventbus.eventbus.post(
+                SimulationEvent(card_with_uuid.uuid,
+                                appeals, autoplay, autoplay_offset, doublelife, extra_bonus, extra_return,
+                                hidden_feature_check, live, mirror, perfect_play, results, special_option,
+                                special_value, support, times, unit), high_priority=True)
 
-    def process_results(self, results, row=None, auto=False):
-        if auto:
-            self._process_auto_results(results, row)
+    @pyqtSlot(BaseSimulationResultWithUuid)
+    def process_results(self, object):
+        eventbus.eventbus.post(DisplaySimulationResultEvent(object), asynchronous=False)
+
+    @subscribe(SimulationEvent)
+    def handle_simulation_request(self, event: SimulationEvent):
+        event.live.set_unit(event.unit)
+        if event.autoplay:
+            sim = Simulator(event.live, special_offset=0.075)
+            result = sim.simulate_auto(appeals=event.appeals, extra_bonus=event.extra_bonus, support=event.support,
+                                       special_option=event.special_option, special_value=event.special_value,
+                                       time_offset=event.autoplay_offset, mirror=event.mirror,
+                                       doublelife=event.doublelife)
+        elif event.hidden_feature_check:
+            sim = Simulator(event.live)
+            result = sim.simulate_theoretical_max(appeals=event.appeals, extra_bonus=event.extra_bonus,
+                                                  support=event.support,
+                                                  special_option=event.special_option,
+                                                  special_value=event.special_value,
+                                                  left_boundary=-200, right_boundary=200, n_intervals=event.times)
         else:
-            self._process_normal_results(results, row)
-
-    def _process_normal_results(self, results, row=None):
-        # ["Perfect", "Mean", "Max", "Min", "Skill Off", "1%", "5%", "25%", "50%", "75%"])
-        # results: appeals, perfect_score, skill_off, base, deltas
-        res = list()
-        for result in results:
-            temp = list()
-            if result is None:
-                temp.append(None)
-                continue
-            appeals, perfect_score, skill_off, base, deltas, life = result
-            temp.append(appeals)
-            temp.append(life)
-            temp.append(perfect_score)
-            temp.append(base)
-            temp.append(base + deltas.max())
-            temp.append(base + deltas.min())
-            temp.append(skill_off)
-            temp.append(base + np.percentile(deltas, 95))
-            temp.append(base + np.percentile(deltas, 75))
-            temp.append(base + np.percentile(deltas, 50))
-            temp.append(base + np.percentile(deltas, 25))
-            res.append(map(int, temp))
-        self.view.display_results(res, row, autoplay=False)
-
-    def _process_auto_results(self, results, row=None):
-        # ["Auto Score", "Perfects", "Misses", "Max Combo", "Lowest Life", "Lowest Life Time", "All Skills 100%?"]
-        # results: score, perfects, misses. max_combo, lowest_life, lowest_life_time, self.all_100
-        res = list()
-        for result in results:
-            temp = list()
-            if result is None:
-                temp.append(None)
-                continue
-            appeals, life, score, perfects, misses, max_combo, lowest_life, lowest_life_time, all_100 = result
-            temp.append(int(appeals))
-            temp.append(int(life))
-            temp.append(int(score))
-            temp.append(int(perfects))
-            temp.append(int(misses))
-            temp.append(int(max_combo))
-            temp.append(int(lowest_life))
-            temp.append(float(lowest_life_time))
-            temp.append("Yes" if all_100 else "No")
-            res.append(temp)
-        self.view.display_results(res, row, autoplay=True)
+            sim = Simulator(event.live)
+            result = sim.simulate(perfect_play=event.perfect_play,
+                                  times=event.times, appeals=event.appeals, extra_bonus=event.extra_bonus,
+                                  support=event.support,
+                                  special_option=event.special_option, special_value=event.special_value,
+                                  doublelife=event.doublelife)
+        self.process_simulation_results_signal.emit(BaseSimulationResultWithUuid(event.uuid, result))
