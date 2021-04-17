@@ -67,6 +67,6 @@ class PushCardEvent:
 
 
 class ContextAwarePushCardEvent:
-    def __init__(self, view, card_id):
-        self.view = view
+    def __init__(self, model, card_id):
+        self.model = model
         self.card_id = card_id

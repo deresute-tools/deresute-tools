@@ -143,7 +143,7 @@ class MainView:
         self.custom_settings_view.set_model(self.custom_settings_model)
         self.bottom_row_layout.addLayout(self.custom_settings_view.layout)
 
-    def get_current_view(self):
+    def get_current_model(self):
         return self.models[self.calculator_tabs.currentIndex()]
 
     def get_times(self):
@@ -307,6 +307,6 @@ class MainModel(QObject):
         self.process_yoink_results_signal.emit(YoinkResults(cards, support))
 
     @subscribe(PushCardEvent)
-    def push_card(self, event):
+    def context_aware_push_card(self, event):
         eventbus.eventbus.post(
-            ContextAwarePushCardEvent(self.view.get_current_view(), event.card_id))
+            ContextAwarePushCardEvent(self.view.get_current_model(), event.card_id))

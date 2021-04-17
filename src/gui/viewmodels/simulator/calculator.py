@@ -7,12 +7,12 @@ from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QAbstractItemView, QTableW
 
 import customlogger as logger
 from gui.events.calculator_view_events import GetAllCardsEvent, DisplaySimulationResultEvent, \
-    AddEmptyUnitEvent, SetSupportCardsEvent, RequestSupportTeamEvent, PushCardEvent
-from gui.events.utils.wrappers import BaseSimulationResultWithUuid
+    AddEmptyUnitEvent, SetSupportCardsEvent, RequestSupportTeamEvent, ContextAwarePushCardEvent
 from gui.events.chart_viewer_events import HookUnitToChartViewerEvent
 from gui.events.state_change_events import AutoFlagChangeEvent
 from gui.events.utils import eventbus
 from gui.events.utils.eventbus import subscribe
+from gui.events.utils.wrappers import BaseSimulationResultWithUuid
 from gui.events.value_accessor_events import GetAppealsEvent, GetSupportEvent
 from gui.viewmodels.mime_headers import CALCULATOR_UNIT, UNIT_EDITOR_UNIT
 from gui.viewmodels.unit import UnitWidget, UnitView
@@ -273,8 +273,10 @@ class CalculatorModel:
             return
         self.view.insert_unit()
 
-    @subscribe(PushCardEvent)
-    def push_card(self, event):
+    @subscribe(ContextAwarePushCardEvent)
+    def push_card_int(self, event: ContextAwarePushCardEvent):
+        if event.model is not self:
+            return
         card_id = event.card_id
         for row in range(self.view.widget.rowCount()):
             cell_widget = self.view.widget.cellWidget(row, 0)
