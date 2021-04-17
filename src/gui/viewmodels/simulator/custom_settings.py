@@ -3,9 +3,10 @@ from PyQt5.QtGui import QIntValidator
 
 import customlogger as logger
 from gui.events.chart_viewer_events import ToggleMirrorEvent
-from gui.events.flag_accessor_events import GetMirrorFlagEvent
 from gui.events.utils import eventbus
 from gui.events.utils.eventbus import subscribe
+from gui.events.value_accessor_events import GetMirrorFlagEvent, GetPerfectPlayFlagEvent, GetCustomPotsEvent, \
+    GetAppealsEvent, GetSupportEvent, GetDoublelifeFlagEvent, GetAutoplayFlagEvent, GetAutoplayOffsetEvent
 
 
 class CustomSettingsView:
@@ -86,7 +87,8 @@ class CustomSettingsModel:
         self.card_ids = None
         eventbus.eventbus.register(self)
 
-    def get_custom_pots(self):
+    @subscribe(GetCustomPotsEvent)
+    def get_custom_pots(self, event=None):
         if not self.view.custom_potential_checkbox.isChecked():
             logger.debug("Not using custom potentials")
             return None
@@ -98,7 +100,8 @@ class CustomSettingsModel:
         results.append(self.view.custom_skill.currentIndex())
         return results
 
-    def get_appeals(self):
+    @subscribe(GetAppealsEvent)
+    def get_appeals(self, event=None):
         if not self.view.custom_appeal_checkbox.isChecked():
             logger.debug("Not using custom appeals")
             return None
@@ -113,7 +116,8 @@ class CustomSettingsModel:
         except AssertionError:
             pass
 
-    def get_support(self):
+    @subscribe(GetSupportEvent)
+    def get_support(self, event=None):
         if not self.view.custom_support_checkbox.isChecked():
             logger.debug("Not using custom support team")
             return None
@@ -127,20 +131,24 @@ class CustomSettingsModel:
     def disable_custom_pots(self):
         self.view.custom_potential_checkbox.setChecked(False)
 
-    def get_perfect_play(self):
+    @subscribe(GetPerfectPlayFlagEvent)
+    def get_perfect_play(self, event=None):
         return self.view.custom_perfect_play_checkbox.isChecked()
 
     @subscribe(GetMirrorFlagEvent)
     def get_mirror(self, event=None):
         return self.view.mirror_checkbox.isChecked()
 
-    def get_doublelife(self):
+    @subscribe(GetDoublelifeFlagEvent)
+    def get_doublelife(self, event=None):
         return self.view.doublelife_checkbox.isChecked()
 
-    def get_autoplay(self):
+    @subscribe(GetAutoplayFlagEvent)
+    def get_autoplay(self, event=None):
         return self.view.autoplay_mode_checkbox.isChecked()
 
-    def get_autoplay_offset(self):
+    @subscribe(GetAutoplayOffsetEvent)
+    def get_autoplay_offset(self, event=None):
         if self.view.autoplay_offset_text.text() == "":
             return 0
         return int(self.view.autoplay_offset_text.text())

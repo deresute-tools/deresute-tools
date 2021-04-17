@@ -5,7 +5,12 @@ from PyQt5.QtWidgets import QSizePolicy, QTabWidget
 
 import customlogger as logger
 from exceptions import InvalidUnit
+from gui.events.calculator_view_events import GetAllCardsEvent
 from gui.events.chart_viewer_events import HookAbuseToChartViewerEvent
+from gui.events.value_accessor_events import GetAutoplayOffsetEvent, GetAutoplayFlagEvent, GetDoublelifeFlagEvent, \
+    GetSupportEvent, GetAppealsEvent, GetCustomPotsEvent, GetPerfectPlayFlagEvent, GetMirrorFlagEvent, \
+    GetCustomBonusEvent
+from gui.events.song_view_events import GetSongDetailsEvent
 from gui.events.utils import eventbus
 from gui.viewmodels.simulator.calculator import CalculatorModel, CalculatorView
 from gui.viewmodels.simulator.custom_bonus import CustomBonusView, CustomBonusModel
@@ -141,15 +146,6 @@ class MainView:
     def attach_song_view(self, song_view):
         self.song_view = song_view
 
-    def get_song(self):
-        row_idx = self.song_view.widget.selectionModel().currentIndex().row()
-        if row_idx == -1:
-            return None, None, None
-        live_detail_id = int(self.song_view.widget.item(row_idx, 0).text())
-        score_id = int(self.song_view.widget.item(row_idx, 1).text())
-        diff_id = int(self.song_view.widget.item(row_idx, 2).text())
-        return score_id, diff_id, live_detail_id
-
     def get_times(self):
         if self.times_text.text() == "" or self.times_text.text() == "0":
             return 10
@@ -157,21 +153,21 @@ class MainView:
             return int(self.times_text.text())
 
     def simulate(self, row=None):
-        score_id, diff_id, live_detail_id = self.get_song()
+        score_id, diff_id, live_detail_id = eventbus.eventbus.post_and_get_first(GetSongDetailsEvent())
         if diff_id is None:
             logger.info("No chart loaded")
             return
         times = self.get_times()
-        all_cards = self.get_table_model().get_all_cards()
-        perfect_play = self.custom_settings_model.get_perfect_play()
-        custom_pots = self.custom_settings_model.get_custom_pots()
-        appeals = self.custom_settings_model.get_appeals()
-        support = self.custom_settings_model.get_support()
-        mirror = self.custom_settings_model.get_mirror()
-        doublelife = self.custom_settings_model.get_doublelife()
-        autoplay = self.custom_settings_model.get_autoplay()
-        autoplay_offset = self.custom_settings_model.get_autoplay_offset()
-        extra_bonus, special_option, special_value = self.custom_bonus_model.get_bonus()
+        all_cards = eventbus.eventbus.post_and_get_first(GetAllCardsEvent())
+        perfect_play = eventbus.eventbus.post_and_get_first(GetPerfectPlayFlagEvent())
+        custom_pots = eventbus.eventbus.post_and_get_first(GetCustomPotsEvent())
+        appeals = eventbus.eventbus.post_and_get_first(GetAppealsEvent())
+        support = eventbus.eventbus.post_and_get_first(GetSupportEvent())
+        mirror = eventbus.eventbus.post_and_get_first(GetMirrorFlagEvent())
+        doublelife = eventbus.eventbus.post_and_get_first(GetDoublelifeFlagEvent())
+        autoplay = eventbus.eventbus.post_and_get_first(GetAutoplayFlagEvent())
+        autoplay_offset = eventbus.eventbus.post_and_get_first(GetAutoplayOffsetEvent())
+        extra_bonus, special_option, special_value = eventbus.eventbus.post_and_get_first(GetCustomBonusEvent())
 
         hidden_feature_check = times > 0 and perfect_play is True and autoplay is False and autoplay_offset == 346
 

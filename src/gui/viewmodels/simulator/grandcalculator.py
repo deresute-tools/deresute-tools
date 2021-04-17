@@ -8,10 +8,11 @@ import customlogger as logger
 from gui.viewmodels.mime_headers import CALCULATOR_GRANDUNIT
 from gui.viewmodels.simulator.calculator import CalculatorView, DroppableCalculatorWidget
 from gui.viewmodels.unit import UnitWidget, UnitCard
+from gui.viewmodels.utils import UniversalUniqueIdentifiable
 from settings import IMAGE_PATH32
 
 
-class GrandCalculatorUnitWidget(UnitWidget):
+class GrandCalculatorUnitWidget(UnitWidget, UniversalUniqueIdentifiable):
     def __init__(self, unit_view, parent=None, size=32, *args, **kwargs):
         super().__init__(unit_view, parent, size, *args, **kwargs)
         del self.unitName

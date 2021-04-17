@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import QMainWindow, QApplication
 from chart_pic_generator import BaseChartPicGenerator
 from gui.events.chart_viewer_events import SendMusicEvent, HookAbuseToChartViewerEvent, HookUnitToChartViewerEvent, \
     ToggleMirrorEvent, PopupChartViewerEvent
-from gui.events.flag_accessor_events import GetMirrorFlagEvent
+from gui.events.value_accessor_events import GetMirrorFlagEvent
 from gui.events.utils import eventbus
 from gui.events.utils.eventbus import subscribe
 
@@ -15,7 +15,7 @@ class ChartViewerListener:
         eventbus.eventbus.register(self)
 
     @subscribe(PopupChartViewerEvent)
-    def popup_chart_viewer(self, event):
+    def popup_chart_viewer(self, event=None):
         if self.chart_viewer is None:
             self.chart_viewer = ChartViewer(self)
 

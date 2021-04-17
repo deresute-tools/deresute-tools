@@ -4,7 +4,9 @@ from PyQt5.QtWidgets import QTableWidget, QAbstractItemView, QTableWidgetItem
 import customlogger as logger
 from db import db
 from gui.events.chart_viewer_events import SendMusicEvent
+from gui.events.song_view_events import GetSongDetailsEvent
 from gui.events.utils import eventbus
+from gui.events.utils.eventbus import subscribe
 from gui.viewmodels.utils import NumericalTableWidgetItem
 from static.color import Color
 from static.song_difficulty import Difficulty
@@ -114,6 +116,7 @@ class SongModel:
     def __init__(self, view):
         assert isinstance(view, SongView)
         self.view = view
+        eventbus.eventbus.register(self)
 
     def initialize_data(self):
         query = """
@@ -146,3 +149,13 @@ class SongModel:
 
     def send_music_to_chart_viewer(self, song_id, difficulty):
         eventbus.eventbus.post(SendMusicEvent(song_id, difficulty), asynchronous=False)
+
+    @subscribe(GetSongDetailsEvent)
+    def get_song(self, event=None):
+        row_idx = self.view.widget.selectionModel().currentIndex().row()
+        if row_idx == -1:
+            return None, None, None
+        live_detail_id = int(self.view.widget.item(row_idx, 0).text())
+        score_id = int(self.view.widget.item(row_idx, 1).text())
+        diff_id = int(self.view.widget.item(row_idx, 2).text())
+        return score_id, diff_id, live_detail_id

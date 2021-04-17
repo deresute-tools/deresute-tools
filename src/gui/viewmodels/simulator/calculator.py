@@ -5,11 +5,14 @@ from PyQt5.QtGui import QDrag
 from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QAbstractItemView, QTableWidget, QApplication, QTableWidgetItem
 
 import customlogger as logger
+from gui.events.calculator_view_events import GetAllCardsEvent
 from gui.events.chart_viewer_events import HookUnitToChartViewerEvent
+from gui.events.song_view_events import GetSongDetailsEvent
 from gui.events.utils import eventbus
+from gui.events.utils.eventbus import subscribe
 from gui.viewmodels.mime_headers import CALCULATOR_UNIT, UNIT_EDITOR_UNIT
 from gui.viewmodels.unit import UnitWidget, UnitView
-from gui.viewmodels.utils import NumericalTableWidgetItem
+from gui.viewmodels.utils import NumericalTableWidgetItem, UniversalUniqueIdentifiable
 from network.api_client import get_top_build
 
 UNIVERSAL_HEADERS = ["Unit", "Appeals", "Life"]
@@ -19,7 +22,7 @@ AUTOPLAY_SIM_HEADERS = ["Auto Score", "Perfects", "Misses", "Max Combo", "Lowest
 ALL_HEADERS = UNIVERSAL_HEADERS + NORMAL_SIM_HEADERS + AUTOPLAY_SIM_HEADERS
 
 
-class CalculatorUnitWidget(UnitWidget):
+class CalculatorUnitWidget(UnitWidget, UniversalUniqueIdentifiable):
     def __init__(self, unit_view, parent=None, size=32):
         super(CalculatorUnitWidget, self).__init__(unit_view, parent, size)
         self.verticalLayout = QVBoxLayout()
@@ -184,7 +187,7 @@ class CalculatorView:
                 card.refresh_values()
 
     def yoink_unit(self):
-        _, _, live_detail_id = self.main_view.get_song()
+        _, _, live_detail_id = eventbus.eventbus.post_and_get_first(GetSongDetailsEvent())
         try:
             cards, support = get_top_build(live_detail_id)
         except:
@@ -281,8 +284,10 @@ class CalculatorModel:
 
     def __init__(self, view):
         self.view = view
+        eventbus.eventbus.register(self)
 
-    def get_all_cards(self):
+    @subscribe(GetAllCardsEvent)
+    def get_all_cards(self, event=None):
         return [
             self.view.widget.cellWidget(r_idx, 0).cards_internal
             for r_idx in range(self.view.widget.rowCount())

@@ -4,6 +4,9 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIntValidator
 from PyQt5.QtWidgets import QTableWidgetItem
 
+from gui.events.utils import eventbus
+from gui.events.utils.eventbus import subscribe
+from gui.events.value_accessor_events import GetCustomBonusEvent
 from static.appeal_presets import APPEAL_PRESETS, COLOR_PRESETS
 
 
@@ -66,8 +69,10 @@ class CustomBonusModel:
 
     def __init__(self, view):
         self.view = view
+        eventbus.eventbus.register(self)
 
-    def get_bonus(self):
+    @subscribe(GetCustomBonusEvent)
+    def get_bonus(self, event=None):
         appeal_idx = self.view.custom_bonus_appeal_preset.currentIndex()
         results = np.zeros((3, 5))
         if appeal_idx in {

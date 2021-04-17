@@ -1,3 +1,5 @@
+import uuid
+
 from PyQt5.QtCore import QRectF
 from PyQt5.QtGui import QPixmap, QPainter, QColor, QPen, QPainterPath
 from PyQt5.QtWidgets import QWidget, QTableWidgetItem
@@ -58,3 +60,11 @@ class NumericalTableWidgetItem(QTableWidgetItem):
         except ValueError:
             return
         self.__number = int(Any)
+
+
+class UniversalUniqueIdentifiable:
+    def __init__(self):
+        self.uuid = uuid.uuid4().hex
+
+    def get_uuid(self):
+        return self.uuid
