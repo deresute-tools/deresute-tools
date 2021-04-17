@@ -1,4 +1,4 @@
-from simulator import BaseSimulationResult
+from gui.events.utils.wrappers import BaseSimulationResultWithUuid
 
 
 class GetAllCardsEvent:
@@ -29,12 +29,6 @@ class SimulationEvent:
         self.unit = unit
 
 
-class BaseSimulationResultWithUuid:
-    def __init__(self, uuid, results: BaseSimulationResult):
-        self.uuid = uuid
-        self.results = results
-
-
 class DisplaySimulationResultEvent:
     def __init__(self, payload: BaseSimulationResultWithUuid):
         self.payload = payload
@@ -46,8 +40,8 @@ class AddEmptyUnitEvent:
 
 
 class YoinkUnitEvent:
-    def __init__(self, active_tab):
-        self.active_tab = active_tab
+    def __init__(self, live_detail_id):
+        self.live_detail_id = live_detail_id
 
 
 class SetSupportCardsEvent:

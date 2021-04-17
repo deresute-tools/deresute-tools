@@ -8,10 +8,12 @@ from PyQt5.QtWidgets import QSizePolicy, QTabWidget
 import customlogger as logger
 from exceptions import InvalidUnit
 from gui.events.calculator_view_events import GetAllCardsEvent, SimulationEvent, DisplaySimulationResultEvent, \
-    BaseSimulationResultWithUuid, AddEmptyUnitEvent, YoinkUnitEvent
+    AddEmptyUnitEvent, YoinkUnitEvent
 from gui.events.song_view_events import GetSongDetailsEvent
+from gui.events.state_change_events import PostYoinkEvent
 from gui.events.utils import eventbus
 from gui.events.utils.eventbus import subscribe
+from gui.events.utils.wrappers import BaseSimulationResultWithUuid, YoinkResults
 from gui.events.value_accessor_events import GetAutoplayOffsetEvent, GetAutoplayFlagEvent, GetDoublelifeFlagEvent, \
     GetSupportEvent, GetAppealsEvent, GetCustomPotsEvent, GetPerfectPlayFlagEvent, GetMirrorFlagEvent, \
     GetCustomBonusEvent
@@ -25,6 +27,7 @@ from logic.grandlive import GrandLive
 from logic.grandunit import GrandUnit
 from logic.live import Live
 from logic.unit import Unit
+from network.api_client import get_top_build
 from simulator import Simulator
 
 
@@ -105,8 +108,7 @@ class MainView:
             pass
         self.add_button.pressed.connect(
             lambda: eventbus.eventbus.post(AddEmptyUnitEvent(self.models[self.calculator_tabs.currentIndex()])))
-        self.yoink_button.pressed.connect(
-            lambda: eventbus.eventbus.post(YoinkUnitEvent(self.models[self.calculator_tabs.currentIndex()])))
+        self.yoink_button.pressed.connect(lambda: self.model.handle_yoink_button())
 
     def _switch_tab(self, idx):
         if idx == 1:
@@ -195,12 +197,14 @@ class MainModel(QObject):
     view: MainView
 
     process_simulation_results_signal = pyqtSignal(BaseSimulationResultWithUuid)
+    process_yoink_results_signal = pyqtSignal(YoinkResults)
 
     def __init__(self, view, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.view = view
         eventbus.eventbus.register(self)
-        self.process_simulation_results_signal.connect(lambda event: self.process_results(event))
+        self.process_simulation_results_signal.connect(lambda payload: self.process_results(payload))
+        self.process_yoink_results_signal.connect(lambda payload: self._handle_yoink_done_signal(payload))
 
     def simulate_internal(self, perfect_play, score_id, diff_id, times, all_cards, custom_pots, appeals, support,
                           extra_bonus, special_option, special_value, mirror, autoplay, autoplay_offset, doublelife,
@@ -252,8 +256,8 @@ class MainModel(QObject):
                                 special_value, support, times, unit), high_priority=True, asynchronous=True)
 
     @pyqtSlot(BaseSimulationResultWithUuid)
-    def process_results(self, object):
-        eventbus.eventbus.post(DisplaySimulationResultEvent(object))
+    def process_results(self, payload):
+        eventbus.eventbus.post(DisplaySimulationResultEvent(payload))
 
     @subscribe(SimulationEvent)
     def handle_simulation_request(self, event: SimulationEvent):
@@ -279,3 +283,30 @@ class MainModel(QObject):
                                   special_option=event.special_option, special_value=event.special_value,
                                   doublelife=event.doublelife)
         self.process_simulation_results_signal.emit(BaseSimulationResultWithUuid(event.uuid, result))
+
+    def handle_yoink_button(self):
+        _, _, live_detail_id = eventbus.eventbus.post_and_get_first(GetSongDetailsEvent())
+        if live_detail_id is None:
+            return
+
+        self.view.yoink_button.setEnabled(False)
+        self.view.yoink_button.setText("Yoinking...")
+        eventbus.eventbus.post(YoinkUnitEvent(live_detail_id), asynchronous=True)
+
+    @pyqtSlot(YoinkResults)
+    def _handle_yoink_done_signal(self, payload: YoinkResults):
+        if len(payload.cards) == 15:
+            self.view.views[1].add_unit(payload.cards)
+        else:
+            self.view.views[0].add_unit(payload.cards)
+        eventbus.eventbus.post(PostYoinkEvent(payload.support))
+        self.view.yoink_button.setText("Yoink #1 Unit")
+        self.view.yoink_button.setEnabled(True)
+
+    @subscribe(YoinkUnitEvent)
+    def _handle_yoink_signal(self, event):
+        try:
+            cards, support = get_top_build(event.live_detail_id)
+        except:
+            cards, support = None, None
+        self.process_yoink_results_signal.emit(YoinkResults(cards, support))

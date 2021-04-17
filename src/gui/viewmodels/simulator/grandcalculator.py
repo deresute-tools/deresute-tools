@@ -97,7 +97,12 @@ class GrandCalculatorView(CalculatorView):
             cards = cards[:5]
         if len(cards) == 15:
             # Duplicate unit
-            self.add_empty_unit()
+            for r in range(self.widget.rowCount()):
+                if self.widget.cellWidget(r, 0).card_ids == [None] * 15:
+                    logger.debug("Empty calculator unit at row {}".format(r))
+                    self.set_unit(row=r, unit=0, cards=cards)
+                    return
+            self.model.add_empty_unit(AddEmptyUnitEvent(self.model))
             self.set_unit(row=self.widget.rowCount() - 1, unit=0, cards=cards)
             return
         for r in range(self.widget.rowCount()):
@@ -107,7 +112,7 @@ class GrandCalculatorView(CalculatorView):
                     logger.debug("Empty calculator unit at row {}.{}".format(r, u_id))
                     self.set_unit(row=r, unit=u_id, cards=cards)
                     return
-        self.model.add_empty_unit()
+        self.model.add_empty_unit(AddEmptyUnitEvent(self.model))
         self.set_unit(row=self.widget.rowCount() - 1, unit=0, cards=cards)
 
     def permute_units(self):

@@ -7,17 +7,16 @@ from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QAbstractItemView, QTableW
 
 import customlogger as logger
 from gui.events.calculator_view_events import GetAllCardsEvent, DisplaySimulationResultEvent, \
-    BaseSimulationResultWithUuid, AddEmptyUnitEvent, SetSupportCardsEvent, RequestSupportTeamEvent
+    AddEmptyUnitEvent, SetSupportCardsEvent, RequestSupportTeamEvent
+from gui.events.utils.wrappers import BaseSimulationResultWithUuid
 from gui.events.chart_viewer_events import HookUnitToChartViewerEvent
-from gui.events.song_view_events import GetSongDetailsEvent
-from gui.events.state_change_events import AutoFlagChangeEvent, PostYoinkEvent
+from gui.events.state_change_events import AutoFlagChangeEvent
 from gui.events.utils import eventbus
 from gui.events.utils.eventbus import subscribe
 from gui.events.value_accessor_events import GetAppealsEvent, GetSupportEvent
 from gui.viewmodels.mime_headers import CALCULATOR_UNIT, UNIT_EDITOR_UNIT
 from gui.viewmodels.unit import UnitWidget, UnitView
 from gui.viewmodels.utils import NumericalTableWidgetItem, UniversalUniqueIdentifiable
-from network.api_client import get_top_build
 from simulator import SimulationResult, MaxSimulationResult, AutoSimulationResult
 
 UNIVERSAL_HEADERS = ["Unit", "Appeals", "Life"]
@@ -283,15 +282,6 @@ class CalculatorModel:
         if event.active_tab is not self:
             return
         self.view.insert_unit()
-
-    def yoink_unit(self):
-        _, _, live_detail_id = eventbus.eventbus.post_and_get_first(GetSongDetailsEvent())
-        try:
-            cards, support = get_top_build(live_detail_id)
-        except:
-            return
-        eventbus.eventbus.post(PostYoinkEvent(support))
-        self.add_unit(cards)
 
     def _process_normal_results(self, results: SimulationResult, row=None):
         # ["Perfect", "Mean", "Max", "Min", "Fans", "Skill Off%", "90%", "75%", "50%"])
