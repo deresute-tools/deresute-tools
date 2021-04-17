@@ -301,6 +301,7 @@ class Live(BaseLive):
         self.bonuses = None
         self.leader_bonuses = None
         self.probabilities = None
+        self.fan = 0
 
     def set_unit(self, unit: Unit):
         self.unit = unit
@@ -329,6 +330,7 @@ class Live(BaseLive):
             self.chara_bonus_set = {}
             self.chara_bonus_value = 0
         self.leader_bonuses = None
+        self.fan = 0
         self.support = None
 
     def get_life(self):
@@ -340,7 +342,9 @@ class Live(BaseLive):
 
     def get_leader_bonuses(self):
         if self.leader_bonuses is None:
-            self.leader_bonuses = self.unit.leader_bonuses(song_color=self.color)
+            bonuses, fan = self.unit.leader_bonuses(song_color=self.color, get_fan_bonuses=True)
+            self.leader_bonuses = bonuses
+            self.fan = fan
         return self.leader_bonuses
 
     def get_bonuses(self):

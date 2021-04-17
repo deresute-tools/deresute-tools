@@ -7,11 +7,13 @@ from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QAbstractItemView, QTableW
 
 import customlogger as logger
 from gui.events.calculator_view_events import GetAllCardsEvent, DisplaySimulationResultEvent, \
-    BaseSimulationResultWithUuid
+    BaseSimulationResultWithUuid, AddEmptyUnitEvent, SetSupportCardsEvent, RequestSupportTeamEvent
 from gui.events.chart_viewer_events import HookUnitToChartViewerEvent
 from gui.events.song_view_events import GetSongDetailsEvent
+from gui.events.state_change_events import AutoFlagChangeEvent, PostYoinkEvent
 from gui.events.utils import eventbus
 from gui.events.utils.eventbus import subscribe
+from gui.events.value_accessor_events import GetAppealsEvent, GetSupportEvent
 from gui.viewmodels.mime_headers import CALCULATOR_UNIT, UNIT_EDITOR_UNIT
 from gui.viewmodels.unit import UnitWidget, UnitView
 from gui.viewmodels.utils import NumericalTableWidgetItem, UniversalUniqueIdentifiable
@@ -19,7 +21,7 @@ from network.api_client import get_top_build
 from simulator import SimulationResult, MaxSimulationResult, AutoSimulationResult
 
 UNIVERSAL_HEADERS = ["Unit", "Appeals", "Life"]
-NORMAL_SIM_HEADERS = ["Perfect", "Mean", "Max", "Min", "Skill Off", "5%", "25%", "50%", "75%"]
+NORMAL_SIM_HEADERS = ["Perfect", "Mean", "Max", "Min", "Fans", "Skill Off%", "90%", "75%", "50%"]
 AUTOPLAY_SIM_HEADERS = ["Auto Score", "Perfects", "Misses", "Max Combo", "Lowest Life", "Lowest Life Time (s)",
                         "All Skills 100%?"]
 ALL_HEADERS = UNIVERSAL_HEADERS + NORMAL_SIM_HEADERS + AUTOPLAY_SIM_HEADERS
@@ -107,7 +109,6 @@ class DroppableCalculatorWidget(QTableWidget):
 class CalculatorView:
     def __init__(self, main, main_view):
         self.main_view = main_view
-        self.auto_view = False
         self.initialize_widget(main)
         self.setup_widget()
 
@@ -128,45 +129,25 @@ class CalculatorView:
 
         self.widget.cellClicked.connect(lambda r, _: self.handle_unit_click(r))
         self.widget.cellDoubleClicked.connect(lambda r, _: self.main_view.simulate(r))
-        self.add_empty_unit()
 
-    def toggle_auto(self, change=True):
-        if change:
-            self.auto_view = not self.auto_view
-        if not self.auto_view:
+    def toggle_auto(self, auto_flag=True):
+        if auto_flag:
             for r_idx in range(len(UNIVERSAL_HEADERS) + len(NORMAL_SIM_HEADERS), len(ALL_HEADERS) + 1):
-                self.widget.setColumnHidden(r_idx, True)
-            for r_idx in range(len(UNIVERSAL_HEADERS), len(UNIVERSAL_HEADERS) + len(NORMAL_SIM_HEADERS)):
                 self.widget.setColumnHidden(r_idx, False)
+            for r_idx in range(len(UNIVERSAL_HEADERS), len(UNIVERSAL_HEADERS) + len(NORMAL_SIM_HEADERS)):
+                self.widget.setColumnHidden(r_idx, True)
         else:
             for r_idx in range(len(UNIVERSAL_HEADERS) + len(NORMAL_SIM_HEADERS), len(ALL_HEADERS) + 1):
-                self.widget.setColumnHidden(r_idx, False)
-            for r_idx in range(len(UNIVERSAL_HEADERS), len(UNIVERSAL_HEADERS) + len(NORMAL_SIM_HEADERS)):
                 self.widget.setColumnHidden(r_idx, True)
-
-    def set_support_model(self, support_model):
-        self.support_model = support_model
-
-    def attach_custom_settings_model(self, custom_settings_model):
-        self.custom_settings_model = custom_settings_model
-        try:
-            self.custom_settings_model.view.autoplay_mode_checkbox.stateChanged.disconnect()
-        except:
-            pass
-        self.auto_view = self.custom_settings_model.view.autoplay_mode_checkbox.isChecked()
-        self.toggle_auto(False)
-        trigger = lambda: self.toggle_auto(True)
-        self.custom_settings_model.view.autoplay_mode_checkbox.stateChanged.connect(trigger)
+            for r_idx in range(len(UNIVERSAL_HEADERS), len(UNIVERSAL_HEADERS) + len(NORMAL_SIM_HEADERS)):
+                self.widget.setColumnHidden(r_idx, False)
 
     def set_model(self, model):
         self.model = model
 
-    def add_empty_unit(self):
-        simulator_unit_widget = CalculatorUnitWidget(self, self.widget, size=32)
-        self._insert_unit_int(simulator_unit_widget)
-
-    def _insert_unit_int(self, simulator_unit_widget):
+    def insert_unit(self):
         self.widget.insertRow(self.widget.rowCount())
+        simulator_unit_widget = CalculatorUnitWidget(self, None, size=32)
         self.widget.setCellWidget(self.widget.rowCount() - 1, 0, simulator_unit_widget)
         logger.debug("Inserted empty unit at {}".format(self.widget.rowCount()))
         self.widget.setColumnWidth(0, 40 * 6)
@@ -188,17 +169,6 @@ class CalculatorView:
                 if card is None:
                     continue
                 card.refresh_values()
-
-    def yoink_unit(self):
-        _, _, live_detail_id = eventbus.eventbus.post_and_get_first(GetSongDetailsEvent())
-        try:
-            cards, support = get_top_build(live_detail_id)
-        except:
-            return
-        self.custom_settings_model.disable_custom_pots()
-        self.add_unit(cards)
-        self.custom_settings_model.set_support(support)
-        self.custom_settings_model.enable_custom_support()
 
     def push_card(self, card_id):
         for row in range(self.widget.rowCount()):
@@ -232,20 +202,22 @@ class CalculatorView:
                 logger.debug("Empty calculator unit at row {}".format(r))
                 self.set_unit(row=r, cards=cards)
                 return
-        self.add_empty_unit()
+        self.model.add_empty_unit(AddEmptyUnitEvent(self.model))
         self.set_unit(row=self.widget.rowCount() - 1, cards=cards)
 
     def create_support_team(self, r):
-        if not self.support_model.set_cards(self.widget.cellWidget(r, 0).cards_internal):
+        if not eventbus.eventbus.post_and_get_first(SetSupportCardsEvent(self.widget.cellWidget(r, 0).cards_internal)):
             logger.info("Invalid unit to evaluate support team")
             return
-        appeals, support, life = self.support_model.generate_support()
+        appeals, support, life = eventbus.eventbus.post_and_get_first(RequestSupportTeamEvent())
         self.widget.setItem(r, 2, NumericalTableWidgetItem(int(life)))
-        if self.custom_settings_model.get_appeals() is not None:
-            self.widget.setItem(r, 1, NumericalTableWidgetItem(int(self.custom_settings_model.get_appeals())))
+        total_appeals = eventbus.eventbus.post_and_get_first(GetAppealsEvent())
+        if total_appeals is not None:
+            self.widget.setItem(r, 1, NumericalTableWidgetItem(total_appeals))
             return
-        if self.custom_settings_model.get_support() is not None:
-            support = int(self.custom_settings_model.get_support())
+        custom_support = eventbus.eventbus.post_and_get_first(GetSupportEvent())
+        if custom_support is not None:
+            support = custom_support
         self.widget.setItem(r, 1, NumericalTableWidgetItem(int(appeals + support)))
 
     def fill_column(self, autoplay, c, row, value):
@@ -264,8 +236,7 @@ class CalculatorView:
                 self.widget.removeCellWidget(r, c + 1)
 
     def handle_unit_click(self, r):
-        eventbus.eventbus.post(HookUnitToChartViewerEvent(self.widget.cellWidget(r, 0).cards_internal),
-                               asynchronous=False)
+        eventbus.eventbus.post(HookUnitToChartViewerEvent(self.widget.cellWidget(r, 0).cards_internal))
         self.create_support_team(r)
 
 
@@ -275,6 +246,11 @@ class CalculatorModel:
     def __init__(self, view):
         self.view = view
         eventbus.eventbus.register(self)
+        self.add_empty_unit(AddEmptyUnitEvent(self))
+
+    @subscribe(AutoFlagChangeEvent)
+    def toggle_auto(self, event):
+        self.view.toggle_auto(event.flag)
 
     @subscribe(GetAllCardsEvent)
     def get_all_cards(self, event=None):
@@ -302,18 +278,34 @@ class CalculatorModel:
         elif isinstance(payload.results, AutoSimulationResult):
             self._process_auto_results(payload.results, row_to_change)
 
+    @subscribe(AddEmptyUnitEvent)
+    def add_empty_unit(self, event):
+        if event.active_tab is not self:
+            return
+        self.view.insert_unit()
+
+    def yoink_unit(self):
+        _, _, live_detail_id = eventbus.eventbus.post_and_get_first(GetSongDetailsEvent())
+        try:
+            cards, support = get_top_build(live_detail_id)
+        except:
+            return
+        eventbus.eventbus.post(PostYoinkEvent(support))
+        self.add_unit(cards)
+
     def _process_normal_results(self, results: SimulationResult, row=None):
-        # ["Perfect", "Mean", "Max", "Min", "Skill Off", "1%", "5%", "25%", "50%", "75%"])
+        # ["Perfect", "Mean", "Max", "Min", "Fans", "Skill Off%", "90%", "75%", "50%"])
         self.view.fill_column(False, 0, row, int(results.total_appeal))
         self.view.fill_column(False, 1, row, int(results.total_life))
         self.view.fill_column(False, 2, row, int(results.perfect_score))
-        self.view.fill_column(False, 3, row, int(results.base + results.deltas.max()))
-        self.view.fill_column(False, 4, row, int(results.base + results.deltas.min()))
-        self.view.fill_column(False, 5, row, int(results.skill_off))
-        self.view.fill_column(False, 6, row, int(results.base + np.percentile(results.deltas, 95)))
-        self.view.fill_column(False, 7, row, int(results.base + np.percentile(results.deltas, 75)))
-        self.view.fill_column(False, 8, row, int(results.base + np.percentile(results.deltas, 50)))
-        self.view.fill_column(False, 9, row, int(results.base + np.percentile(results.deltas, 25)))
+        self.view.fill_column(False, 3, row, int(results.base))
+        self.view.fill_column(False, 4, row, int(results.base + results.deltas.max()))
+        self.view.fill_column(False, 5, row, int(results.base + results.deltas.min()))
+        self.view.fill_column(False, 6, row, int(results.fans))
+        self.view.fill_column(False, 7, row, int(results.skill_off))
+        self.view.fill_column(False, 8, row, int(results.base + np.percentile(results.deltas, 90)))
+        self.view.fill_column(False, 9, row, int(results.base + np.percentile(results.deltas, 75)))
+        self.view.fill_column(False, 10, row, int(results.base + np.percentile(results.deltas, 50)))
 
     def _process_auto_results(self, results: AutoSimulationResult, row=None):
         # ["Auto Score", "Perfects", "Misses", "Max Combo", "Lowest Life", "Lowest Life Time", "All Skills 100%?"]

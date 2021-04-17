@@ -96,7 +96,7 @@ class Unit(BaseUnit):
         for card in filter(lambda x: x is not None, self._cards):
             card.set_skill_offset(offset)
 
-    def leader_bonuses(self, song_color=None):
+    def leader_bonuses(self, song_color=None, get_fan_bonuses=False):
         colors = np.zeros(3)
         skills = set()
         for card in self._cards:
@@ -118,6 +118,8 @@ class Unit(BaseUnit):
         else:
             agg_func = np.add
 
+        fan = 0
+
         # Separate into two lists, non reso and reso
         resos = [card for card in leaders_to_include if card.leader.resonance]
         for card in resos:
@@ -133,8 +135,11 @@ class Unit(BaseUnit):
                 if card.leader.unison and song_color == card.color:
                     bonuses_to_add = card.leader.song_bonuses
                 bonuses = agg_func(bonuses, bonuses_to_add)
+                if get_fan_bonuses:
+                    fan_bonuses_to_add = card.leader.fan
+                    fan = agg_func(fan, fan_bonuses_to_add)
 
-        reso_mask = np.zeros((5,3))
+        reso_mask = np.zeros((5, 3))
         for card in resos:
             # Does not satisfy the resonance constraint
             if not self.resonance:
@@ -143,6 +148,9 @@ class Unit(BaseUnit):
         reso_mask = np.clip(reso_mask, a_min=-100, a_max=5000)
         bonuses += reso_mask
         bonuses = np.clip(bonuses, a_min=-100, a_max=5000)
+
+        if get_fan_bonuses:
+            return bonuses, fan
         return bonuses
 
     def _skill_check(self):

@@ -3,6 +3,7 @@ from PyQt5.QtWidgets import QTableWidget, QAbstractItemView, QTableWidgetItem
 
 import customlogger as logger
 from db import db
+from gui.events.calculator_view_events import RequestSupportTeamEvent, SupportTeamSetMusicEvent
 from gui.events.chart_viewer_events import SendMusicEvent
 from gui.events.song_view_events import GetSongDetailsEvent
 from gui.events.utils import eventbus
@@ -37,15 +38,11 @@ class SongView:
         self.widget.setToolTip("Right click to show percentage.")
         self.model = False
         self.percentage = False
-
-        self.widget.cellClicked.connect(lambda r, _: self.ping_support(r))
         self.chart_viewer = None
 
     def set_model(self, model):
         self.model = model
-
-    def attach_support_model(self, support_model):
-        self.support_model = support_model
+        self.widget.cellClicked.connect(lambda r, _: self.model.ping_support(r))
 
     def show_only_ids(self, live_detail_ids):
         if not live_detail_ids:
@@ -96,13 +93,6 @@ class SongView:
             for r_idx in range(10, 14):
                 self.widget.setColumnHidden(r_idx, True)
 
-    def ping_support(self, r):
-        song_id = int(self.widget.item(r, 1).text())
-        difficulty = int(self.widget.item(r, 2).text())
-        self.model.send_music_to_chart_viewer(song_id, difficulty)
-        self.support_model.set_music(song_id, difficulty)
-        self.support_model.generate_support()
-
     def toggle_auto_resize(self, on=False):
         if on:
             self.widget.horizontalHeader().setSectionResizeMode(3)  # Auto fit
@@ -147,9 +137,6 @@ class SongModel:
             _['SlidePct'] = "{:05.2f}%".format(_['Slide'] / _['Notes'] * 100)
         self.view.load_data(data)
 
-    def send_music_to_chart_viewer(self, song_id, difficulty):
-        eventbus.eventbus.post(SendMusicEvent(song_id, difficulty), asynchronous=False)
-
     @subscribe(GetSongDetailsEvent)
     def get_song(self, event=None):
         row_idx = self.view.widget.selectionModel().currentIndex().row()
@@ -159,3 +146,10 @@ class SongModel:
         score_id = int(self.view.widget.item(row_idx, 1).text())
         diff_id = int(self.view.widget.item(row_idx, 2).text())
         return score_id, diff_id, live_detail_id
+
+    def ping_support(self, r):
+        song_id = int(self.view.widget.item(r, 1).text())
+        difficulty = int(self.view.widget.item(r, 2).text())
+        eventbus.eventbus.post(SendMusicEvent(song_id, difficulty))
+        eventbus.eventbus.post(SupportTeamSetMusicEvent(song_id, difficulty))
+        eventbus.eventbus.post(RequestSupportTeamEvent)

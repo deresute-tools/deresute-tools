@@ -1,6 +1,9 @@
 from PyQt5.QtWidgets import QTableWidget, QAbstractItemView
 
 from exceptions import InvalidUnit
+from gui.events.calculator_view_events import SetSupportCardsEvent, RequestSupportTeamEvent, SupportTeamSetMusicEvent
+from gui.events.utils import eventbus
+from gui.events.utils.eventbus import subscribe
 from gui.viewmodels.utils import NumericalTableWidgetItem, ImageWidget
 from logic.grandlive import GrandLive
 from logic.grandunit import GrandUnit
@@ -42,6 +45,7 @@ class SupportModel:
         self.live = Live()
         self.music = None
         self.card_ids = None
+        eventbus.eventbus.register(self)
 
     def attach_custom_bonus_model(self, custom_bonus_model):
         self.custom_bonus_model = custom_bonus_model
@@ -49,7 +53,9 @@ class SupportModel:
     def attach_custom_settings_model(self, custom_settings_model):
         self.custom_settings_model = custom_settings_model
 
-    def set_cards(self, cards):
+    @subscribe(SetSupportCardsEvent)
+    def set_cards(self, event):
+        cards = event.cards
         self.cards = cards
         try:
             custom_pots = self.custom_settings_model.get_custom_pots()
@@ -65,11 +71,15 @@ class SupportModel:
             return False
         return True
 
-    def set_music(self, score_id, difficulty):
+    @subscribe(SupportTeamSetMusicEvent)
+    def set_music(self, event):
+        score_id = event.score_id
+        difficulty = event.difficulty
         self.live.set_music(score_id=score_id, difficulty=difficulty, skip_load_notes=True)
         self.music = (score_id, difficulty)
 
-    def generate_support(self):
+    @subscribe(RequestSupportTeamEvent)
+    def generate_support(self, event):
         if self.live.unit is None:
             return
         if self.music is not None:

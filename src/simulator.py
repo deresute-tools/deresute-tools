@@ -42,7 +42,7 @@ class BaseSimulationResult:
 
 
 class SimulationResult(BaseSimulationResult):
-    def __init__(self, total_appeal, perfect_score, skill_off, base, deltas, total_life):
+    def __init__(self, total_appeal, perfect_score, skill_off, base, deltas, total_life, fans):
         super().__init__()
         self.total_appeal = total_appeal
         self.perfect_score = perfect_score
@@ -50,6 +50,7 @@ class SimulationResult(BaseSimulationResult):
         self.base = base
         self.deltas = deltas
         self.total_life = total_life
+        self.fans = fans
 
 
 class MaxSimulationResult(BaseSimulationResult):
@@ -211,6 +212,14 @@ class Simulator:
             base = totals.mean()
             deltas = totals - base
 
+        total_fans = 0
+        if grand:
+            base_fan = base / 3 * 0.001 * 1.1
+            for _ in self.live.unit_lives:
+                total_fans += int(np.ceil(base_fan * (1 + _.fan / 100))) * 5
+        else:
+            total_fans = int(base * 0.001 * (1.1 + self.live.fan / 100)) * 5
+
         logger.debug("Tensor size: {}".format(self.notes_data.shape))
         logger.debug("Appeal: {}".format(int(self.total_appeal)))
         logger.debug("Support: {}".format(int(self.live.get_support())))
@@ -227,7 +236,8 @@ class Simulator:
             skill_off=skill_off,
             base=base,
             deltas=deltas,
-            total_life=self.live.get_life()
+            total_life=self.live.get_life(),
+            fans=total_fans
         )
 
     def simulate_theoretical_max(self, appeals=None, extra_bonus=None, support=None,
@@ -470,7 +480,7 @@ class Simulator:
         elif 125 >= time_offset > 100:
             self.special_offset = 0.075
         elif time_offset > 125:
-            self.special_offset = 0.2 - time_offset
+            self.special_offset = 0.2 - time_offset / 1000
 
         # Pump dummy notes to check for intervals where notes fail
         self._setup_simulator(appeals=appeals, support=support, extra_bonus=extra_bonus,

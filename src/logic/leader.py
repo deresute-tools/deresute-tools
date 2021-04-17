@@ -5,7 +5,7 @@ from db import db
 
 class Leader:
     def __init__(self, bonuses=np.zeros((5, 3)), song_bonuses=None, min_requirements=None, max_requirements=None,
-                 resonance=False, unison=False, bless=False):
+                 resonance=False, unison=False, bless=False, fan=0):
         assert isinstance(bonuses, np.ndarray)
         assert bonuses.shape == (5, 3)
         if min_requirements is not None:
@@ -25,6 +25,7 @@ class Leader:
         self.min_requirements = min_requirements
         self.max_requirements = max_requirements
         self.unison = unison
+        self.fan = fan
 
     @classmethod
     def from_id(cls, leader_id):
@@ -62,6 +63,14 @@ class Leader:
                 elif 4 < leader_data[target_param_key] < 7:
                     bonuses[leader_data[target_param_key] - 2, leader_data[target_attribute_key] - 1] += leader_data[
                         up_value_key]
+
+        if leader_data["type"] == 40:
+            fan = leader_data["up_value"]
+        elif leader_data["type"] == 50 and leader_data["target_param_2"] == 12:
+            fan = leader_data["up_value_2"]
+        else:
+            fan = 0
+
         is_unison = 10 < leader_data["target_attribute_2"] < 14
         if is_unison:
             song_bonuses = np.zeros((5, 3))
@@ -95,4 +104,5 @@ class Leader:
             max_requirements=max_requirements,
             unison=is_unison,
             bless=is_bless,
+            fan=fan,
         )

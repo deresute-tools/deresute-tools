@@ -1,6 +1,5 @@
 from typing import List
 
-import numpy as np
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import pyqtSignal, pyqtSlot, QObject
 from PyQt5.QtGui import QIntValidator
@@ -9,7 +8,7 @@ from PyQt5.QtWidgets import QSizePolicy, QTabWidget
 import customlogger as logger
 from exceptions import InvalidUnit
 from gui.events.calculator_view_events import GetAllCardsEvent, SimulationEvent, DisplaySimulationResultEvent, \
-    BaseSimulationResultWithUuid
+    BaseSimulationResultWithUuid, AddEmptyUnitEvent, YoinkUnitEvent
 from gui.events.song_view_events import GetSongDetailsEvent
 from gui.events.utils import eventbus
 from gui.events.utils.eventbus import subscribe
@@ -33,6 +32,9 @@ class MainView:
     def __init__(self):
         self.widget = QtWidgets.QWidget()
         self.main_layout = QtWidgets.QHBoxLayout(self.widget)
+
+    def set_model(self, model):
+        self.model = model
 
     def setup(self):
         self.calculator_and_custom_setting_layout = QtWidgets.QVBoxLayout()
@@ -81,30 +83,35 @@ class MainView:
         self.calculator_tabs = QtWidgets.QTabWidget(self.widget)
         view_wide = CalculatorView(self.widget, self)
         view_grand = GrandCalculatorView(self.widget, self)
+        model_wide = CalculatorModel(view_wide)
+        model_grand = CalculatorModel(view_grand)
+        view_wide.set_model(model_wide)
+        view_grand.set_model(model_grand)
         self.views = [view_wide, view_grand]
+        self.models = [model_wide, model_grand]
         self.calculator_tabs.addTab(view_wide.widget, "WIDE")
         self.calculator_tabs.addTab(view_grand.widget, "GRAND")
         self.calculator_and_custom_setting_layout.addWidget(self.calculator_tabs)
         self.calculator_tabs.setCurrentIndex(0)
         self._switch_tab(0)
-        self.calculator_tabs.currentChanged.connect(lambda idx: self._switch_tab(idx))
+        self._hook_buttons()
 
-    def _switch_tab(self, idx):
-        self.calculator_table_model = CalculatorModel(self.views[idx])
-        self.views[idx].set_model(self.calculator_table_model)
+    def _hook_buttons(self):
         try:
             self.add_button.pressed.disconnect()
             self.yoink_button.pressed.disconnect()
             self.permute_button.pressed.disconnect()
         except TypeError:
             pass
-        self.add_button.pressed.connect(lambda: self.views[idx].add_empty_unit())
-        self.yoink_button.pressed.connect(lambda: self.views[idx].yoink_unit())
+        self.add_button.pressed.connect(
+            lambda: eventbus.eventbus.post(AddEmptyUnitEvent(self.models[self.calculator_tabs.currentIndex()])))
+        self.yoink_button.pressed.connect(
+            lambda: eventbus.eventbus.post(YoinkUnitEvent(self.models[self.calculator_tabs.currentIndex()])))
+
+    def _switch_tab(self, idx):
         if idx == 1:
             self.permute_button.pressed.connect(lambda: self.views[idx].permute_units())
         self.calculator_table_view = self.views[idx]
-        self.views[idx].set_support_model(self.support_model)
-        self.views[idx].attach_custom_settings_model(self.custom_settings_model)
 
     def get_table_view(self):
         return self.calculator_table_view
@@ -140,12 +147,6 @@ class MainView:
         self.custom_settings_model = CustomSettingsModel(self.custom_settings_view)
         self.custom_settings_view.set_model(self.custom_settings_model)
         self.bottom_row_layout.addLayout(self.custom_settings_view.layout)
-
-    def set_model(self, model):
-        self.model = model
-
-    def attach_song_view(self, song_view):
-        self.song_view = song_view
 
     def get_times(self):
         if self.times_text.text() == "" or self.times_text.text() == "0":
@@ -189,6 +190,7 @@ class MainView:
         #     eventbus.eventbus.post(HookAbuseToChartViewerEvent(all_cards[row].cards, results[1], results[0]),
         #                            asynchronous=False)
 
+
 class MainModel(QObject):
     view: MainView
 
@@ -205,7 +207,6 @@ class MainModel(QObject):
                           hidden_feature_check,
                           row=None):
         """
-
         :type all_cards: List[CardsWithUnitUuid]
         """
         results = list()
@@ -248,11 +249,11 @@ class MainModel(QObject):
                 SimulationEvent(card_with_uuid.uuid,
                                 appeals, autoplay, autoplay_offset, doublelife, extra_bonus, extra_return,
                                 hidden_feature_check, live, mirror, perfect_play, results, special_option,
-                                special_value, support, times, unit), high_priority=True)
+                                special_value, support, times, unit), high_priority=True, asynchronous=True)
 
     @pyqtSlot(BaseSimulationResultWithUuid)
     def process_results(self, object):
-        eventbus.eventbus.post(DisplaySimulationResultEvent(object), asynchronous=False)
+        eventbus.eventbus.post(DisplaySimulationResultEvent(object))
 
     @subscribe(SimulationEvent)
     def handle_simulation_request(self, event: SimulationEvent):

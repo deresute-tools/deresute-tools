@@ -23,10 +23,11 @@ class AsyncEventBus:
     def __init__(self):
         pass
 
-    def post(self, posted_event, high_priority=False, asynchronous=True):
+    def post(self, posted_event, high_priority=False, asynchronous=False):
         subscribed = {key: value for (key, value) in self._subscribers.items() if value == posted_event.__class__}
         for subscriber in subscribed:
             registrants = filter(lambda r: subscriber.__name__ in dir(r), self._registrants)
+            registrants = list(registrants)
             for registrant in registrants:
                 # Just outright drop it if full and not high priority
                 if asynchronous:

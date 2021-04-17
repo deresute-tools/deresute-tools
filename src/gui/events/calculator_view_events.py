@@ -38,3 +38,29 @@ class BaseSimulationResultWithUuid:
 class DisplaySimulationResultEvent:
     def __init__(self, payload: BaseSimulationResultWithUuid):
         self.payload = payload
+
+
+class AddEmptyUnitEvent:
+    def __init__(self, active_tab):
+        self.active_tab = active_tab
+
+
+class YoinkUnitEvent:
+    def __init__(self, active_tab):
+        self.active_tab = active_tab
+
+
+class SetSupportCardsEvent:
+    def __init__(self, cards):
+        self.cards = cards
+
+
+class RequestSupportTeamEvent:
+    def __init__(self):
+        pass
+
+
+class SupportTeamSetMusicEvent:
+    def __init__(self, score_id, difficulty):
+        self.score_id = score_id
+        self.difficulty = difficulty

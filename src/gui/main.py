@@ -100,7 +100,7 @@ class UiMainWindow:
         hl.addWidget(self.songsearch_view.widget)
         chart_viewer_button = QPushButton("Popup Chart Viewer")
         hl.addWidget(chart_viewer_button)
-        chart_viewer_button.pressed.connect(lambda: eventbus.eventbus.post(PopupChartViewerEvent(), asynchronous=False))
+        chart_viewer_button.pressed.connect(lambda: eventbus.eventbus.post(PopupChartViewerEvent()))
         self.song_layout.addLayout(hl)
 
         self.calculator_song_layout.addLayout(self.song_layout)
@@ -207,9 +207,7 @@ class UiMainWindow:
 
     def attach(self):
         self.potential_model.attach_card_model(self.card_model)
-        self.calculator_view.attach_song_view(self.song_view)
         self.card_model.attach_calculator_view(self.calculator_view)
-        self.song_view.attach_support_model(self.calculator_view.support_model)
 
     def disable_auto_resize(self):
         self.card_view.toggle_auto_resize(False)

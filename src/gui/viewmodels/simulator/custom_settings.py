@@ -3,6 +3,7 @@ from PyQt5.QtGui import QIntValidator
 
 import customlogger as logger
 from gui.events.chart_viewer_events import ToggleMirrorEvent
+from gui.events.state_change_events import AutoFlagChangeEvent, PostYoinkEvent
 from gui.events.utils import eventbus
 from gui.events.utils.eventbus import subscribe
 from gui.events.value_accessor_events import GetMirrorFlagEvent, GetPerfectPlayFlagEvent, GetCustomPotsEvent, \
@@ -16,6 +17,7 @@ class CustomSettingsView:
         self.main_model = main_model
         self._define_components()
         self._setup_positions()
+        self._hook_events()
 
     def _define_components(self):
         self.custom_potential_checkbox = QtWidgets.QCheckBox("Custom Potentials", self.main)
@@ -78,6 +80,10 @@ class CustomSettingsView:
         self.model = model
         self.model.hook_events()
 
+    def _hook_events(self):
+        self.autoplay_mode_checkbox.stateChanged.connect(
+            lambda: eventbus.eventbus.post(AutoFlagChangeEvent(self.autoplay_mode_checkbox.isChecked())))
+
 
 class CustomSettingsModel:
     view: CustomSettingsView
@@ -125,11 +131,12 @@ class CustomSettingsModel:
             return None
         return int(self.view.custom_support_text.text())
 
-    def enable_custom_support(self):
+    @subscribe(PostYoinkEvent)
+    def post_yoink_operations(self, event):
+        support = event.support
         self.view.custom_support_checkbox.setChecked(True)
-
-    def disable_custom_pots(self):
         self.view.custom_potential_checkbox.setChecked(False)
+        self.set_support(support)
 
     @subscribe(GetPerfectPlayFlagEvent)
     def get_perfect_play(self, event=None):
@@ -155,5 +162,4 @@ class CustomSettingsModel:
 
     def hook_events(self):
         self.view.mirror_checkbox.toggled.connect(
-            lambda: eventbus.eventbus.post(ToggleMirrorEvent(self.view.mirror_checkbox.isChecked()),
-                                           asynchronous=False))
+            lambda: eventbus.eventbus.post(ToggleMirrorEvent(self.view.mirror_checkbox.isChecked())))

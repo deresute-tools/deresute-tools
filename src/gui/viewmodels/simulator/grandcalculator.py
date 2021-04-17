@@ -5,8 +5,10 @@ from PyQt5.QtGui import QDrag
 from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QApplication
 
 import customlogger as logger
+from gui.events.calculator_view_events import AddEmptyUnitEvent
+from gui.events.utils.eventbus import subscribe
 from gui.viewmodels.mime_headers import CALCULATOR_GRANDUNIT
-from gui.viewmodels.simulator.calculator import CalculatorView, DroppableCalculatorWidget
+from gui.viewmodels.simulator.calculator import CalculatorView, DroppableCalculatorWidget, CalculatorModel
 from gui.viewmodels.unit import UnitWidget, UnitCard
 from gui.viewmodels.utils import UniversalUniqueIdentifiable
 from settings import IMAGE_PATH32
@@ -74,10 +76,6 @@ class GrandCalculatorView(CalculatorView):
     def initialize_widget(self, main):
         self.widget = GrandCalculatorTableWidget(self, main)
 
-    def add_empty_unit(self):
-        simulator_unit_widget = GrandCalculatorUnitWidget(self, self.widget, size=32)
-        self._insert_unit_int(simulator_unit_widget)
-
     def set_unit(self, cards, unit, row=None):
         if row is None:
             row = self.widget.rowCount() - 1
@@ -86,6 +84,13 @@ class GrandCalculatorView(CalculatorView):
                 continue
             self.widget.cellWidget(row, 0).set_card(idx=unit * 5 + idx, card=card)
         logger.info("Inserted unit {} at row {}".format(cards, row))
+
+    def insert_unit(self):
+        self.widget.insertRow(self.widget.rowCount())
+        simulator_unit_widget = GrandCalculatorUnitWidget(self, None, size=32)
+        self.widget.setCellWidget(self.widget.rowCount() - 1, 0, simulator_unit_widget)
+        logger.debug("Inserted empty unit at {}".format(self.widget.rowCount()))
+        self.widget.setColumnWidth(0, 40 * 6)
 
     def add_unit(self, cards):
         if len(cards) == 6:
@@ -102,7 +107,7 @@ class GrandCalculatorView(CalculatorView):
                     logger.debug("Empty calculator unit at row {}.{}".format(r, u_id))
                     self.set_unit(row=r, unit=u_id, cards=cards)
                     return
-        self.add_empty_unit()
+        self.model.add_empty_unit()
         self.set_unit(row=self.widget.rowCount() - 1, unit=0, cards=cards)
 
     def permute_units(self):
