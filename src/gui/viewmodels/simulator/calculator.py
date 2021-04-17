@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QAbstractItemView, QTableW
 
 import customlogger as logger
 from gui.events.calculator_view_events import GetAllCardsEvent, DisplaySimulationResultEvent, \
-    AddEmptyUnitEvent, SetSupportCardsEvent, RequestSupportTeamEvent
+    AddEmptyUnitEvent, SetSupportCardsEvent, RequestSupportTeamEvent, PushCardEvent
 from gui.events.utils.wrappers import BaseSimulationResultWithUuid
 from gui.events.chart_viewer_events import HookUnitToChartViewerEvent
 from gui.events.state_change_events import AutoFlagChangeEvent
@@ -169,16 +169,6 @@ class CalculatorView:
                     continue
                 card.refresh_values()
 
-    def push_card(self, card_id):
-        for row in range(self.widget.rowCount()):
-            cell_widget = self.widget.cellWidget(row, 0)
-            card_ids = cell_widget.card_ids
-            for c_idx, card in enumerate(card_ids):
-                if card is None:
-                    cell_widget.set_card(idx=c_idx, card=card_id)
-                    return
-        self.add_unit([card_id, None, None, None, None, None])
-
     def set_unit(self, cards, row=None):
         if row is None:
             row = self.widget.rowCount() - 1
@@ -283,6 +273,18 @@ class CalculatorModel:
             return
         self.view.insert_unit()
 
+    @subscribe(PushCardEvent)
+    def push_card(self, event):
+        card_id = event.card_id
+        for row in range(self.view.widget.rowCount()):
+            cell_widget = self.view.widget.cellWidget(row, 0)
+            card_ids = cell_widget.card_ids
+            for c_idx, card in enumerate(card_ids):
+                if card is None:
+                    cell_widget.set_card(idx=c_idx, card=card_id)
+                    return
+        self.view.add_unit([card_id, None, None, None, None, None])
+
     def _process_normal_results(self, results: SimulationResult, row=None):
         # ["Perfect", "Mean", "Max", "Min", "Fans", "Skill Off%", "90%", "75%", "50%"])
         self.view.fill_column(False, 0, row, int(results.total_appeal))
@@ -312,8 +314,8 @@ class CalculatorModel:
     def _process_max_results(self, results: MaxSimulationResult, row=None):
         self.view.fill_column(False, 0, row, int(results.total_appeal))
         self.view.fill_column(False, 1, row, int(results.total_life))
-        self.view.fill_column(False, 2, row, int(results.perfect_score))
-        self.view.fill_column(False, 3, row, int(results.perfect_score + results.deltas.sum()))
+        self.view.fill_column(False, 2, row, int(results.total_perfect))
+        self.view.fill_column(False, 3, row, int(results.total_perfect + results.deltas.sum()))
         self.view.fill_column(False, 4, row, 0)
         self.view.fill_column(False, 5, row, 0)
         self.view.fill_column(False, 6, row, 0)

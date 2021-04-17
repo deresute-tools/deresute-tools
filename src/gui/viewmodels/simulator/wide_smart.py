@@ -8,7 +8,8 @@ from PyQt5.QtWidgets import QSizePolicy, QTabWidget
 import customlogger as logger
 from exceptions import InvalidUnit
 from gui.events.calculator_view_events import GetAllCardsEvent, SimulationEvent, DisplaySimulationResultEvent, \
-    AddEmptyUnitEvent, YoinkUnitEvent
+    AddEmptyUnitEvent, YoinkUnitEvent, PushCardEvent, ContextAwarePushCardEvent
+from gui.events.chart_viewer_events import HookAbuseToChartViewerEvent
 from gui.events.song_view_events import GetSongDetailsEvent
 from gui.events.state_change_events import PostYoinkEvent
 from gui.events.utils import eventbus
@@ -96,7 +97,6 @@ class MainView:
         self.calculator_tabs.addTab(view_grand.widget, "GRAND")
         self.calculator_and_custom_setting_layout.addWidget(self.calculator_tabs)
         self.calculator_tabs.setCurrentIndex(0)
-        self._switch_tab(0)
         self._hook_buttons()
 
     def _hook_buttons(self):
@@ -109,14 +109,7 @@ class MainView:
         self.add_button.pressed.connect(
             lambda: eventbus.eventbus.post(AddEmptyUnitEvent(self.models[self.calculator_tabs.currentIndex()])))
         self.yoink_button.pressed.connect(lambda: self.model.handle_yoink_button())
-
-    def _switch_tab(self, idx):
-        if idx == 1:
-            self.permute_button.pressed.connect(lambda: self.views[idx].permute_units())
-        self.calculator_table_view = self.views[idx]
-
-    def get_table_view(self):
-        return self.calculator_table_view
+        self.permute_button.pressed.connect(lambda: self.views[1].permute_units())
 
     def _set_up_big_buttons(self):
         self.button_layout = QtWidgets.QGridLayout()
@@ -149,6 +142,9 @@ class MainView:
         self.custom_settings_model = CustomSettingsModel(self.custom_settings_view)
         self.custom_settings_view.set_model(self.custom_settings_model)
         self.bottom_row_layout.addLayout(self.custom_settings_view.layout)
+
+    def get_current_view(self):
+        return self.models[self.calculator_tabs.currentIndex()]
 
     def get_times(self):
         if self.times_text.text() == "" or self.times_text.text() == "0":
@@ -185,12 +181,6 @@ class MainView:
             hidden_feature_check=hidden_feature_check,
             row=row
         )
-
-        # # Only accept for double click
-        # if row is not None and hidden_feature_check:
-        #     results = results[-1]
-        #     eventbus.eventbus.post(HookAbuseToChartViewerEvent(all_cards[row].cards, results[1], results[0]),
-        #                            asynchronous=False)
 
 
 class MainModel(QObject):
@@ -250,14 +240,19 @@ class MainModel(QObject):
                 continue
 
             eventbus.eventbus.post(
-                SimulationEvent(card_with_uuid.uuid,
+                SimulationEvent(card_with_uuid.uuid, row is not None and hidden_feature_check,
                                 appeals, autoplay, autoplay_offset, doublelife, extra_bonus, extra_return,
                                 hidden_feature_check, live, mirror, perfect_play, results, special_option,
                                 special_value, support, times, unit), high_priority=True, asynchronous=True)
 
     @pyqtSlot(BaseSimulationResultWithUuid)
-    def process_results(self, payload):
+    def process_results(self, payload: BaseSimulationResultWithUuid):
         eventbus.eventbus.post(DisplaySimulationResultEvent(payload))
+        if payload.abuse_load:
+            eventbus.eventbus.post(HookAbuseToChartViewerEvent(payload.results.cards,
+                                                               payload.results.score_array,
+                                                               payload.results.perfect_score),
+                                   asynchronous=False)
 
     @subscribe(SimulationEvent)
     def handle_simulation_request(self, event: SimulationEvent):
@@ -282,7 +277,7 @@ class MainModel(QObject):
                                   support=event.support,
                                   special_option=event.special_option, special_value=event.special_value,
                                   doublelife=event.doublelife)
-        self.process_simulation_results_signal.emit(BaseSimulationResultWithUuid(event.uuid, result))
+        self.process_simulation_results_signal.emit(BaseSimulationResultWithUuid(event.uuid, result, event.abuse_load))
 
     def handle_yoink_button(self):
         _, _, live_detail_id = eventbus.eventbus.post_and_get_first(GetSongDetailsEvent())
@@ -310,3 +305,8 @@ class MainModel(QObject):
         except:
             cards, support = None, None
         self.process_yoink_results_signal.emit(YoinkResults(cards, support))
+
+    @subscribe(PushCardEvent)
+    def push_card(self, event):
+        eventbus.eventbus.post(
+            ContextAwarePushCardEvent(self.view.get_current_view(), event.card_id))

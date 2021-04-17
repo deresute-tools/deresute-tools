@@ -12,10 +12,10 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QScrollArea
 from exceptions import InvalidUnit
 from logic.grandlive import GrandLive
 from logic.grandunit import GrandUnit
-from logic.live import fetch_chart
+from logic.live import fetch_chart, Live
 from logic.unit import Unit
 from settings import RHYTHM_ICONS_PATH
-from simulator import Simulator
+from simulator import Simulator, MaxSimulationResult
 from static.note_type import NoteType
 from static.skill import SKILL_BASE
 from static.song_difficulty import Difficulty
@@ -261,7 +261,7 @@ class BaseChartPicGenerator(ABC):
                                            early=windows[_][0] if windows is not None else 0,
                                            late=windows[_][1] if windows is not None else 0,
                                            right_flick=right_flick,
-                                           grand=self.grand, span=row['status'] - 1)
+                                           grand=self.grand, span=row['status'] - 1 if self.grand else 0)
                 group.append(note_object)
             self.note_groups.append(group)
 
@@ -276,7 +276,7 @@ class BaseChartPicGenerator(ABC):
             if len(all_cards) == 15:
                 unit = GrandUnit.from_list(all_cards)
             else:
-                unit = Unit.from_list(cards=all_cards)
+                unit = Unit.from_list(cards=all_cards[:5])
         except InvalidUnit:
             return
         # Skip drawing if same unit else reset drawing
@@ -303,7 +303,7 @@ class BaseChartPicGenerator(ABC):
                 left = skill_time * interval
                 right = skill_time * interval + duration
                 #  Do not paint if skill entirely outside group
-                if left > (group + 1) * MAX_SECS_PER_GROUP - Y_MARGIN / SEC_HEIGHT:
+                if left > (group + 1) * MAX_SECS_PER_GROUP + Y_MARGIN / SEC_HEIGHT:
                     group += 1
                     skill_time -= 1
                     continue
@@ -520,16 +520,13 @@ if __name__ == '__main__':
     app.setApplicationName("Bruh")
     main_window = QMainWindow()
     main_window.show()
-    unita = Unit.from_query("kaede2 rika4 rika4u momoka4 momoka4u")
-    unitb = Unit.from_query("sae4 arisu3 hajime4 yui2 riina5")
-    unitc = Unit.from_query("uzuki2 koume4 koume4u syoko5 syoko5u")
-    unit = GrandUnit(unita, unitb, unitc)
-    live = GrandLive()
-    live.set_music(score_id=375, difficulty=22)
+    unit = Unit.from_list([200946, 300594, 100798, 300572, 300856])
+    live = Live()
+    live.set_music(score_id=55, difficulty=5)
     live.set_unit(unit)
     sim = Simulator(live)
-    # res = [None, sim.simulate_theoretical_max(n_intervals=40)[-2:]]
-    cpg = BaseChartPicGenerator.get_generator(375, Difficulty(5), main_window, mirrored=True)
-    cpg.set_unit(unit)
-    # cpg.hook_simulation_results([unit.all_cards()], res)
+    # res: MaxSimulationResult = sim.simulate_theoretical_max(n_intervals=10)
+    cpg = BaseChartPicGenerator.get_generator(55, Difficulty(5), main_window, mirrored=True)
+    cpg.hook_cards(unit.all_cards())
+    # cpg.hook_abuse(unit.all_cards(), res.score_array, res.perfect_score)
     app.exec_()

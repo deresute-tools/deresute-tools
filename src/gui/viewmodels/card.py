@@ -4,6 +4,8 @@ from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QComboBox, QAbstract
 
 import customlogger as logger
 from db import db
+from gui.events.calculator_view_events import PushCardEvent
+from gui.events.utils import eventbus
 from gui.viewmodels.mime_headers import CARD
 from gui.viewmodels.utils import ImageWidget, NumericalTableWidgetItem
 from logic.live import Live
@@ -269,14 +271,14 @@ class CardModel:
         if cell_widget is None:
             logger.info("No card at index {}".format(idx))
             return
-        self.calculator_view.get_table_view().push_card(int(cell_widget.text()))
+        eventbus.eventbus.post(PushCardEvent(int(cell_widget.text())))
 
     def highlight_event_cards(self, checked):
         highlight_set = Live.static_get_chara_bonus_set(get_name=True)
         for r_idx in range(self.view.widget.rowCount()):
             if self.view.widget.item(r_idx, 5).text() not in highlight_set:
                 continue
-            for c_idx in range(4,5):
+            for c_idx in range(4, 5):
                 item = self.view.widget.item(r_idx, c_idx)
                 if checked:
                     item.setBackground(QColor(50, 100, 100, 80))

@@ -54,7 +54,7 @@ class SimulationResult(BaseSimulationResult):
 
 
 class MaxSimulationResult(BaseSimulationResult):
-    def __init__(self, total_appeal, total_perfect, deltas, total_life, perfect_score, score_array):
+    def __init__(self, total_appeal, total_perfect, deltas, total_life, perfect_score, score_array, cards):
         super().__init__()
         self.total_appeal = total_appeal
         self.total_perfect = total_perfect
@@ -62,6 +62,7 @@ class MaxSimulationResult(BaseSimulationResult):
         self.total_life = total_life
         self.perfect_score = perfect_score
         self.score_array = score_array
+        self.cards = cards
 
 
 class AutoSimulationResult(BaseSimulationResult):
@@ -448,7 +449,8 @@ class Simulator:
             deltas=np.array([total_max - total_perfect, 0]),
             total_life=self.live.get_life(),
             perfect_score=perfect_score,
-            score_array=score_array
+            score_array=score_array,
+            cards=self.live.unit.all_cards()
         )
 
     def simulate_auto(self, appeals=None, extra_bonus=None, support=None,

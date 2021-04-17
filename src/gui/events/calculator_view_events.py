@@ -7,10 +7,11 @@ class GetAllCardsEvent:
 
 
 class SimulationEvent:
-    def __init__(self, uuid, appeals, autoplay, autoplay_offset, doublelife, extra_bonus, extra_return,
+    def __init__(self, uuid, abuse_load, appeals, autoplay, autoplay_offset, doublelife, extra_bonus, extra_return,
                  hidden_feature_check,
                  live, mirror, perfect_play, results, special_option, special_value, support, times, unit):
         self.uuid = uuid
+        self.abuse_load = abuse_load
         self.appeals = appeals
         self.autoplay = autoplay
         self.autoplay_offset = autoplay_offset
@@ -58,3 +59,14 @@ class SupportTeamSetMusicEvent:
     def __init__(self, score_id, difficulty):
         self.score_id = score_id
         self.difficulty = difficulty
+
+
+class PushCardEvent:
+    def __init__(self, card_id):
+        self.card_id = card_id
+
+
+class ContextAwarePushCardEvent:
+    def __init__(self, view, card_id):
+        self.view = view
+        self.card_id = card_id

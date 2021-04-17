@@ -6,9 +6,8 @@ from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QApplication
 
 import customlogger as logger
 from gui.events.calculator_view_events import AddEmptyUnitEvent
-from gui.events.utils.eventbus import subscribe
 from gui.viewmodels.mime_headers import CALCULATOR_GRANDUNIT
-from gui.viewmodels.simulator.calculator import CalculatorView, DroppableCalculatorWidget, CalculatorModel
+from gui.viewmodels.simulator.calculator import CalculatorView, DroppableCalculatorWidget
 from gui.viewmodels.unit import UnitWidget, UnitCard
 from gui.viewmodels.utils import UniversalUniqueIdentifiable
 from settings import IMAGE_PATH32
@@ -129,6 +128,6 @@ class GrandCalculatorView(CalculatorView):
                 permutation = list(permutation)
                 if permutation in all_units:
                     continue
-                self.add_empty_unit()
+                self.model.add_empty_unit(AddEmptyUnitEvent(self.model))
                 for unit_idx, unit in enumerate(permutation):
                     self.set_unit(row=self.widget.rowCount() - 1, unit=unit_idx, cards=unit)
