@@ -158,7 +158,8 @@ class MainView:
             logger.info("No chart loaded")
             return
         times = self.get_times()
-        all_cards: List[CardsWithUnitUuid] = eventbus.eventbus.post_and_get_first(GetAllCardsEvent())
+        all_cards: List[CardsWithUnitUuid] = eventbus.eventbus.post_and_get_first(
+            GetAllCardsEvent(self.get_current_model()), required_non_none=True)
         perfect_play = eventbus.eventbus.post_and_get_first(GetPerfectPlayFlagEvent())
         custom_pots = eventbus.eventbus.post_and_get_first(GetCustomPotsEvent())
         appeals = eventbus.eventbus.post_and_get_first(GetAppealsEvent())

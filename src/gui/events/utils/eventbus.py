@@ -27,7 +27,6 @@ class AsyncEventBus:
         subscribed = {key: value for (key, value) in self._subscribers.items() if value == posted_event.__class__}
         for subscriber in subscribed:
             registrants = filter(lambda r: subscriber.__name__ in dir(r), self._registrants)
-            registrants = list(registrants)
             for registrant in registrants:
                 # Just outright drop it if full and not high priority
                 if asynchronous:
@@ -39,12 +38,15 @@ class AsyncEventBus:
                     subscriber(registrant, posted_event)
 
     # Only synchronous, for small operations
-    def post_and_get_first(self, posted_event):
+    def post_and_get_first(self, posted_event, required_non_none=False):
         subscribed = {key: value for (key, value) in self._subscribers.items() if value == posted_event.__class__}
         for subscriber in subscribed:
             registrants = filter(lambda r: subscriber.__name__ in dir(r), self._registrants)
             for registrant in registrants:
-                return subscriber(registrant, posted_event)
+                res = subscriber(registrant, posted_event)
+                if required_non_none and res is not None or not required_non_none:
+                    return res
+        return None
 
     def register(self, registrant):
         self._registrants.append(registrant)

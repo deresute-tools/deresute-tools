@@ -242,7 +242,9 @@ class CalculatorModel:
         self.view.toggle_auto(event.flag)
 
     @subscribe(GetAllCardsEvent)
-    def get_all_cards(self, event=None):
+    def get_all_cards(self, event):
+        if event.model is not self:
+            return
         return [
             CardsWithUnitUuid(self.view.widget.cellWidget(r_idx, 0).uuid,
                               self.view.widget.cellWidget(r_idx, 0).cards_internal)
