@@ -5,7 +5,7 @@ from collections import defaultdict
 from math import ceil
 
 import numpy as np
-from PyQt5.QtCore import Qt, QPoint, QRectF
+from PyQt5.QtCore import Qt, QPoint, QRectF, QRect
 from PyQt5.QtGui import QPixmap, QPainter, QPen, QColor, QImage, QFont, QBrush, QPainterPath, qRgba, QPolygonF
 from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QScrollArea
 
@@ -21,9 +21,9 @@ from static.skill import SKILL_BASE
 from static.song_difficulty import Difficulty
 
 SEC_HEIGHT = 500
-X_MARGIN = 70
+X_MARGIN = 100
 Y_MARGIN = 70
-RIGHT_MARGIN = 75
+RIGHT_MARGIN = 0
 MAX_Y = 5000
 MAX_SECS_PER_GROUP = (MAX_Y - Y_MARGIN * 2) // SEC_HEIGHT
 
@@ -254,7 +254,7 @@ class BaseChartPicGenerator(ABC):
                 right_flick = row['note_type'] == NoteType.FLICK and (row['status'] == 2 and not self.grand) or (
                         row['type'] == 7 and self.grand)
                 if self.mirrored:
-                    right_flick = not not right_flick
+                    right_flick = not right_flick
                 note_object = ChartPicNote(sec=row['sec'], note_type=row['note_type'], lane=row['finishPos'],
                                            sync=row['sync'], qgroup=n, group_id=row['groupId'],
                                            delta=deltas[_] if deltas is not None else 0,
@@ -349,13 +349,13 @@ class BaseChartPicGenerator(ABC):
         horizontal_grid_light_pen.setWidth(3)
         for group in range(self.n_groups):
             for sec in range(MAX_SECS_PER_GROUP + 1):
-                if sec % 5 == 0:
+                if (sec + group * MAX_SECS_PER_GROUP) % 5 == 0:
                     self.p.setPen(horizontal_grid_bold_pen)
                 else:
                     self.p.setPen(horizontal_grid_light_pen)
                 y = self.get_y(sec, group=0)
                 self.p.drawLine(self.get_x(0, group), y, self.get_x(self.lane_count - 1, group), y)
-                self.p.drawText(self.get_x(self.lane_count - 1, group) + 60, y, str(sec + MAX_SECS_PER_GROUP * group))
+                self.p.drawText(QRect(self.get_x(0, group) - 111, y - 25, 70, 50), Qt.AlignRight, str(sec + MAX_SECS_PER_GROUP * group))
 
     @abstractmethod
     def draw_notes(self):

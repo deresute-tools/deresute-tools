@@ -107,12 +107,13 @@ def convert_id_to_short_name(query):
         tokens = query.split()
     else:
         raise ValueError("Invalid query: {}".format(query))
-    results = [
-        db.cachedb.execute_and_fetchone("""
-            SELECT card_short_name FROM card_name_cache WHERE card_id IN (?);
-        """, [token])[0]
-        for token in tokens
-    ]
+    results = list()
+    for token in tokens:
+        query_res = db.cachedb.execute_and_fetchone("""
+                SELECT card_short_name FROM card_name_cache WHERE card_id IN (?);
+            """, [token])
+        query_res = query_res[0]
+        results.append(query_res)
     return results
 
 

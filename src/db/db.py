@@ -22,8 +22,7 @@ class CustomDB(object):
         self._db_connection.close()
 
     def execute_and_fetchone(self, query, params=None, out_dict=False):
-        self.execute(query, params)
-        mutex.acquire()
+        self.execute(query, params, let_me_unlock=True)
         result = self._db_cur.fetchone()
         if out_dict:
             description = self._db_cur.description
@@ -34,8 +33,7 @@ class CustomDB(object):
         return res
 
     def execute_and_fetchall(self, query, params=None, out_dict=False):
-        self.execute(query, params)
-        mutex.acquire()
+        self.execute(query, params, let_me_unlock=True)
         result = self._db_cur.fetchall()
         if out_dict:
             description = self._db_cur.description
@@ -45,7 +43,7 @@ class CustomDB(object):
         mutex.release()
         return res
 
-    def execute(self, query, params=None):
+    def execute(self, query, params=None, let_me_unlock=False):
         mutex.acquire()
         try:
             if params is None:
@@ -55,7 +53,8 @@ class CustomDB(object):
         except sqlite3.OperationalError as e:
             mutex.release()
             raise e
-        mutex.release()
+        if not let_me_unlock:
+            mutex.release()
 
     def commit(self):
         mutex.acquire()

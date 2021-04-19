@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import QTableWidget, QAbstractItemView, QTableWidgetItem
 import customlogger as logger
 from db import db
 from gui.events.calculator_view_events import RequestSupportTeamEvent, SupportTeamSetMusicEvent
-from gui.events.chart_viewer_events import SendMusicEvent
+from gui.events.chart_viewer_events import SendMusicEvent, PopupChartViewerEvent
 from gui.events.song_view_events import GetSongDetailsEvent
 from gui.events.utils import eventbus
 from gui.events.utils.eventbus import subscribe
@@ -43,6 +43,7 @@ class SongView:
     def set_model(self, model):
         self.model = model
         self.widget.cellClicked.connect(lambda r, _: self.model.ping_support(r))
+        self.widget.cellDoubleClicked.connect(lambda r, _: self.model.popup_and_load_chart(r))
 
     def show_only_ids(self, live_detail_ids):
         if not live_detail_ids:
@@ -169,3 +170,9 @@ class SongModel:
         eventbus.eventbus.post(SendMusicEvent(song_id, difficulty))
         eventbus.eventbus.post(SupportTeamSetMusicEvent(song_id, difficulty))
         eventbus.eventbus.post(RequestSupportTeamEvent)
+
+    def popup_and_load_chart(self, r):
+        eventbus.eventbus.post(PopupChartViewerEvent())
+        song_id = int(self.view.widget.item(r, 1).text())
+        difficulty = int(self.view.widget.item(r, 2).text())
+        eventbus.eventbus.post(SendMusicEvent(song_id, difficulty))
