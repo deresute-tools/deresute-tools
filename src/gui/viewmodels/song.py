@@ -127,6 +127,22 @@ class SongModel:
                     FROM live_detail_cache as ldc
                 """
         data = db.cachedb.execute_and_fetchall(query, out_dict=True)
+        checked_set = set()
+        id_dict = dict()
+        dupe_set = set()
+        for _ in data:
+            if _['DifficultyInt'] != 5:
+                continue
+            if _['Name'] not in checked_set:
+                checked_set.add(_['Name'])
+                id_dict[_['Name']] = list()
+            else:
+                dupe_set.add(_['Name'])
+            id_dict[_['Name']].append(_['LiveID'])
+        to_be_hidden = [max(id_dict[dupe]) for dupe in dupe_set]
+        data = [
+            _ for _ in data if _['DifficultyInt'] != 5 or _['LiveID'] not in to_be_hidden
+        ]
         for _ in data:
             _['Color'] = Color(_['Color'] - 1).name
             _['Difficulty'] = Difficulty(_['Difficulty']).name

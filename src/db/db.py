@@ -47,10 +47,14 @@ class CustomDB(object):
 
     def execute(self, query, params=None):
         mutex.acquire()
-        if params is None:
-            self._db_cur.execute(query)
-        else:
-            self._db_cur.execute(query, params)
+        try:
+            if params is None:
+                self._db_cur.execute(query)
+            else:
+                self._db_cur.execute(query, params)
+        except sqlite3.OperationalError as e:
+            mutex.release()
+            raise e
         mutex.release()
 
     def commit(self):
