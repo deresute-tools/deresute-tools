@@ -829,7 +829,7 @@ class Simulator:
                     alternate_mask = np_v[:, 1, :, card_idx] < 0
                     original_value = np_v[:, 1, :, card_idx][alternate_mask]
                     alt_original_values[card_idx] = alternate_mask, original_value
-                if skill.is_support or card_idx in self.magic_set and self.has_support:
+                if skill.is_support or skill.is_tuning or card_idx in self.magic_set and self.has_support:
                     mask = np_v[:, 3, :, card_idx] == 0
                     np_v[:, 3, :, card_idx] += boost_array[:, 3]
                     np_v[:, 3, :, card_idx][mask] = 0

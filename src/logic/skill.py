@@ -53,6 +53,10 @@ class Skill:
         return self.skill_type in SUPPORT_TYPES
 
     @property
+    def is_tuning(self):
+        return self.skill_type == 31
+
+    @property
     def values(self):
         return [self.v0, self.v1, self.v2, self.v3]
 
