@@ -152,6 +152,8 @@ class CalculatorView:
         self.widget.setColumnWidth(0, 40 * 6)
 
     def delete_unit(self):
+        if len(self.widget.selectionModel().selectedRows()) == 0:
+            return
         selected_row = self.widget.selectionModel().selectedRows()[0].row()
         self.widget.removeRow(selected_row)
 
