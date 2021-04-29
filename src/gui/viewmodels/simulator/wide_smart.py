@@ -17,7 +17,7 @@ from gui.events.utils.eventbus import subscribe
 from gui.events.utils.wrappers import BaseSimulationResultWithUuid, YoinkResults
 from gui.events.value_accessor_events import GetAutoplayOffsetEvent, GetAutoplayFlagEvent, GetDoublelifeFlagEvent, \
     GetSupportEvent, GetAppealsEvent, GetCustomPotsEvent, GetPerfectPlayFlagEvent, GetMirrorFlagEvent, \
-    GetCustomBonusEvent
+    GetCustomBonusEvent, GetGrooveSongColor
 from gui.viewmodels.simulator.calculator import CalculatorModel, CalculatorView, CardsWithUnitUuid
 from gui.viewmodels.simulator.custom_bonus import CustomBonusView, CustomBonusModel
 from gui.viewmodels.simulator.custom_card import CustomCardView, CustomCardModel
@@ -79,8 +79,6 @@ class MainView:
     def _setup_support(self):
         self.support_view = SupportView(self.widget)
         self.support_model = SupportModel(self.support_view)
-        self.support_model.attach_custom_bonus_model(self.custom_bonus_model)
-        self.support_model.attach_custom_settings_model(self.custom_settings_model)
         self.support_view.set_model(self.support_model)
 
     def _set_up_calculator(self):
@@ -223,6 +221,9 @@ class MainModel(QObject):
             else:
                 live = Live()
             live.set_music(score_id=score_id, difficulty=diff_id)
+            groove_song_color = eventbus.eventbus.post_and_get_first(GetGrooveSongColor())
+            if groove_song_color is not None:
+                live.color = groove_song_color
             live_objects.append(live)
 
         # Load cards

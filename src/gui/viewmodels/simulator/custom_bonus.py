@@ -6,8 +6,9 @@ from PyQt5.QtWidgets import QTableWidgetItem
 
 from gui.events.utils import eventbus
 from gui.events.utils.eventbus import subscribe
-from gui.events.value_accessor_events import GetCustomBonusEvent
+from gui.events.value_accessor_events import GetCustomBonusEvent, GetGrooveSongColor
 from static.appeal_presets import APPEAL_PRESETS, COLOR_PRESETS
+from static.color import Color
 
 
 class CustomBonusView:
@@ -22,8 +23,6 @@ class CustomBonusView:
         self.custom_bonus_color_preset = QtWidgets.QComboBox(self.main)
         self.custom_bonus_appeal_preset = QtWidgets.QComboBox(self.main)
         self.custom_bonus_preset_value = QtWidgets.QLineEdit(self.main)
-        self.apply_button = QtWidgets.QPushButton("Apply", self.main)
-        self.reset_button = QtWidgets.QPushButton("Reset", self.main)
         self.custom_bonus_table = QtWidgets.QTableWidget(self.main)
         self._setup_values()
 
@@ -31,9 +30,7 @@ class CustomBonusView:
         self.layout.addWidget(self.custom_bonus_color_preset, 0, 0, 1, 2)
         self.layout.addWidget(self.custom_bonus_appeal_preset, 1, 0, 1, 2)
         self.layout.addWidget(self.custom_bonus_preset_value, 2, 0, 1, 2)
-        self.layout.addWidget(self.apply_button, 3, 0, 1, 1)
-        self.layout.addWidget(self.reset_button, 3, 1, 1, 1)
-        self.layout.addWidget(self.custom_bonus_table, 0, 2, 4, 1)
+        self.layout.addWidget(self.custom_bonus_table, 0, 2, 3, 1)
         self.custom_bonus_table.horizontalHeader().setSectionResizeMode(1)  # Auto fit
         self.custom_bonus_table.verticalHeader().setSectionResizeMode(1)  # Auto fit
         self.custom_bonus_table.setMinimumHeight(100)
@@ -48,6 +45,9 @@ class CustomBonusView:
         self.custom_bonus_appeal_preset.setMaxVisibleItems(12)
         self.custom_bonus_preset_value.setValidator(QIntValidator(-9000, 9000, None))  # Only number allowed
         self.custom_bonus_preset_value.setText("0")
+        self.custom_bonus_preset_value.textEdited.connect(lambda _: self.model.apply_bonus_template())
+        self.custom_bonus_color_preset.currentIndexChanged.connect(lambda _: self.model.apply_bonus_template())
+        self.custom_bonus_appeal_preset.currentIndexChanged.connect(lambda _: self.model.apply_bonus_template())
         self.custom_bonus_table.setRowCount(3)
         self.custom_bonus_table.setColumnCount(5)
         self.custom_bonus_table.setHorizontalHeaderLabels(["Vocal", "Dance", "Visual", "Life", "Skill"])
@@ -60,8 +60,6 @@ class CustomBonusView:
 
     def set_model(self, model):
         self.model = model
-        self.apply_button.pressed.connect(lambda: self.model.apply_bonus_template())
-        self.reset_button.pressed.connect(lambda: self.model.clear_bonus_template())
 
 
 class CustomBonusModel:
@@ -70,6 +68,23 @@ class CustomBonusModel:
     def __init__(self, view):
         self.view = view
         eventbus.eventbus.register(self)
+
+    @subscribe(GetGrooveSongColor)
+    def get_groove_color(self, event=None):
+        appeal_idx = self.view.custom_bonus_appeal_preset.currentIndex()
+        is_groove = appeal_idx == APPEAL_PRESETS["Vocal Groove"] or appeal_idx == APPEAL_PRESETS[
+            "Dance Groove"] or appeal_idx == APPEAL_PRESETS["Visual Groove"]
+
+        if not is_groove:
+            return None
+        color_idx = self.view.custom_bonus_color_preset.currentIndex()
+        if color_idx == COLOR_PRESETS["Cute"]:
+            return Color.CUTE
+        if color_idx == COLOR_PRESETS["Cool"]:
+            return Color.COOL
+        if color_idx == COLOR_PRESETS["Passion"]:
+            return Color.PASSION
+        return Color.ALL
 
     @subscribe(GetCustomBonusEvent)
     def get_bonus(self, event=None):
@@ -100,21 +115,13 @@ class CustomBonusModel:
                 item.setData(Qt.EditRole, 0)
                 self.view.custom_bonus_table.setItem(r, c, item)
 
-    def apply_groove_bonus(self, appeal_idx, color_idx):
+    def apply_groove_bonus(self, appeal_idx):
         if appeal_idx == APPEAL_PRESETS["Vocal Groove"]:
             match_c = 0
         elif appeal_idx == APPEAL_PRESETS["Dance Groove"]:
             match_c = 1
         elif appeal_idx == APPEAL_PRESETS["Visual Groove"]:
             match_c = 2
-        if color_idx == COLOR_PRESETS["Cute"]:
-            match_r = {0}
-        elif color_idx == COLOR_PRESETS["Cool"]:
-            match_r = {1}
-        elif color_idx == COLOR_PRESETS["Passion"]:
-            match_r = {2}
-        else:
-            match_r = {0, 1, 2}
         value = self.view.custom_bonus_preset_value.text()
         if value == "":
             value = 0
@@ -125,18 +132,16 @@ class CustomBonusModel:
                     base_value = value
                 else:
                     base_value = 0
-                if r not in match_r:
-                    base_value -= 30
-
                 item = QTableWidgetItem()
                 item.setData(Qt.EditRole, base_value)
                 self.view.custom_bonus_table.setItem(r, c, item)
-            if r not in match_r:
-                item = QTableWidgetItem()
-                item.setData(Qt.EditRole, -30)
-                self.view.custom_bonus_table.setItem(r, 4, item)
 
     def apply_bonus_template(self):
+        text = self.view.custom_bonus_preset_value.text()
+        if text == "":
+            value = 0
+        else:
+            value = int(text)
         appeal_idx = self.view.custom_bonus_appeal_preset.currentIndex()
         color_idx = self.view.custom_bonus_color_preset.currentIndex()
         if color_idx == 0 or appeal_idx == 0:
@@ -147,7 +152,7 @@ class CustomBonusModel:
                 or appeal_idx == APPEAL_PRESETS["Dance Groove"] \
                 or appeal_idx == APPEAL_PRESETS["Visual Groove"]:
             self.clear_bonus_template()
-            self.apply_groove_bonus(appeal_idx, color_idx)
+            self.apply_groove_bonus(appeal_idx)
             return
         elif appeal_idx == APPEAL_PRESETS["Vocal Only"]:
             appeals = [1, -99, -99]
@@ -168,11 +173,6 @@ class CustomBonusModel:
             colors = [0, 0, 1]
         else:
             raise ValueError("Invalid Color Preset. This error shouldn't throw.")
-
-        value = self.view.custom_bonus_preset_value.text()
-        if value == "":
-            value = 0
-        value = int(value)
 
         for r in range(3):
             for c in range(3):

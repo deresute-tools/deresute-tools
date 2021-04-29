@@ -4,6 +4,7 @@ from exceptions import InvalidUnit
 from gui.events.calculator_view_events import SetSupportCardsEvent, RequestSupportTeamEvent, SupportTeamSetMusicEvent
 from gui.events.utils import eventbus
 from gui.events.utils.eventbus import subscribe
+from gui.events.value_accessor_events import GetCustomPotsEvent, GetCustomBonusEvent, GetGrooveSongColor
 from gui.viewmodels.utils import NumericalTableWidgetItem, ImageWidget
 from logic.grandlive import GrandLive
 from logic.grandunit import GrandUnit
@@ -45,20 +46,15 @@ class SupportModel:
         self.live = Live()
         self.music = None
         self.card_ids = None
+        self.cards = list()
         eventbus.eventbus.register(self)
-
-    def attach_custom_bonus_model(self, custom_bonus_model):
-        self.custom_bonus_model = custom_bonus_model
-
-    def attach_custom_settings_model(self, custom_settings_model):
-        self.custom_settings_model = custom_settings_model
 
     @subscribe(SetSupportCardsEvent)
     def set_cards(self, event):
         cards = event.cards
         self.cards = cards
         try:
-            custom_pots = self.custom_settings_model.get_custom_pots()
+            custom_pots = eventbus.eventbus.post_and_get_first(GetCustomPotsEvent())
             if len(cards) == 15:
                 unit = GrandUnit.from_list(self.cards, custom_pots)
                 self.live = GrandLive()
@@ -84,7 +80,10 @@ class SupportModel:
             return
         if self.music is not None:
             self.live.set_music(score_id=self.music[0], difficulty=self.music[1])
-        self.live.set_extra_bonus(*self.custom_bonus_model.get_bonus())
+        groove_song_color = eventbus.eventbus.post_and_get_first(GetGrooveSongColor())
+        if groove_song_color is not None:
+            self.live.color = groove_song_color
+        self.live.set_extra_bonus(*eventbus.eventbus.post_and_get_first(GetCustomBonusEvent()))
         self.live.get_support()
         self.view.display_support(self.live.support.copy())
         return self.live.get_appeals(), self.live.get_support(), self.live.get_life()
