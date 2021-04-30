@@ -309,4 +309,4 @@ class MainModel(QObject):
     @subscribe(PushCardEvent)
     def context_aware_push_card(self, event):
         eventbus.eventbus.post(
-            ContextAwarePushCardEvent(self.view.get_current_model(), event.card_id))
+            ContextAwarePushCardEvent(self.view.get_current_model(), event))

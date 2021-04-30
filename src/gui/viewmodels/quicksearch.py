@@ -24,10 +24,12 @@ class ShortcutQuickSearchWidget(QLineEdit):
             Qt.Key_9: 8,
             Qt.Key_0: 9
         }
-        if QApplication.keyboardModifiers() == Qt.ControlModifier:
-            if key in match_dict:
-                self.card_model.push_card(match_dict[key])
-                return
+        if QApplication.keyboardModifiers() == Qt.ControlModifier and key in match_dict:
+            self.card_model.push_card(match_dict[key])
+            return
+        if QApplication.keyboardModifiers() == Qt.AltModifier and key in match_dict:
+            self.card_model.push_card(match_dict[key], True)
+            return
         super().keyPressEvent(event)
 
 

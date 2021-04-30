@@ -63,11 +63,12 @@ class SupportTeamSetMusicEvent:
 
 
 class PushCardEvent:
-    def __init__(self, card_id):
+    def __init__(self, card_id, skip_guest_push=False):
         self.card_id = card_id
+        self.skip_guest_push = skip_guest_push
 
 
 class ContextAwarePushCardEvent:
-    def __init__(self, model, card_id):
+    def __init__(self, model, event: PushCardEvent):
         self.model = model
-        self.card_id = card_id
+        self.event = event

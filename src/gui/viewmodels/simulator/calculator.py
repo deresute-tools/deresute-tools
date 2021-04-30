@@ -315,10 +315,14 @@ class CalculatorModel:
     def push_card_int(self, event: ContextAwarePushCardEvent):
         if event.model is not self:
             return
-        card_id = event.card_id
+        inner_event = event.event
+        skip_guest_push = inner_event.skip_guest_push
+        card_id = inner_event.card_id
         for row in range(self.view.widget.rowCount()):
             cell_widget = self.view.widget.cellWidget(row, 0)
             card_ids = cell_widget.card_ids
+            if skip_guest_push and len(card_ids) == 6:
+                card_ids = card_ids[:5]
             for c_idx, card in enumerate(card_ids):
                 if card is None:
                     cell_widget.set_card(idx=c_idx, card=card_id)

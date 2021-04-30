@@ -263,7 +263,7 @@ class CardModel:
         self.owned[card_id] = new_value
         card_storage.update_owned_cards(card_id, new_value)
 
-    def push_card(self, idx):
+    def push_card(self, idx, skip_guest_push=False):
         count = 0
         cell_widget = None
         for row in range(self.view.widget.rowCount()):
@@ -277,7 +277,7 @@ class CardModel:
         if cell_widget is None:
             logger.info("No card at index {}".format(idx))
             return
-        eventbus.eventbus.post(PushCardEvent(int(cell_widget.text())))
+        eventbus.eventbus.post(PushCardEvent(int(cell_widget.text()), skip_guest_push))
 
     def highlight_event_cards(self, checked):
         highlight_set = Live.static_get_chara_bonus_set(get_name=True)
