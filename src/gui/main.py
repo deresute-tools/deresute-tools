@@ -189,10 +189,6 @@ class UiMainWindow:
         _translate = QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("main", "Chihiro"))
 
-    def attach(self):
-        self.potential_model.attach_card_model(self.card_model)
-        self.card_model.attach_calculator_view(self.calculator_view)
-
     def disable_auto_resize(self):
         self.card_view.toggle_auto_resize(False)
 
@@ -209,7 +205,6 @@ def setup_gui(*args):
     ui = UiMainWindow(MainWindow)
     MainWindow.setui(ui)
     ui.setup_ui()
-    ui.attach()
     ui.disable_auto_resize()
     logger.info("GUI setup successfully")
     return app, MainWindow

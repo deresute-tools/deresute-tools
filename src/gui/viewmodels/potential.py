@@ -4,6 +4,8 @@ from PyQt5.QtWidgets import QAbstractItemView, QTableWidgetItem
 
 import customlogger as logger
 from db import db
+from gui.events.state_change_events import PotentialUpdatedEvent
+from gui.events.utils import eventbus
 from gui.viewmodels.utils import NumericalTableWidgetItem, ImageWidget
 from logic.profile import potential
 from settings import IMAGE_PATH64
@@ -71,9 +73,6 @@ class PotentialModel:
         self.view = view
         self.potentials = dict()
 
-    def attach_card_model(self, card_model):
-        self.card_model = card_model
-
     def initialize_data(self):
         data = db.cachedb.execute_and_fetchall("""
             SELECT 
@@ -125,5 +124,5 @@ class PotentialModel:
         potential.update_potential(chara_id=chara_id, pots=pots)
         card_ids = db.cachedb.execute_and_fetchall("SELECT id FROM card_data_cache WHERE chara_id = ?", [chara_id])
         card_ids = [_[0] for _ in card_ids]
-        self.card_model.initialize_cards(card_ids)
+        eventbus.eventbus.post(PotentialUpdatedEvent(card_ids))
         self.view.update_total(r_idx, sum(pots))

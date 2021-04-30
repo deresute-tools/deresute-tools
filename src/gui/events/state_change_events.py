@@ -6,3 +6,8 @@ class AutoFlagChangeEvent:
 class PostYoinkEvent:
     def __init__(self, support):
         self.support = support
+
+
+class PotentialUpdatedEvent:
+    def __init__(self, card_list):
+        self.card_list = card_list

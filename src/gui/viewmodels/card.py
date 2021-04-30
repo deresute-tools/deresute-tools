@@ -5,7 +5,9 @@ from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QComboBox, QAbstract
 import customlogger as logger
 from db import db
 from gui.events.calculator_view_events import PushCardEvent
+from gui.events.state_change_events import PotentialUpdatedEvent
 from gui.events.utils import eventbus
+from gui.events.utils.eventbus import subscribe
 from gui.viewmodels.mime_headers import CARD
 from gui.viewmodels.utils import ImageWidget, NumericalTableWidgetItem
 from logic.live import Live
@@ -176,9 +178,7 @@ class CardModel:
         self.view = view
         self.images = dict()
         self.owned = dict()
-
-    def attach_calculator_view(self, calculator_view):
-        self.calculator_view = calculator_view
+        eventbus.eventbus.register(self)
 
     def load_images(self, size=None):
         logger.info("Change card list image size to {}".format(size))
@@ -197,6 +197,10 @@ class CardModel:
             for image_path in path.iterdir():
                 self.images[image_path.name.split(".")[0]] = image_path
             self.view.draw_icons(self.images, size)
+
+    @subscribe(PotentialUpdatedEvent)
+    def initialize_cards_from_event(self, event: PotentialUpdatedEvent):
+        self.initialize_cards(event.card_list)
 
     def initialize_cards(self, card_list=None):
         db.cachedb.execute("""ATTACH DATABASE "{}" AS masterdb""".format(meta_updater.get_masterdb_path()))
