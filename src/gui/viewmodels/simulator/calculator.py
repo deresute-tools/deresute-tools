@@ -2,8 +2,9 @@ import ast
 
 import numpy as np
 from PyQt5.QtCore import QSize, Qt, QMimeData
-from PyQt5.QtGui import QDrag
-from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QAbstractItemView, QTableWidget, QApplication, QTableWidgetItem
+from PyQt5.QtGui import QDrag, QFont
+from PyQt5.QtWidgets import QHBoxLayout, QAbstractItemView, QTableWidget, QApplication, QTableWidgetItem, \
+    QWidget, QLabel, QSizePolicy, QStackedLayout
 
 import customlogger as logger
 from gui.events.calculator_view_events import GetAllCardsEvent, DisplaySimulationResultEvent, \
@@ -20,7 +21,7 @@ from gui.viewmodels.utils import NumericalTableWidgetItem, UniversalUniqueIdenti
 from simulator import SimulationResult, MaxSimulationResult, AutoSimulationResult
 
 UNIVERSAL_HEADERS = ["Unit", "Appeals", "Life"]
-NORMAL_SIM_HEADERS = ["Perfect", "Mean", "Max", "Min", "Fans", "Skill Off%", "90%", "75%", "50%"]
+NORMAL_SIM_HEADERS = ["Perfect", "Mean", "Max", "Min", "Fans", "Skill Off", "90%", "75%", "50%"]
 AUTOPLAY_SIM_HEADERS = ["Auto Score", "Perfects", "Misses", "Max Combo", "Lowest Life", "Lowest Life Time (s)",
                         "All Skills 100%?"]
 ALL_HEADERS = UNIVERSAL_HEADERS + NORMAL_SIM_HEADERS + AUTOPLAY_SIM_HEADERS
@@ -29,15 +30,40 @@ ALL_HEADERS = UNIVERSAL_HEADERS + NORMAL_SIM_HEADERS + AUTOPLAY_SIM_HEADERS
 class CalculatorUnitWidget(UnitWidget, UniversalUniqueIdentifiable):
     def __init__(self, unit_view, parent=None, size=32):
         super(CalculatorUnitWidget, self).__init__(unit_view, parent, size)
-        self.verticalLayout = QVBoxLayout()
-        self.cardLayout = QHBoxLayout()
 
+        # Setup card layout
+        self.card_widget = QWidget(self)
+        self.cardLayout = QHBoxLayout()
         for idx, card in enumerate(self.cards):
             card.setMinimumSize(QSize(self.size + 2, self.size + 2))
             self.cardLayout.addWidget(card)
 
-        self.verticalLayout.addLayout(self.cardLayout)
-        self.setLayout(self.verticalLayout)
+        self.card_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.card_widget.setLayout(self.cardLayout)
+
+        # Setup overlay
+        self.label = QLabel(self.card_widget)
+        self.label.setText("Running...")
+        font = QFont()
+        font.setPixelSize(20)
+        self.label.setFont(font)
+        self.label.setAlignment(Qt.AlignCenter)
+        self.label.setStyleSheet("background-color: rgba(255, 255, 255, 100);")
+        self.label.setAutoFillBackground(True)
+
+        self.stacked_layout = QStackedLayout()
+        self.stacked_layout.addWidget(self.card_widget)
+        self.stacked_layout.addWidget(self.label)
+        self.stacked_layout.setContentsMargins(0, 0, 0, 0)
+        self.stacked_layout.setStackingMode(QStackedLayout.StackAll)
+
+        self.setLayout(self.stacked_layout)
+        self.toggle_running_simulation(False)
+        self.running_simulation = False
+
+    def toggle_running_simulation(self, running=False):
+        self.label.setVisible(running)
+        self.running_simulation = running
 
     def handle_lost_mime(self, mime_text):
         if type(self.unit_view) == UnitView:
@@ -178,7 +204,7 @@ class CalculatorView:
             if card is None:
                 continue
             self.widget.cellWidget(row, 0).set_card(idx=idx, card=card)
-        logger.info("Inserted unit {} at row {}".format(cards, row))
+        logger.info("Unit insert: {} - {} row {}".format(self.widget.cellWidget(row, 0).get_uuid(), cards, row))
 
     def add_unit(self, cards):
         if len(cards) == 15:
@@ -247,11 +273,18 @@ class CalculatorModel:
     def get_all_cards(self, event):
         if event.model is not self:
             return
-        return [
-            CardsWithUnitUuid(self.view.widget.cellWidget(r_idx, 0).uuid,
-                              self.view.widget.cellWidget(r_idx, 0).cards_internal)
-            for r_idx in range(self.view.widget.rowCount())
-        ]
+        res = list()
+        rows_to_search = range(self.view.widget.rowCount()) if event.row is None else [event.row]
+        for r_idx in rows_to_search:
+            unit_widget = self.view.widget.cellWidget(r_idx, 0)
+            if unit_widget.running_simulation:
+                logger.info("Simulation already running: {}".format(
+                    unit_widget.get_uuid()))
+                continue
+            unit_widget.toggle_running_simulation(True)
+            res.append(CardsWithUnitUuid(self.view.widget.cellWidget(r_idx, 0).uuid,
+                                         self.view.widget.cellWidget(r_idx, 0).cards_internal))
+        return res
 
     @subscribe(DisplaySimulationResultEvent)
     def display_simulation_result(self, event):
@@ -264,6 +297,7 @@ class CalculatorModel:
                 break
         if row_to_change == -1:
             return
+        self.view.widget.cellWidget(row_to_change, 0).toggle_running_simulation(False)
         if isinstance(payload.results, SimulationResult):
             self._process_normal_results(payload.results, row_to_change)
         elif isinstance(payload.results, MaxSimulationResult):

@@ -157,7 +157,7 @@ class MainView:
             return
         times = self.get_times()
         all_cards: List[CardsWithUnitUuid] = eventbus.eventbus.post_and_get_first(
-            GetAllCardsEvent(self.get_current_model()), required_non_none=True)
+            GetAllCardsEvent(self.get_current_model(), row), required_non_none=True)
         perfect_play = eventbus.eventbus.post_and_get_first(GetPerfectPlayFlagEvent())
         custom_pots = eventbus.eventbus.post_and_get_first(GetCustomPotsEvent())
         appeals = eventbus.eventbus.post_and_get_first(GetAppealsEvent())
@@ -206,8 +206,6 @@ class MainModel(QObject):
         if len(all_cards) == 0:
             logger.info("Nothing to simulate")
             return
-        if row is not None:
-            all_cards = [all_cards[row]]
         extra_return = None
 
         # Initialize song first because SQLite DB thread lock

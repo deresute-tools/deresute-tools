@@ -2,8 +2,9 @@ from gui.events.utils.wrappers import BaseSimulationResultWithUuid
 
 
 class GetAllCardsEvent:
-    def __init__(self, model):
+    def __init__(self, model, row):
         self.model = model
+        self.row = row
 
 
 class SimulationEvent:

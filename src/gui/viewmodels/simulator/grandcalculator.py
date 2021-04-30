@@ -1,8 +1,8 @@
 import itertools
 
 from PyQt5.QtCore import QSize, Qt, QMimeData
-from PyQt5.QtGui import QDrag
-from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QApplication
+from PyQt5.QtGui import QDrag, QFont
+from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QApplication, QWidget, QSizePolicy, QLabel, QStackedLayout
 
 import customlogger as logger
 from gui.events.calculator_view_events import AddEmptyUnitEvent
@@ -17,6 +17,9 @@ class GrandCalculatorUnitWidget(UnitWidget, UniversalUniqueIdentifiable):
     def __init__(self, unit_view, parent=None, size=32, *args, **kwargs):
         super().__init__(unit_view, parent, size, *args, **kwargs)
         del self.unitName
+
+        self.card_widget = QWidget(self)
+
         self.unit_view = unit_view
         self.cards_internal = [None] * 15
         self.cards = list()
@@ -38,7 +41,33 @@ class GrandCalculatorUnitWidget(UnitWidget, UniversalUniqueIdentifiable):
             self.cardLayouts[idx // 5].addWidget(card)
         for card_layout in self.cardLayouts:
             self.verticalLayout.addLayout(card_layout)
-        self.setLayout(self.verticalLayout)
+
+        self.card_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.card_widget.setLayout(self.verticalLayout)
+
+        # Setup overlay
+        self.label = QLabel(self.card_widget)
+        self.label.setText("Running...")
+        font = QFont()
+        font.setPixelSize(20)
+        self.label.setFont(font)
+        self.label.setAlignment(Qt.AlignCenter)
+        self.label.setStyleSheet("background-color: rgba(255, 255, 255, 100);")
+        self.label.setAutoFillBackground(True)
+
+        self.stacked_layout = QStackedLayout()
+        self.stacked_layout.addWidget(self.card_widget)
+        self.stacked_layout.addWidget(self.label)
+        self.stacked_layout.setContentsMargins(0, 0, 0, 0)
+        self.stacked_layout.setStackingMode(QStackedLayout.StackAll)
+
+        self.setLayout(self.stacked_layout)
+        self.toggle_running_simulation(False)
+        self.running_simulation = False
+
+    def toggle_running_simulation(self, running=False):
+        self.label.setVisible(running)
+        self.running_simulation = running
 
     def permute_units(self):
         self.unit_view.permute_units()
@@ -82,7 +111,7 @@ class GrandCalculatorView(CalculatorView):
             if card is None:
                 continue
             self.widget.cellWidget(row, 0).set_card(idx=unit * 5 + idx, card=card)
-        logger.info("Inserted unit {} at row {}".format(cards, row))
+        logger.info("Unit insert: {} - {} row {}".format(self.widget.cellWidget(row, 0).get_uuid(), cards, row))
 
     def insert_unit(self):
         self.widget.insertRow(self.widget.rowCount())
