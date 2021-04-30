@@ -49,7 +49,6 @@ class UiMainWindow:
         self.setup_calculator_song_layout()
         self.setup_card_unit_layout()
         self.main.setCentralWidget(self.central_widget)
-        self.setup_menu_bar()
         self.retranslate_ui(self.main)
         QMetaObject.connectSlotsByName(self.main)
 
@@ -174,19 +173,6 @@ class UiMainWindow:
         self.main_layout.addLayout(self.card_unit_layout)
         self.grid_layout.addLayout(self.main_layout, 0, 0, 1, 1)
 
-    def setup_menu_bar(self):
-        logger.info("Setting up menu bar")
-
-        self.menubar = QMenuBar(self.main)
-        self.menubar.setGeometry(QRect(0, 0, 1595, 21))
-        self.menuMenu = QMenu(self.menubar)
-        self.main.setMenuBar(self.menubar)
-        self.statusbar = QStatusBar(self.main)
-        self.main.setStatusBar(self.statusbar)
-        self.actionExit = QAction(self.main)
-        self.menuMenu.addAction(self.actionExit)
-        self.menubar.addAction(self.menuMenu.menuAction())
-
     def import_from_id(self, game_id):
         self.card_view.disconnect_cell_change()
         updated_card_ids = profile_manager.import_from_gameid(game_id)
@@ -202,8 +188,6 @@ class UiMainWindow:
     def retranslate_ui(self, MainWindow):
         _translate = QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("main", "Chihiro"))
-        self.menuMenu.setTitle(_translate("main", "Menu"))
-        self.actionExit.setText(_translate("main", "Exit"))
 
     def attach(self):
         self.potential_model.attach_card_model(self.card_model)
