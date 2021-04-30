@@ -39,6 +39,8 @@ def advanced_single_query(query, partial_match=True, idolized=True, ssr=True, ow
         for idx in range(len(query)):
             if query[idx] == "OR" or query[idx] == "AND":
                 continue
+            if query[idx][-1] == "+":
+                continue
             query[idx] += "*"
     query = " ".join(query)
     if idolized:

@@ -1,6 +1,7 @@
 import ast
 import shutil
 
+from whoosh.analysis import SimpleAnalyzer
 from whoosh.fields import *
 from whoosh.index import create_in
 
@@ -108,7 +109,7 @@ class IndexManager:
                         fes=TEXT,
                         main_attribute=TEXT,
                         time_prob_key=TEXT,
-                        content=TEXT)
+                        content=TEXT(analyzer=SimpleAnalyzer()))
         ix = create_in(INDEX_PATH, schema)
         writer = ix.writer()
         logger.debug("Initializing quicksearch index for {} cards".format(len(results)))
@@ -134,7 +135,7 @@ class IndexManager:
                         difficulty=TEXT,
                         level=NUMERIC,
                         color=TEXT,
-                        content=TEXT)
+                        content=TEXT(analyzer=SimpleAnalyzer()))
         ix = create_in(INDEX_PATH, schema, indexname="score")
         writer = ix.writer()
         logger.debug("Initializing quicksearch index for {} charts".format(len(results)))
@@ -142,7 +143,8 @@ class IndexManager:
             difficulty = Difficulty(result[-1]).name.lower()
             performers = result[1].replace(",", "") if result[1] else ""
             color = Color(result[6] - 1).name.lower()
-            content = " ".join([performers, result[2] if result[2] else "", result[3], result[4], difficulty, color, str(result[5])])
+            content = " ".join(
+                [performers, result[2] if result[2] else "", result[3], result[4], difficulty, color, str(result[5])])
             writer.add_document(title=str(result[0]),
                                 content=content,
                                 live_detail_id=result[0],

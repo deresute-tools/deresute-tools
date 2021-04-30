@@ -27,10 +27,10 @@ class CustomBonusView:
         self._setup_values()
 
     def _setup_positions(self):
-        self.layout.addWidget(self.custom_bonus_color_preset, 0, 0, 1, 2)
-        self.layout.addWidget(self.custom_bonus_appeal_preset, 1, 0, 1, 2)
-        self.layout.addWidget(self.custom_bonus_preset_value, 2, 0, 1, 2)
-        self.layout.addWidget(self.custom_bonus_table, 0, 2, 3, 1)
+        self.layout.addWidget(self.custom_bonus_color_preset, 0, 0, 1, 1)
+        self.layout.addWidget(self.custom_bonus_appeal_preset, 1, 0, 1, 1)
+        self.layout.addWidget(self.custom_bonus_preset_value, 2, 0, 1, 1)
+        self.layout.addWidget(self.custom_bonus_table, 0, 1, 3, 3)
         self.custom_bonus_table.horizontalHeader().setSectionResizeMode(1)  # Auto fit
         self.custom_bonus_table.verticalHeader().setSectionResizeMode(1)  # Auto fit
         self.custom_bonus_table.setMinimumHeight(100)

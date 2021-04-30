@@ -51,7 +51,11 @@ class NumericalTableWidgetItem(QTableWidgetItem):
         QTableWidgetItem.__init__(self, str(value))
 
     def __lt__(self, other):
-        return self.__number < other.__number
+        if not isinstance(other, NumericalTableWidgetItem):
+            comparatee = 0
+        else:
+            comparatee = other.__number
+        return self.__number < comparatee
 
     def setData(self, p_int, Any):
         super().setData(p_int, Any)

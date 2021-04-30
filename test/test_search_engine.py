@@ -23,3 +23,4 @@ class TestSearchEngine(unittest.TestCase):
         self.assertEqual(song_engine.execute_query("shiki solo")[1]['title'], '402')
         self.assertEqual(song_engine.execute_query("shiki solo")[2]['title'], '403')
         self.assertEqual(song_engine.execute_query("shiki solo")[3]['title'], '404')
+        self.assertEqual(song_engine.execute_query("us")[0]['title'], '1860')

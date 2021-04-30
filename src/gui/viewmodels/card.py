@@ -12,6 +12,7 @@ from logic.live import Live
 from logic.profile import card_storage
 from network import meta_updater
 from settings import IMAGE_PATH64, IMAGE_PATH, IMAGE_PATH32
+from static.color import CARD_GUI_COLORS
 from static.skill import SKILL_COLOR_BY_NAME
 
 
@@ -114,7 +115,7 @@ class CardView:
             row_count_item.setFlags(row_count_item.flags() & ~Qt.ItemIsEditable)
             self.widget.setItem(r_idx, 0, row_count_item)
             for c_idx, (key, value) in enumerate(card_data.items()):
-                if isinstance(value, int) and c_idx != 8:
+                if isinstance(value, int):
                     item = NumericalTableWidgetItem(value)
                 elif value is None:
                     item = QTableWidgetItem("")
@@ -125,9 +126,10 @@ class CardView:
                 else:
                     item = QTableWidgetItem()
                     item.setData(Qt.EditRole, value)
-                if key == 'Skill':
-                    if value is not None:
-                        item.setBackground(QColor(*SKILL_COLOR_BY_NAME[value], 135))
+                if key == 'Skill' and value is not None:
+                    item.setBackground(QColor(*SKILL_COLOR_BY_NAME[value], 135))
+                if key == 'Color' and value is not None:
+                    item.setBackground(QColor(*CARD_GUI_COLORS[value], 100))
                 self.widget.setItem(r_idx, c_idx + 2, item)
         logger.info("Loaded {} cards".format(len(data)))
         self.widget.setSortingEnabled(True)
