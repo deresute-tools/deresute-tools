@@ -56,13 +56,13 @@ class IndexManager:
                         AND cdc.rarity > 6 
                         THEN "blanc"
                         ELSE ""
-                    END fes,
+                    END blanc,
                     CASE
                         WHEN cdc.leader_skill_id IN (118)
                         AND cdc.rarity > 6 
                         THEN "noir"
                         ELSE ""
-                    END fes,
+                    END noir,
                     CASE
                         WHEN 1.0 * cdc.vocal_min / (cdc.vocal_min + cdc.visual_min + cdc.dance_min) > 0.39 
                         THEN "vocal" 
@@ -119,6 +119,8 @@ class IndexManager:
                         skill=TEXT,
                         leader=TEXT,
                         fes=TEXT,
+                        noir=TEXT,
+                        blanc=TEXT,
                         main_attribute=TEXT,
                         time_prob_key=TEXT,
                         content=TEXT(analyzer=SimpleAnalyzer()))
