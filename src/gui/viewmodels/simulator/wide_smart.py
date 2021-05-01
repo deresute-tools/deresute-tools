@@ -17,7 +17,7 @@ from gui.events.utils.eventbus import subscribe
 from gui.events.utils.wrappers import BaseSimulationResultWithUuid, YoinkResults
 from gui.events.value_accessor_events import GetAutoplayOffsetEvent, GetAutoplayFlagEvent, GetDoublelifeFlagEvent, \
     GetSupportEvent, GetAppealsEvent, GetCustomPotsEvent, GetPerfectPlayFlagEvent, GetMirrorFlagEvent, \
-    GetCustomBonusEvent, GetGrooveSongColor
+    GetCustomBonusEvent, GetGrooveSongColor, GetSkillBoundaryEvent
 from gui.viewmodels.simulator.calculator import CalculatorModel, CalculatorView, CardsWithUnitUuid
 from gui.viewmodels.simulator.custom_bonus import CustomBonusView, CustomBonusModel
 from gui.viewmodels.simulator.custom_card import CustomCardView, CustomCardModel
@@ -167,11 +167,13 @@ class MainView:
         autoplay = eventbus.eventbus.post_and_get_first(GetAutoplayFlagEvent())
         autoplay_offset = eventbus.eventbus.post_and_get_first(GetAutoplayOffsetEvent())
         extra_bonus, special_option, special_value = eventbus.eventbus.post_and_get_first(GetCustomBonusEvent())
+        left_inclusive, right_inclusive = eventbus.eventbus.post_and_get_first(GetSkillBoundaryEvent())
 
         hidden_feature_check = times > 0 and perfect_play is True and autoplay is False and autoplay_offset == 346
 
         self.model.simulate_internal(
             perfect_play=perfect_play,
+            left_inclusive=left_inclusive, right_inclusive=right_inclusive,
             score_id=score_id, diff_id=diff_id, times=times, all_cards=all_cards, custom_pots=custom_pots,
             appeals=appeals, support=support, extra_bonus=extra_bonus,
             special_option=special_option, special_value=special_value,
@@ -195,10 +197,9 @@ class MainModel(QObject):
         self.process_simulation_results_signal.connect(lambda payload: self.process_results(payload))
         self.process_yoink_results_signal.connect(lambda payload: self._handle_yoink_done_signal(payload))
 
-    def simulate_internal(self, perfect_play, score_id, diff_id, times, all_cards, custom_pots, appeals, support,
-                          extra_bonus, special_option, special_value, mirror, autoplay, autoplay_offset, doublelife,
-                          hidden_feature_check,
-                          row=None):
+    def simulate_internal(self, perfect_play, left_inclusive, right_inclusive, score_id, diff_id, times, all_cards,
+                          custom_pots, appeals, support, extra_bonus, special_option, special_value, mirror, autoplay,
+                          autoplay_offset, doublelife, hidden_feature_check, row=None):
         """
         :type all_cards: List[CardsWithUnitUuid]
         """
@@ -243,7 +244,8 @@ class MainModel(QObject):
                 SimulationEvent(card_with_uuid.uuid, card_with_uuid.short_uuid,
                                 row is not None and hidden_feature_check, appeals, autoplay, autoplay_offset,
                                 doublelife, extra_bonus, extra_return, hidden_feature_check, live, mirror, perfect_play,
-                                results, special_option, special_value, support, times, unit),
+                                results, special_option, special_value, support, times, unit,
+                                left_inclusive, right_inclusive),
                 high_priority=True, asynchronous=True)
 
     @pyqtSlot(BaseSimulationResultWithUuid)
@@ -278,7 +280,7 @@ class MainModel(QObject):
                 logger.info("Simulation mode: Perfect - {} - {}".format(event.short_uuid, event.unit))
             else:
                 logger.info("Simulation mode: Normal - {} - {}".format(event.short_uuid, event.unit))
-            sim = Simulator(event.live)
+            sim = Simulator(event.live, left_inclusive=event.left_inclusive, right_inclusive=event.right_inclusive)
             result = sim.simulate(perfect_play=event.perfect_play,
                                   times=event.times, appeals=event.appeals, extra_bonus=event.extra_bonus,
                                   support=event.support,

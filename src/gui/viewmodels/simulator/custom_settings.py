@@ -7,7 +7,8 @@ from gui.events.state_change_events import AutoFlagChangeEvent, PostYoinkEvent
 from gui.events.utils import eventbus
 from gui.events.utils.eventbus import subscribe
 from gui.events.value_accessor_events import GetMirrorFlagEvent, GetPerfectPlayFlagEvent, GetCustomPotsEvent, \
-    GetAppealsEvent, GetSupportEvent, GetDoublelifeFlagEvent, GetAutoplayFlagEvent, GetAutoplayOffsetEvent
+    GetAppealsEvent, GetSupportEvent, GetDoublelifeFlagEvent, GetAutoplayFlagEvent, GetAutoplayOffsetEvent, \
+    GetSkillBoundaryEvent
 
 
 class CustomSettingsView:
@@ -25,45 +26,50 @@ class CustomSettingsView:
         self.custom_appeal_checkbox.setToolTip("This option will ignore support appeal.")
         self.custom_support_checkbox = QtWidgets.QCheckBox("Support Appeal", self.main)
         self.custom_perfect_play_checkbox = QtWidgets.QCheckBox("Perfect Simulation", self.main)
-        self.autoplay_mode_checkbox = QtWidgets.QCheckBox("Autoplay Mode", self.main)
+        self.skill_boundary = QtWidgets.QComboBox(self.main)
         self.mirror_checkbox = QtWidgets.QCheckBox("Mirror", self.main)
         self.doublelife_checkbox = QtWidgets.QCheckBox("2x Life Start", self.main)
+        self.autoplay_mode_checkbox = QtWidgets.QCheckBox("Autoplay Mode", self.main)
         self.autoplay_offset_text = QtWidgets.QLineEdit(self.main)
-        self.autoplay_offset_text.setPlaceholderText("Set autoplay offset in milliseconds")
+        self.autoplay_offset_text.setPlaceholderText("Autoplay offset")
         self.autoplay_offset_text.setValidator(QIntValidator(0, 1E3, None))  # Only number allowed
         self.custom_appeal_text = QtWidgets.QLineEdit(self.main)
         self.custom_appeal_text.setValidator(QIntValidator(0, 1E6, None))  # Only number allowed
+        self.custom_appeal_text.setPlaceholderText("Total appeals")
         self.custom_support_text = QtWidgets.QLineEdit(self.main)
         self.custom_support_text.setValidator(QIntValidator(0, 1E6, None))  # Only number allowed
+        self.custom_support_text.setPlaceholderText("Support appeals")
         self.custom_vocal = QtWidgets.QComboBox(self.main)
         self.custom_dance = QtWidgets.QComboBox(self.main)
         self.custom_visual = QtWidgets.QComboBox(self.main)
         self.custom_life = QtWidgets.QComboBox(self.main)
         self.custom_skill = QtWidgets.QComboBox(self.main)
         self._setup_valid_potential_values()
+        self._setup_skill_boundaries()
 
     def _setup_positions(self):
-        self.layout.addWidget(self.custom_perfect_play_checkbox, 2, 0, 1, 3)
-        self.layout.addWidget(self.custom_potential_checkbox, 2, 3, 1, 2)
-        self.layout.addWidget(self.autoplay_mode_checkbox, 3, 0, 1, 2)
-        self.layout.addWidget(self.mirror_checkbox, 3, 2, 1, 1)
-        self.layout.addWidget(self.doublelife_checkbox, 3, 3, 1, 2)
-        self.layout.addWidget(self.autoplay_offset_text, 3, 5, 1, 2)
-        self.layout.addWidget(self.custom_appeal_checkbox, 2, 5, 1, 1)
-        self.layout.addWidget(self.custom_support_checkbox, 2, 6, 1, 1)
+        self.layout.addWidget(self.custom_perfect_play_checkbox, 1, 0, 1, 3)
+        self.layout.addWidget(self.custom_potential_checkbox, 1, 3, 1, 2)
+        self.layout.addWidget(self.skill_boundary, 2, 0, 1, 2)
+        self.layout.addWidget(self.mirror_checkbox, 2, 2, 1, 1)
+        self.layout.addWidget(self.doublelife_checkbox, 2, 3, 1, 2)
+        self.layout.addWidget(self.custom_support_text, 0, 5, 1, 1)
+        self.layout.addWidget(self.custom_support_checkbox, 0, 6, 1, 1)
         self.layout.addWidget(self.custom_appeal_text, 1, 5, 1, 1)
-        self.layout.addWidget(self.custom_support_text, 1, 6, 1, 1)
-        self.layout.addWidget(self.custom_vocal, 1, 0, 1, 1)
-        self.layout.addWidget(self.custom_dance, 1, 1, 1, 1)
-        self.layout.addWidget(self.custom_visual, 1, 2, 1, 1)
-        self.layout.addWidget(self.custom_life, 1, 3, 1, 1)
-        self.layout.addWidget(self.custom_skill, 1, 4, 1, 1)
+        self.layout.addWidget(self.custom_appeal_checkbox, 1, 6, 1, 1)
+        self.layout.addWidget(self.autoplay_offset_text, 2, 5, 1, 1)
+        self.layout.addWidget(self.autoplay_mode_checkbox, 2, 6, 1, 1)
+        self.layout.addWidget(self.custom_vocal, 0, 0, 1, 1)
+        self.layout.addWidget(self.custom_dance, 0, 1, 1, 1)
+        self.layout.addWidget(self.custom_visual, 0, 2, 1, 1)
+        self.layout.addWidget(self.custom_life, 0, 3, 1, 1)
+        self.layout.addWidget(self.custom_skill, 0, 4, 1, 1)
         self.layout.setColumnStretch(0, 1)
         self.layout.setColumnStretch(1, 1)
         self.layout.setColumnStretch(2, 1)
         self.layout.setColumnStretch(3, 1)
         self.layout.setColumnStretch(4, 1)
-        self.layout.setColumnStretch(5, 1)
+        self.layout.setColumnStretch(5, 2)
         self.layout.setColumnStretch(6, 1)
 
     def _setup_valid_potential_values(self):
@@ -75,6 +81,13 @@ class CustomSettingsView:
             for _ in range(1, 11):
                 combobox.addItem(str(_))
             combobox.setMaxVisibleItems(11)
+
+    def _setup_skill_boundaries(self):
+        self.skill_boundary.addItem("Skill Boundary")
+        self.skill_boundary.addItem("(  ]")
+        self.skill_boundary.addItem("[  )")
+        self.skill_boundary.addItem("[  ]")
+        self.skill_boundary.addItem("(  )")
 
     def set_model(self, model):
         self.model = model
@@ -159,6 +172,16 @@ class CustomSettingsModel:
         if self.view.autoplay_offset_text.text() == "":
             return 0
         return int(self.view.autoplay_offset_text.text())
+
+    @subscribe(GetSkillBoundaryEvent)
+    def get_skill_boundary(self, event=None):
+        if self.view.skill_boundary.currentIndex() == 0 or self.view.skill_boundary.currentIndex() == 1:
+            return False, True
+        if self.view.skill_boundary.currentIndex() == 2:
+            return True, False
+        if self.view.skill_boundary.currentIndex() == 3:
+            return True, True
+        return False, False
 
     def hook_events(self):
         self.view.mirror_checkbox.toggled.connect(

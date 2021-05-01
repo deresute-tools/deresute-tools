@@ -81,8 +81,10 @@ class AutoSimulationResult(BaseSimulationResult):
 
 
 class Simulator:
-    def __init__(self, live=None, special_offset=None):
+    def __init__(self, live=None, special_offset=None, left_inclusive=False, right_inclusive=True):
         self.live = live
+        self.left_inclusive = left_inclusive
+        self.right_inclusive = right_inclusive
         if special_offset is None:
             self.special_offset = 0
         else:
@@ -1302,8 +1304,9 @@ class Simulator:
                     self.notes_data['skill_{}'.format(unit_idx * 5 + card_idx)] = 0
                     for skill_activation, skill_range in enumerate(skills):
                         left, right = skill_range
-                        self.notes_data.loc[(note_times > left) & (note_times <= right),
-                                            'skill_{}'.format(unit_idx * 5 + card_idx)] = 1 if probability > 0 else 0
+                        self.notes_data.loc[
+                            self._left_compare(note_times, left) & self._right_compare(note_times, right),
+                            'skill_{}'.format(unit_idx * 5 + card_idx)] = 1 if probability > 0 else 0
                         self._helper_fill_lr_time_alt_ref(card_idx, has_alternate, has_refrain, left,
                                                           note_times, right, unit_idx)
                 else:
@@ -1315,15 +1318,17 @@ class Simulator:
                             rep_rolls = np.random.choice(2, times, p=[1 - probability, probability])
                             rep_rolls = rep_rolls * np.arange(1, 1 + times) - 1
                             rep_rolls = rep_rolls[rep_rolls != -1]
-                            self.notes_data.loc[(note_times > left) & (note_times <= right)
-                                                & (self.notes_data.rep.isin(rep_rolls)),
-                                                'skill_{}'.format(unit_idx * 5 + card_idx)] = 1
+                            self.notes_data.loc[
+                                self._left_compare(note_times, left) & self._right_compare(note_times, right)
+                                & (self.notes_data.rep.isin(rep_rolls)),
+                                'skill_{}'.format(unit_idx * 5 + card_idx)] = 1
                             self._helper_fill_lr_time_alt_ref(card_idx, has_alternate, has_refrain, left, note_times,
                                                               right, unit_idx, rep_rolls=rep_rolls)
                         else:
                             # Save a bit more time
-                            self.notes_data.loc[(note_times > left) & (note_times <= right),
-                                                'skill_{}'.format(unit_idx * 5 + card_idx)] = 1
+                            self.notes_data.loc[
+                                self._left_compare(note_times, left) & self._right_compare(note_times, right),
+                                'skill_{}'.format(unit_idx * 5 + card_idx)] = 1
                             self._helper_fill_lr_time_alt_ref(card_idx, has_alternate, has_refrain, left, note_times,
                                                               right, unit_idx)
 
@@ -1343,7 +1348,19 @@ class Simulator:
     def _helper_fill_lr_time_alt_ref(self, card_idx, has_alternate, has_refrain, left, note_times, right,
                                      unit_idx, rep_rolls=None):
         if has_alternate or has_refrain:
-            mask = np.logical_and(note_times > left, note_times < right)
+            mask = np.logical_and(self._left_compare(note_times, left), self._right_compare(note_times, right))
             if rep_rolls is not None:
                 mask = np.logical_and(mask, self.notes_data.rep.isin(rep_rolls))
             self.notes_data.loc[mask, 'skill_{}_l'.format(unit_idx * 5 + card_idx)] = left
+
+    def _left_compare(self, note_times, left):
+        if self.left_inclusive:
+            return note_times >= left
+        else:
+            return note_times > left
+
+    def _right_compare(self, note_times, right):
+        if self.right_inclusive:
+            return note_times <= right
+        else:
+            return note_times < right

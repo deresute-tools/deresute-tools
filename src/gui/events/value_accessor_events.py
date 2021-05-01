@@ -42,6 +42,12 @@ class GetCustomBonusEvent:
     def __init__(self):
         pass
 
+
 class GetGrooveSongColor:
+    def __init__(self):
+        pass
+
+
+class GetSkillBoundaryEvent:
     def __init__(self):
         pass
