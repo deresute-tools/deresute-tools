@@ -132,8 +132,8 @@ class DraggableQScrollArea(QScrollArea):
         delta = event.pos() - self.drag_start_position
         if delta.manhattanLength() < QApplication.startDragDistance():
             return
-        self.verticalScrollBar().setValue(self.original_y - delta.y())
-        self.horizontalScrollBar().setValue(self.original_x - delta.x())
+        self.verticalScrollBar().setValue(self.original_y - delta.y() * 1.5)
+        self.horizontalScrollBar().setValue(self.original_x - delta.x() * 1.5)
 
 
 class BaseChartPicGenerator(ABC):

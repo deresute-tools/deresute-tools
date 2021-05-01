@@ -22,5 +22,5 @@ class ToggleMirrorEvent:
 
 
 class PopupChartViewerEvent:
-    def __init__(self):
-        pass
+    def __init__(self, look_for_chart=False):
+        self.look_for_chart = look_for_chart

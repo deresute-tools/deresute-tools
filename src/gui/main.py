@@ -106,7 +106,7 @@ class UiMainWindow:
         hl.addWidget(self.songsearch_view.widget)
         chart_viewer_button = QPushButton("Popup Chart Viewer")
         hl.addWidget(chart_viewer_button)
-        chart_viewer_button.pressed.connect(lambda: eventbus.eventbus.post(PopupChartViewerEvent()))
+        chart_viewer_button.pressed.connect(lambda: eventbus.eventbus.post(PopupChartViewerEvent(look_for_chart=True)))
         self.song_layout.addLayout(hl)
 
         self.calculator_song_layout.addLayout(self.song_layout)

@@ -21,6 +21,8 @@ class TipRefresherService(QRunnable):
         "Tip: Double clicking a song will also popup the chart viewer.",
         "Tip: Right clicking the song list will toggle between note type count and note type percentage.",
         "Tip: Leftmost red square = Center, rightmost blue square = Guest.",
+        "Tip: Press Ctrl + S in the chart viewer to save the chart as PNG.",
+        "Tip: You can drag the chart around in the chart viewer. Just do it like you would on a smartphone.",
     }
 
     def __init__(self):
