@@ -279,6 +279,10 @@ class Simulator:
         cc_idxes = list()
         for unit_idx, unit in enumerate(self.live.unit.all_units):
             for card_idx, card in enumerate(unit.all_cards()):
+                try:
+                    self.notes_data = self.notes_data.drop("skill_{}_l".format(unit_idx * 5 + card_idx), axis=1)
+                except:
+                    pass
                 if card.skill.skill_type == 15:
                     cc_idxes.append(unit_idx * 5 + card_idx)
         cc_idxes = list(map(lambda x: "skill_{}".format(x), cc_idxes))
@@ -1337,10 +1341,9 @@ class Simulator:
         return has_sparkle, has_support, has_alternate, has_refrain, has_magic
 
     def _helper_fill_lr_time_alt_ref(self, card_idx, has_alternate, has_refrain, left, note_times, right,
-                                     unit_idx, rep_rolls=None):
+                                     unit_idx, rep_rolls=None, time_offset=0):
         if has_alternate or has_refrain:
             mask = np.logical_and(note_times > left, note_times < right)
             if rep_rolls is not None:
                 mask = np.logical_and(mask, self.notes_data.rep.isin(rep_rolls))
-            self.notes_data.loc[mask, 'skill_{}_l'.format(unit_idx * 5 + card_idx)] = left
-            self.notes_data.loc[mask, 'skill_{}_r'.format(unit_idx * 5 + card_idx)] = right
+            self.notes_data.loc[mask, 'skill_{}_l'.format(unit_idx * 5 + card_idx)] = left - time_offset
