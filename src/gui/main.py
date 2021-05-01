@@ -46,7 +46,7 @@ class UiMainWindow:
 
     def setup_ui(self):
         logger.info("Initializing UI")
-        self.main.resize(1800, 1000)
+        self.main.resize(1850, 1000)
         self.setup_base()
         self.setup_calculator_song_layout()
         self.setup_card_unit_layout()
