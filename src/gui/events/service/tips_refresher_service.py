@@ -38,13 +38,11 @@ class TipRefresherService(QRunnable):
 
     def schedule_tip_display(self):
         while self.running:
-            current = time()
-            if current >= self.scheduled_time:
+            sleep(0.2)
+            if time() >= self.scheduled_time:
                 self.select_next_tip()
                 self.send_to_view()
                 self.set_timer(DELAY_SECS)
-            else:
-                sleep(self.scheduled_time - current)
 
     def select_next_tip(self):
         while True:
