@@ -24,7 +24,8 @@ class TipRefresherService(QRunnable):
         "Tip: Press Ctrl + S in the chart viewer to save the chart as PNG.",
         "Tip: You can drag the chart around in the chart viewer. Just do it like you would on a smartphone.",
         "Tip: You need to name your units to save them.",
-        "Tip: Press Ctrl + F from anywhere to quickly jump to the search bar."
+        "Tip: Press Ctrl + F from anywhere to quickly jump to the search bar.",
+        "Tip: Select a unit with the chart viewer open to view the unit's timers on the chart.",
     }
 
     def __init__(self):
@@ -36,6 +37,8 @@ class TipRefresherService(QRunnable):
 
     @pyqtSlot()
     def run(self):
+        self.set_timer(10)
+        eventbus.eventbus.post(SetTipTextEvent("You can see various tips on how to use the tool here."))
         self.schedule_tip_display()
 
     def schedule_tip_display(self):
