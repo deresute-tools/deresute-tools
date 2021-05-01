@@ -17,7 +17,7 @@ class TipRefresherService(QRunnable):
         "Tip: Select a unit then press Ctrl + D or Ctrl + Shift + D to clone it.",
         "Tip: Something might happen if you run autoplay simulations at 346ms offset without using autoplay mode.",
         "Tip: Importing cards from game ID uses SSR posters to detect what cards you have.",
-        "Tip: Use the \"Partial match\" option.",
+        "Tip: Use the \"Partial match\" option. It's fairly good, I think.",
         "Tip: Double clicking a song will also popup the chart viewer.",
         "Tip: Right clicking the song list will toggle between note type count and note type percentage.",
         "Tip: Leftmost red square = Center, rightmost blue square = Guest.",
@@ -35,6 +35,7 @@ class TipRefresherService(QRunnable):
         self.current_tip = None
         self.scheduled_time = time()
         self.running = True
+        self.current_tips = self.TIPS.copy()
         eventbus.eventbus.register(self)
 
     @pyqtSlot()
@@ -52,11 +53,9 @@ class TipRefresherService(QRunnable):
                 self.set_timer(DELAY_SECS)
 
     def select_next_tip(self):
-        while True:
-            next_tip = random.sample(self.TIPS, 1)[0]
-            if self.current_tip != next_tip:
-                self.current_tip = next_tip
-                return
+        if len(self.current_tips) == 0:
+            self.current_tips = self.TIPS.copy()
+        self.current_tip = self.current_tips.pop()
 
     def send_to_view(self):
         eventbus.eventbus.post(SetTipTextEvent(self.current_tip))
