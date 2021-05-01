@@ -1341,9 +1341,9 @@ class Simulator:
         return has_sparkle, has_support, has_alternate, has_refrain, has_magic
 
     def _helper_fill_lr_time_alt_ref(self, card_idx, has_alternate, has_refrain, left, note_times, right,
-                                     unit_idx, rep_rolls=None, time_offset=0):
+                                     unit_idx, rep_rolls=None):
         if has_alternate or has_refrain:
             mask = np.logical_and(note_times > left, note_times < right)
             if rep_rolls is not None:
                 mask = np.logical_and(mask, self.notes_data.rep.isin(rep_rolls))
-            self.notes_data.loc[mask, 'skill_{}_l'.format(unit_idx * 5 + card_idx)] = left - time_offset
+            self.notes_data.loc[mask, 'skill_{}_l'.format(unit_idx * 5 + card_idx)] = left
