@@ -1,17 +1,19 @@
-from PyQt5.QtCore import QMetaObject, QRect, QCoreApplication, Qt
+from PyQt5.QtCore import QMetaObject, QCoreApplication, Qt
 from PyQt5.QtGui import QIntValidator, QIcon
-from PyQt5.QtWidgets import QWidget, QGridLayout, QVBoxLayout, QHBoxLayout, QTabWidget, QPushButton, QMenuBar, \
-    QMenu, QStatusBar, QAction, QApplication, QMainWindow, QLineEdit, QCheckBox
+from PyQt5.QtWidgets import QWidget, QGridLayout, QVBoxLayout, QHBoxLayout, QTabWidget, QPushButton, QApplication, \
+    QMainWindow, QLineEdit, QCheckBox
 
 import customlogger as logger
 from chihiro import ROOT_DIR
 from gui.events.chart_viewer_events import PopupChartViewerEvent
+from gui.events.service.tips_refresher_service import kill_tip_refresher_service
 from gui.events.utils import eventbus
 from gui.viewmodels.card import CardView, CardModel, IconLoaderView, IconLoaderModel
 from gui.viewmodels.potential import PotentialView, PotentialModel
 from gui.viewmodels.quicksearch import QuickSearchView, QuickSearchModel, SongQuickSearchView, SongQuickSearchModel
 from gui.viewmodels.simulator.wide_smart import MainView, MainModel
 from gui.viewmodels.song import SongView, SongModel
+from gui.viewmodels.tips_view import TipView
 from gui.viewmodels.unit import UnitView, UnitModel
 from logic.profile import profile_manager, unit_storage
 from logic.search import indexer, search_engine
@@ -48,6 +50,7 @@ class UiMainWindow:
         self.setup_base()
         self.setup_calculator_song_layout()
         self.setup_card_unit_layout()
+        self.setup_tip_view()
         self.main.setCentralWidget(self.central_widget)
         self.retranslate_ui(self.main)
         QMetaObject.connectSlotsByName(self.main)
@@ -58,6 +61,10 @@ class UiMainWindow:
         self.central_widget = QWidget(self.main)
         self.grid_layout = QGridLayout(self.central_widget)
         self.main_layout = QVBoxLayout()
+
+    def setup_tip_view(self):
+        self.tip_view = TipView()
+        self.grid_layout.addWidget(self.tip_view, 1, 0, 1, 1)
 
     def setup_calculator_song_layout(self):
         logger.info("Setting up calculator and song layouts")
@@ -193,11 +200,17 @@ class UiMainWindow:
         self.card_view.toggle_auto_resize(False)
 
 
+def cleanup():
+    logger.info("Waiting for all threads to finish...")
+    kill_tip_refresher_service()
+
+
 def setup_gui(*args):
     app = QApplication(*args)
     app.setApplicationName("Chihiro")
     icon = QIcon(str(ROOT_DIR / 'icon.png'))
     app.setWindowIcon(icon)
+    app.lastWindowClosed.connect(lambda: cleanup())
     import ctypes
     myappid = 'mycompany.myproduct.subproduct.version'  # arbitrary string
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)

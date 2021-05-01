@@ -11,3 +11,14 @@ class PostYoinkEvent:
 class PotentialUpdatedEvent:
     def __init__(self, card_list):
         self.card_list = card_list
+
+
+class SetTipTextEvent:
+    def __init__(self, text):
+        self.text = text
+
+
+class InjectTextEvent:
+    def __init__(self, text, offset=10):
+        self.text = text
+        self.offset = offset

@@ -158,11 +158,12 @@ class SongModel:
     def get_song(self, event=None):
         row_idx = self.view.widget.selectionModel().currentIndex().row()
         if row_idx == -1:
-            return None, None, None
+            return None, None, None, None, None
         live_detail_id = int(self.view.widget.item(row_idx, 0).text())
         score_id = int(self.view.widget.item(row_idx, 1).text())
         diff_id = int(self.view.widget.item(row_idx, 2).text())
-        return score_id, diff_id, live_detail_id
+        return score_id, diff_id, live_detail_id, \
+               self.view.widget.item(row_idx, 4).text(), self.view.widget.item(row_idx, 6).text()
 
     def ping_support(self, r):
         song_id = int(self.view.widget.item(r, 1).text())

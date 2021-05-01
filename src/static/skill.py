@@ -11,7 +11,7 @@ SKILL_BASE = {
     6: {"id": 6, "name": "PERFECT Support", "color": (52, 201, 119)},
     7: {"id": 7, "name": "PERFECT Support", "color": (52, 201, 119)},
     9: {"id": 9, "name": "COMBO Support", "color": (235, 199, 141)},
-    12: {"id": 12, "name": "Damage Guard", "color": (33, 133, 255)},
+    12: {"id": 12, "name": "Damage Guard", "keywords": ["dg"], "color": (33, 133, 255)},
     14: {"id": 14, "name": "Overload", "keywords": ["ol"], "color": (212, 56, 255)},
     15: {"id": 15, "name": "Concentration", "keywords": ["cc"], "color": (104, 33, 181)},
     16: {"id": 16, "name": "Encore", "color": (48, 175, 186)},

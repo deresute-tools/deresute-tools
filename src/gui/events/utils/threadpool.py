@@ -1,4 +1,4 @@
 from PyQt5.QtCore import QThreadPool
 
 threadpool = QThreadPool()
-threadpool.setMaxThreadCount(3)
+threadpool.setMaxThreadCount(4)

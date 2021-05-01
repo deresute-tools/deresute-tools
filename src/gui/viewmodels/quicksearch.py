@@ -92,6 +92,7 @@ class QuickSearchModel:
         self.options['idolized'].setToolTip("Only show N+, R+, SR+, and SSR+.")
         self.options['owned_only'].setToolTip("Hide all cards you don't have.")
         self.options['partial_match'].setToolTip("This option might significantly increase query time!")
+        self.options['partial_match'].setChecked(True)
 
 
 class SongShortcutQuickSearchWidget(ShortcutQuickSearchWidget):

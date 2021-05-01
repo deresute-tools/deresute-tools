@@ -11,7 +11,7 @@ from gui.events.calculator_view_events import GetAllCardsEvent, SimulationEvent,
     AddEmptyUnitEvent, YoinkUnitEvent, PushCardEvent, ContextAwarePushCardEvent
 from gui.events.chart_viewer_events import HookAbuseToChartViewerEvent
 from gui.events.song_view_events import GetSongDetailsEvent
-from gui.events.state_change_events import PostYoinkEvent
+from gui.events.state_change_events import PostYoinkEvent, InjectTextEvent
 from gui.events.utils import eventbus
 from gui.events.utils.eventbus import subscribe
 from gui.events.utils.wrappers import BaseSimulationResultWithUuid, YoinkResults
@@ -151,7 +151,7 @@ class MainView:
             return int(self.times_text.text())
 
     def simulate(self, row=None):
-        score_id, diff_id, live_detail_id = eventbus.eventbus.post_and_get_first(GetSongDetailsEvent())
+        score_id, diff_id, live_detail_id, _, _ = eventbus.eventbus.post_and_get_first(GetSongDetailsEvent())
         if diff_id is None:
             logger.info("No chart loaded")
             return
@@ -280,21 +280,23 @@ class MainModel(QObject):
         self.process_simulation_results_signal.emit(BaseSimulationResultWithUuid(event.uuid, result, event.abuse_load))
 
     def handle_yoink_button(self):
-        _, _, live_detail_id = eventbus.eventbus.post_and_get_first(GetSongDetailsEvent())
+        _, _, live_detail_id, song_name, diff_name = eventbus.eventbus.post_and_get_first(GetSongDetailsEvent())
         if live_detail_id is None:
             return
 
         self.view.yoink_button.setEnabled(False)
         self.view.yoink_button.setText("Yoinking...")
+        eventbus.eventbus.post(InjectTextEvent("Yoinking the top team for {} - {}".format(song_name, diff_name)))
         eventbus.eventbus.post(YoinkUnitEvent(live_detail_id), asynchronous=True)
 
     @pyqtSlot(YoinkResults)
     def _handle_yoink_done_signal(self, payload: YoinkResults):
-        if len(payload.cards) == 15:
-            self.view.views[1].add_unit(payload.cards)
-        else:
-            self.view.views[0].add_unit(payload.cards)
-        eventbus.eventbus.post(PostYoinkEvent(payload.support))
+        if payload.cards is not None:
+            if len(payload.cards) == 15:
+                self.view.views[1].add_unit(payload.cards)
+            else:
+                self.view.views[0].add_unit(payload.cards)
+            eventbus.eventbus.post(PostYoinkEvent(payload.support))
         self.view.yoink_button.setText("Yoink #1 Unit")
         self.view.yoink_button.setEnabled(True)
 
@@ -302,8 +304,10 @@ class MainModel(QObject):
     def _handle_yoink_signal(self, event):
         try:
             cards, support = get_top_build(event.live_detail_id)
+            eventbus.eventbus.post(InjectTextEvent("Yoinked successfully", 2))
         except:
             cards, support = None, None
+            eventbus.eventbus.post(InjectTextEvent("Yoink failed :(", 2))
         self.process_yoink_results_signal.emit(YoinkResults(cards, support))
 
     @subscribe(PushCardEvent)
