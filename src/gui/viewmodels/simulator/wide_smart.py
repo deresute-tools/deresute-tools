@@ -240,10 +240,11 @@ class MainModel(QObject):
                 continue
 
             eventbus.eventbus.post(
-                SimulationEvent(card_with_uuid.uuid, row is not None and hidden_feature_check,
-                                appeals, autoplay, autoplay_offset, doublelife, extra_bonus, extra_return,
-                                hidden_feature_check, live, mirror, perfect_play, results, special_option,
-                                special_value, support, times, unit), high_priority=True, asynchronous=True)
+                SimulationEvent(card_with_uuid.uuid, card_with_uuid.short_uuid,
+                                row is not None and hidden_feature_check, appeals, autoplay, autoplay_offset,
+                                doublelife, extra_bonus, extra_return, hidden_feature_check, live, mirror, perfect_play,
+                                results, special_option, special_value, support, times, unit),
+                high_priority=True, asynchronous=True)
 
     @pyqtSlot(BaseSimulationResultWithUuid)
     def process_results(self, payload: BaseSimulationResultWithUuid):
@@ -258,12 +259,14 @@ class MainModel(QObject):
     def handle_simulation_request(self, event: SimulationEvent):
         event.live.set_unit(event.unit)
         if event.autoplay:
+            logger.info("Simulation mode: Autoplay - {} - {}".format(event.short_uuid, event.unit))
             sim = Simulator(event.live, special_offset=0.075)
             result = sim.simulate_auto(appeals=event.appeals, extra_bonus=event.extra_bonus, support=event.support,
                                        special_option=event.special_option, special_value=event.special_value,
                                        time_offset=event.autoplay_offset, mirror=event.mirror,
                                        doublelife=event.doublelife)
         elif event.hidden_feature_check:
+            logger.info("Simulation mode: Theoretical - {} - {}".format(event.short_uuid, event.unit))
             sim = Simulator(event.live)
             result = sim.simulate_theoretical_max(appeals=event.appeals, extra_bonus=event.extra_bonus,
                                                   support=event.support,
@@ -271,6 +274,10 @@ class MainModel(QObject):
                                                   special_value=event.special_value,
                                                   left_boundary=-200, right_boundary=200, n_intervals=event.times)
         else:
+            if event.perfect_play:
+                logger.info("Simulation mode: Perfect - {} - {}".format(event.short_uuid, event.unit))
+            else:
+                logger.info("Simulation mode: Normal - {} - {}".format(event.short_uuid, event.unit))
             sim = Simulator(event.live)
             result = sim.simulate(perfect_play=event.perfect_play,
                                   times=event.times, appeals=event.appeals, extra_bonus=event.extra_bonus,

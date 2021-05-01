@@ -8,10 +8,11 @@ class GetAllCardsEvent:
 
 
 class SimulationEvent:
-    def __init__(self, uuid, abuse_load, appeals, autoplay, autoplay_offset, doublelife, extra_bonus, extra_return,
-                 hidden_feature_check,
-                 live, mirror, perfect_play, results, special_option, special_value, support, times, unit):
+    def __init__(self, uuid, short_uuid, abuse_load, appeals, autoplay, autoplay_offset, doublelife, extra_bonus,
+                 extra_return, hidden_feature_check, live, mirror, perfect_play, results, special_option, special_value,
+                 support, times, unit):
         self.uuid = uuid
+        self.short_uuid = short_uuid
         self.abuse_load = abuse_load
         self.appeals = appeals
         self.autoplay = autoplay

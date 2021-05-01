@@ -111,7 +111,7 @@ class GrandCalculatorView(CalculatorView):
             if card is None:
                 continue
             self.widget.cellWidget(row, 0).set_card(idx=unit * 5 + idx, card=card)
-        logger.info("Unit insert: {} - {} row {}".format(self.widget.cellWidget(row, 0).get_uuid(), cards, row))
+        logger.info("Unit insert: {} - {} row {}".format(self.widget.cellWidget(row, 0).get_short_uuid(), " ".join(map(str, cards)), row))
 
     def insert_unit(self):
         self.widget.insertRow(self.widget.rowCount())

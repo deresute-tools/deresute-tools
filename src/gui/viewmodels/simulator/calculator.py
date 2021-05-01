@@ -204,7 +204,7 @@ class CalculatorView:
             if card is None:
                 continue
             self.widget.cellWidget(row, 0).set_card(idx=idx, card=card)
-        logger.info("Unit insert: {} - {} row {}".format(self.widget.cellWidget(row, 0).get_uuid(), cards, row))
+        logger.info("Unit insert: {} - {} row {}".format(self.widget.cellWidget(row, 0).get_short_uuid(), " ".join(map(str, cards)), row))
 
     def add_unit(self, cards):
         if len(cards) == 15:
@@ -282,7 +282,8 @@ class CalculatorModel:
                     unit_widget.get_uuid()))
                 continue
             unit_widget.toggle_running_simulation(True)
-            res.append(CardsWithUnitUuid(self.view.widget.cellWidget(r_idx, 0).uuid,
+            res.append(CardsWithUnitUuid(self.view.widget.cellWidget(r_idx, 0).get_uuid(),
+                                         self.view.widget.cellWidget(r_idx, 0).get_short_uuid(),
                                          self.view.widget.cellWidget(r_idx, 0).cards_internal))
         return res
 
@@ -291,7 +292,7 @@ class CalculatorModel:
         payload: BaseSimulationResultWithUuid = event.payload
         row_to_change = -1
         for r in range(self.view.widget.rowCount()):
-            uuid = self.view.widget.cellWidget(r, 0).uuid
+            uuid = self.view.widget.cellWidget(r, 0).get_uuid()
             if uuid == payload.uuid:
                 row_to_change = r
                 break
@@ -369,6 +370,7 @@ class CalculatorModel:
 
 
 class CardsWithUnitUuid:
-    def __init__(self, uuid, cards):
+    def __init__(self, uuid, short_uuid, cards):
         self.uuid = uuid
+        self.short_uuid = short_uuid
         self.cards = cards

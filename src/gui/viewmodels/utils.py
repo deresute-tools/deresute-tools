@@ -68,7 +68,10 @@ class NumericalTableWidgetItem(QTableWidgetItem):
 
 class UniversalUniqueIdentifiable:
     def __init__(self):
-        self.uuid = uuid.uuid4().hex
+        self.__uuid = uuid.uuid4().hex
 
     def get_uuid(self):
-        return self.uuid
+        return self.__uuid
+
+    def get_short_uuid(self):
+        return self.__uuid[:6]

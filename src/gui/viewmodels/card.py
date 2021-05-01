@@ -181,7 +181,7 @@ class CardModel:
         eventbus.eventbus.register(self)
 
     def load_images(self, size=None):
-        logger.info("Change card list image size to {}".format(size))
+        logger.info("Card list thumbnail size: {}".format(size))
         if size is None:
             self.images = dict()
             self.view.draw_icons(None, size)

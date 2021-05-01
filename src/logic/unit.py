@@ -38,6 +38,9 @@ class BaseUnit(ABC):
     def get_card(self, idx):
         pass
 
+    def __str__(self):
+        return " ".join(map(str, self.all_cards()))
+
 
 class Unit(BaseUnit):
     def __init__(self, c0, c1, c2, c3, c4, cg=None, resonance=None):
