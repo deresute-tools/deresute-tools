@@ -7,13 +7,14 @@ from whoosh.index import create_in
 
 import customlogger as logger
 from db import db
+from logic.live import Live
 from network.meta_updater import get_masterdb_path
 from settings import INDEX_PATH
 from static.color import Color
 from static.song_difficulty import Difficulty
 
 KEYWORD_KEYS_STR_ONLY = ["short", "chara", "rarity", "color", "skill", "leader", "time_prob_key", "fes", "noir",
-                         "blanc", "main_attribute"]
+                         "blanc", "carnival", "main_attribute"]
 KEYWORD_KEYS = KEYWORD_KEYS_STR_ONLY + ["owned", "idolized"]
 
 
@@ -27,6 +28,8 @@ class IndexManager:
 
     def initialize_index_db(self, card_list=None):
         logger.info("Building quicksearch index, please wait...")
+
+        carnival_idols = ",".join(map(str, Live.static_get_chara_bonus_set(get_name=False)))
 
         db.cachedb.execute("""ATTACH DATABASE "{}" AS masterdb""".format(get_masterdb_path()))
         query = """
@@ -64,6 +67,11 @@ class IndexManager:
                         ELSE ""
                     END noir,
                     CASE
+                        WHEN cdc.chara_id IN ({})
+                        THEN "carnival"
+                        ELSE ""
+                    END carnival,
+                    CASE
                         WHEN 1.0 * cdc.vocal_min / (cdc.vocal_min + cdc.visual_min + cdc.dance_min) > 0.39 
                         THEN "vocal" 
                         WHEN 1.0 * cdc.visual_min / (cdc.vocal_min + cdc.visual_min + cdc.dance_min) > 0.39 
@@ -82,7 +90,7 @@ class IndexManager:
             LEFT JOIN probability_keywords pk on pk.id = sd.probability_type
             LEFT JOIN skill_keywords sk on sd.skill_type = sk.id
             LEFT JOIN leader_keywords lk on cdc.leader_skill_id = lk.id
-        """
+        """.format(carnival_idols)
         if card_list is not None:
             query += "WHERE cdc.id IN ({})".format(','.join(['?'] * len(card_list)))
             data = db.cachedb.execute_and_fetchall(query, card_list, out_dict=True)
@@ -117,6 +125,7 @@ class IndexManager:
                         rarity=TEXT,
                         color=TEXT,
                         skill=TEXT,
+                        carnival=TEXT,
                         leader=TEXT,
                         fes=TEXT,
                         noir=TEXT,

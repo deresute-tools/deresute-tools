@@ -8,7 +8,7 @@ from gui.events.utils import eventbus
 from gui.events.utils.eventbus import subscribe
 from gui.events.utils.threadpool import threadpool
 
-DELAY_SECS = 20
+DELAY_SECS = 15
 
 
 class TipRefresherService(QRunnable):
@@ -23,6 +23,8 @@ class TipRefresherService(QRunnable):
         "Tip: Leftmost red square = Center, rightmost blue square = Guest.",
         "Tip: Press Ctrl + S in the chart viewer to save the chart as PNG.",
         "Tip: You can drag the chart around in the chart viewer. Just do it like you would on a smartphone.",
+        "Tip: You need to name your units to save them.",
+        "Tip: Press Ctrl + F from anywhere to quickly jump to the search bar."
     }
 
     def __init__(self):

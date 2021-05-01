@@ -12,7 +12,7 @@ def _get_path_object(file_path):
 
 
 def get_writer(file_path, mode='wb', *args, **kwargs):
-    if mode not in ['wb', 'w']:
+    if mode not in ['wb', 'w', 'a', 'ab']:
         raise ValueError("Writer mode {} not supported".format(mode))
     file_path = _get_path_object(file_path)
     return file_path.open(mode, *args, **kwargs)

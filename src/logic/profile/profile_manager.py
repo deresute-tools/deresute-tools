@@ -157,6 +157,16 @@ class ProfileManager:
                 fw.write(",".join(keys) + "\n")
                 for chara_id, chara_name in chara_dict.items():
                     fw.write(str(chara_id) + "," + ",".join(["0"] * 5) + "\n")
+        else:
+            with storage.get_reader(PROFILE_PATH / "{}.ptl".format(self.profile), 'r') as fr:
+                csv_reader = csv.reader(fr)
+                next(csv_reader)
+                for row in csv_reader:
+                    chara_dict.pop(int(row[0]))
+            with storage.get_writer(PROFILE_PATH / "{}.ptl".format(self.profile), 'a') as fa:
+                for chara_id, chara_name in chara_dict.items():
+                    fa.write(str(chara_id) + "," + ",".join(["0"] * 5) + "\n")
+
 
     def _load_potentials(self):
         potential.initialize_potential_db()

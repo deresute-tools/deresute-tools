@@ -77,7 +77,7 @@ class PotentialModel:
         data = db.cachedb.execute_and_fetchall("""
             SELECT 
                 potential_cache.chara_id as ID,
-                min(card_data_cache.id) as _card_id,
+                card_data_cache.id as _card_id,
                 chara_cache.full_name as Name,
                 potential_cache.vo as Vocal,
                 potential_cache.da as Dance,
@@ -85,7 +85,7 @@ class PotentialModel:
                 potential_cache.li as Life,
                 potential_cache.sk as Skill,
                 potential_cache.vo+ potential_cache.da+ potential_cache.vi+ potential_cache.li+ potential_cache.sk as Total
-            FROM potential_cache
+            FROM (SELECT * FROM potential_cache ORDER BY random()) AS potential_cache
             INNER JOIN chara_cache ON potential_cache.chara_id = chara_cache.chara_id
             INNER JOIN card_data_cache ON card_data_cache.chara_id = potential_cache.chara_id
             GROUP BY card_data_cache.chara_id
