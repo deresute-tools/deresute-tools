@@ -12,8 +12,8 @@ from settings import INDEX_PATH
 from static.color import Color
 from static.song_difficulty import Difficulty
 
-KEYWORD_KEYS_STR_ONLY = ["short", "chara", "rarity", "color", "skill", "leader", "time_prob_key", "fes",
-                         "main_attribute"]
+KEYWORD_KEYS_STR_ONLY = ["short", "chara", "rarity", "color", "skill", "leader", "time_prob_key", "fes", "noir",
+                         "blanc", "main_attribute"]
 KEYWORD_KEYS = KEYWORD_KEYS_STR_ONLY + ["owned", "idolized"]
 
 
@@ -46,9 +46,21 @@ class IndexManager:
                     IFNULL(LOWER(sk.keywords), "") as skill,
                     IFNULL(LOWER(lk.keywords), "") as leader,
                     CASE
-                        WHEN cdc.leader_skill_id IN (70,71,72,73,81,82,83,84,104,105,106,113,117) 
+                        WHEN cdc.leader_skill_id IN (70,71,72,73,81,82,83,84,104,105,106,113,117,118)
                         AND cdc.rarity > 6 
                         THEN "fes" 
+                        ELSE ""
+                    END fes,
+                    CASE
+                        WHEN cdc.leader_skill_id IN (70,71,72,73,81,82,83,84,104,105,106,113,117)
+                        AND cdc.rarity > 6 
+                        THEN "blanc"
+                        ELSE ""
+                    END fes,
+                    CASE
+                        WHEN cdc.leader_skill_id IN (118)
+                        AND cdc.rarity > 6 
+                        THEN "noir"
                         ELSE ""
                     END fes,
                     CASE
