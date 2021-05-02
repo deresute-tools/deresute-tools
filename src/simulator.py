@@ -375,8 +375,8 @@ class Simulator:
                 clone_row = row.copy()
                 clone_row['is_abuse'] = True
                 clone_row['is_great'] = is_great
-                clone_row['abuse_range_l'] = int((abuse_range_l * 1E6 - sec) / 1000)
-                clone_row['abuse_range_r'] = int((abuse_range_r * 1E6 - sec) / 1000)
+                clone_row['abuse_range_l'] = int((abuse_range_l - sec) / 1000)
+                clone_row['abuse_range_r'] = int((abuse_range_r - sec) / 1000)
                 clone_row['sec'] = (abuse_range_l + abuse_range_r) / 2E6
                 self.notes_data = self.notes_data.append(clone_row, ignore_index=True)
         self.notes_data = self.notes_data.sort_values(by='sec', kind='mergesort', ignore_index=True)
