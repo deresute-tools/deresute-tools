@@ -21,6 +21,8 @@ class ChartViewerListener:
             self.chart_viewer = ChartViewer(self)
         if event.look_for_chart:
             score_id, diff_id, _, _, _ = eventbus.eventbus.post_and_get_first(GetSongDetailsEvent())
+            if score_id is None:
+                return
             eventbus.eventbus.post(SendMusicEvent(score_id, diff_id))
 
 

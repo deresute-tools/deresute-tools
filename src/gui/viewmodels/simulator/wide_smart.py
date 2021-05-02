@@ -252,7 +252,8 @@ class MainModel(QObject):
     def process_results(self, payload: BaseSimulationResultWithUuid):
         eventbus.eventbus.post(DisplaySimulationResultEvent(payload))
         if payload.abuse_load:
-            assert isinstance(payload.results, SimulationResult)
+            if not isinstance(payload.results, SimulationResult):
+                return
             eventbus.eventbus.post(HookAbuseToChartViewerEvent(payload.results.max_theoretical_result.cards,
                                                                payload.results.max_theoretical_result.abuse_df),
                                    asynchronous=False)
