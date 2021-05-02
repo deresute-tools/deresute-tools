@@ -1,16 +1,20 @@
 import csv
 import time
 from collections import defaultdict
+from decimal import Decimal
 
 import numpy as np
 import pandas as pd
 
 import customlogger as logger
+from settings import ABUSE_CHARTS_PATH
 from static.color import Color
 from static.live_values import WEIGHT_RANGE, DIFF_MULTIPLIERS
 from static.note_type import NoteType
 from static.skill import get_sparkle_bonus
 from static.song_difficulty import FLICK_DRAIN, NONFLICK_DRAIN
+from utils.misc import SegmentTree
+from utils.storage import get_writer
 
 SPECIAL_OFFSET = 0.075
 
@@ -41,8 +45,21 @@ class BaseSimulationResult:
         pass
 
 
+class MaxSimulationResult(BaseSimulationResult):
+    def __init__(self, total_appeal, total_perfect, abuse_df, total_life, perfect_score, cards, max_score):
+        super().__init__()
+        self.total_appeal = total_appeal
+        self.total_perfect = total_perfect
+        self.abuse_df = abuse_df
+        self.total_life = total_life
+        self.perfect_score = perfect_score
+        self.cards = cards
+        self.max_score = max_score
+
+
 class SimulationResult(BaseSimulationResult):
-    def __init__(self, total_appeal, perfect_score, skill_off, base, deltas, total_life, fans):
+    def __init__(self, total_appeal, perfect_score, skill_off, base, deltas, total_life, fans,
+                 max_theoretical_result: MaxSimulationResult = None):
         super().__init__()
         self.total_appeal = total_appeal
         self.perfect_score = perfect_score
@@ -51,18 +68,7 @@ class SimulationResult(BaseSimulationResult):
         self.deltas = deltas
         self.total_life = total_life
         self.fans = fans
-
-
-class MaxSimulationResult(BaseSimulationResult):
-    def __init__(self, total_appeal, total_perfect, deltas, total_life, perfect_score, score_array, cards):
-        super().__init__()
-        self.total_appeal = total_appeal
-        self.total_perfect = total_perfect
-        self.deltas = deltas
-        self.total_life = total_life
-        self.perfect_score = perfect_score
-        self.score_array = score_array
-        self.cards = cards
+        self.max_theoretical_result = max_theoretical_result
 
 
 class AutoSimulationResult(BaseSimulationResult):
@@ -245,16 +251,15 @@ class Simulator:
 
     def simulate_theoretical_max(self, appeals=None, extra_bonus=None, support=None,
                                  chara_bonus_set=None, chara_bonus_value=0, special_option=None, special_value=None,
-                                 left_boundary=-200, right_boundary=200, n_intervals=40):
+                                 doublelife=False):
         start = time.time()
         logger.debug("Unit: {}".format(self.live.unit))
         logger.debug("Song: {} - {} - Lv {}".format(self.live.music_name, self.live.difficulty, self.live.level))
         res = self._simulate_theoretical_max(appeals=appeals, extra_bonus=extra_bonus, support=support,
                                              chara_bonus_set=chara_bonus_set, chara_bonus_value=chara_bonus_value,
                                              special_option=special_option, special_value=special_value,
-                                             left_boundary=left_boundary, right_boundary=right_boundary,
-                                             n_intervals=n_intervals)
-        logger.debug("Total run time for {} trials: {:04.2f}s".format(n_intervals + 1, time.time() - start))
+                                             doublelife=doublelife)
+        logger.debug("Total run time for: {:04.2f}s".format(time.time() - start))
         return res
 
     def _simulate_theoretical_max(self,
@@ -265,166 +270,136 @@ class Simulator:
                                   chara_bonus_value=0,
                                   special_option=None,
                                   special_value=None,
-                                  left_boundary=-200,
-                                  right_boundary=200,
-                                  n_intervals=40
+                                  doublelife=False
                                   ):
         self._setup_simulator(appeals=appeals, support=support, extra_bonus=extra_bonus,
                               chara_bonus_set=chara_bonus_set, chara_bonus_value=chara_bonus_value,
                               special_option=special_option, special_value=special_value)
         grand = self.live.is_grand
-        self._simulate_internal(times=1, grand=grand, time_offset=0, fail_simulate=False)
-        perfect_score = self.get_note_scores().copy()
-
         self._helper_mark_slide_checkpoints()
+        clean_notes_data = self.notes_data.copy()
+        self._simulate_internal(times=1, grand=grand, time_offset=0, fail_simulate=False, doublelife=doublelife)
+        perfect_scores = self.get_note_scores().copy()
 
-        cc_idxes = list()
-        for unit_idx, unit in enumerate(self.live.unit.all_units):
-            for card_idx, card in enumerate(unit.all_cards()):
-                try:
-                    self.notes_data = self.notes_data.drop("skill_{}_l".format(unit_idx * 5 + card_idx), axis=1)
-                except:
-                    pass
-                if card.skill.skill_type == 15:
-                    cc_idxes.append(unit_idx * 5 + card_idx)
-        cc_idxes = list(map(lambda x: "skill_{}".format(x), cc_idxes))
-        score_array = np.zeros((len(self.notes_data), n_intervals + 1))
-        delta = (right_boundary - left_boundary) / n_intervals
-        for _ in range(n_intervals + 1):
-            offset = left_boundary + delta * _
-            self._simulate_internal(times=1, grand=grand, time_offset=offset / 1000, fail_simulate=False)
-            has_cc = self.notes_data[cc_idxes].any(axis=1)
+        interval_endpoints = set(self.activation_points.keys()).union(set(self.deactivation_points.keys()))
+        interval_endpoints = list(sorted(list(interval_endpoints)))
 
-            is_miss = np.ones(len(self.notes_data))
-            is_great = np.ones(len(self.notes_data))
-            is_perfect = np.ones(len(self.notes_data))
+        skill_interval_tree = SegmentTree(interval_endpoints, self.activation_points, self.deactivation_points,
+                                          len(self.live.unit.all_cards()))
 
-            for idx in range(len(self.notes_data)):
-                note_type = self.notes_data['note_type'][idx]
-                is_cc = has_cc[idx]
-                is_checkpoint = self.notes_data['checkpoints'][idx]
+        def get_ranges(note_time, note_type, is_checkpoint):
+            if note_type == NoteType.TAP:
+                l_g = note_time - 80000
+                r_g = note_time + 80000
+                l_p = note_time - 60000
+                r_p = note_time + 60000
+            elif note_type == NoteType.FLICK or note_type == NoteType.LONG:
+                l_g = note_time - 180000
+                r_g = note_time + 180000
+                l_p = note_time - 150000
+                r_p = note_time + 150000
+            elif not is_checkpoint:
+                l_g = 9E9
+                r_g = -9E9
+                l_p = note_time - 200000
+                r_p = note_time + 200000
+            else:
+                l_g = note_time
+                r_g = -9E9
+                l_p = note_time
+                r_p = note_time + 200000
+            points_gl = set()
+            points_gr = set()
+            points_p = set()
+            # Great to the left
+            for point in interval_endpoints:
+                if l_g <= point < l_p:
+                    points_gl.add(point)
+                    continue
+                if l_p <= point <= r_p:
+                    points_p.add(point)
+                    continue
+                if r_p < point <= r_g:
+                    points_gr.add(point)
+                    continue
+            if len(points_gl) > 0:
+                if l_g != 9E9:
+                    points_gl.add(l_g)
+                points_gl.add(l_p)
+            if len(points_p) > 0:
+                points_p.add(l_p)
+                points_p.add(note_time)
+                points_p.add(r_p)
+            if len(points_gr) > 0:
+                points_gr.add(r_p)
+                if r_g != -9E9:
+                    points_gr.add(r_g)
+            points_gl = list(sorted(points_gl))
+            points_p = list(sorted(points_p))
+            points_gr = list(sorted(points_gr))
 
-                if note_type == NoteType.TAP:
-                    if is_cc:
-                        if offset < -40 or offset > 40:
-                            is_miss[idx] = True
-                            is_great[idx] = False
-                            is_perfect[idx] = False
-                        elif offset < -30 or offset > 30:
-                            is_miss[idx] = False
-                            is_great[idx] = True
-                            is_perfect[idx] = False
-                        else:
-                            is_miss[idx] = False
-                            is_great[idx] = False
-                            is_perfect[idx] = True
+            # Nothing to check
+            if len(points_gl) == 0 and len(points_p) == 0 and len(points_gr) == 0:
+                return list()
+
+            valid_intervals = list()
+            perfect_hit = skill_interval_tree.query(note_time)
+            for list_idx, list_to_check in enumerate([points_gl, points_gr, points_p]):
+                last_check = None
+                for check_interval in zip(list_to_check[:-1], list_to_check[1:]):
+                    check = skill_interval_tree.query((check_interval[0] + check_interval[1]) / 2)
+                    if check.issubset(perfect_hit):
+                        continue
+                    # Merge interval if possible
+                    inner_is_great = list_idx <= 1
+                    if last_check is not None and last_check == check:
+                        last_appended = valid_intervals[-1]
+                        valid_intervals[-1] = (last_appended[0], check_interval[1], inner_is_great)
                     else:
-                        if offset < -80 or offset > 80:
-                            is_miss[idx] = True
-                            is_great[idx] = False
-                            is_perfect[idx] = False
-                        elif offset < -60 or offset > 60:
-                            is_miss[idx] = False
-                            is_great[idx] = True
-                            is_perfect[idx] = False
-                        else:
-                            is_miss[idx] = False
-                            is_great[idx] = False
-                            is_perfect[idx] = True
-                elif note_type == NoteType.FLICK or note_type == NoteType.LONG:
-                    if is_cc:
-                        if offset < -90 or offset > 90:
-                            is_miss[idx] = True
-                            is_great[idx] = False
-                            is_perfect[idx] = False
-                        elif offset < -75 or offset > 75:
-                            is_miss[idx] = False
-                            is_great[idx] = True
-                            is_perfect[idx] = False
-                        else:
-                            is_miss[idx] = False
-                            is_great[idx] = False
-                            is_perfect[idx] = True
-                    else:
-                        if offset < -180 or offset > 180:
-                            is_miss[idx] = True
-                            is_great[idx] = False
-                            is_perfect[idx] = False
-                        elif offset < -150 or offset > 150:
-                            is_miss[idx] = False
-                            is_great[idx] = True
-                            is_perfect[idx] = False
-                        else:
-                            is_miss[idx] = False
-                            is_great[idx] = False
-                            is_perfect[idx] = True
-                elif not is_checkpoint:
-                    if is_cc:
-                        if offset < -100 or offset > 100:
-                            is_miss[idx] = True
-                            is_great[idx] = False
-                            is_perfect[idx] = False
-                        else:
-                            is_miss[idx] = False
-                            is_great[idx] = False
-                            is_perfect[idx] = True
-                    else:
-                        if offset < -200 or offset > 200:
-                            is_miss[idx] = True
-                            is_great[idx] = False
-                            is_perfect[idx] = False
-                        else:
-                            is_miss[idx] = False
-                            is_great[idx] = False
-                            is_perfect[idx] = True
-                else:
-                    if is_cc:
-                        if offset < 0 or offset > 100:
-                            is_miss[idx] = True
-                            is_great[idx] = False
-                            is_perfect[idx] = False
-                        else:
-                            is_miss[idx] = False
-                            is_great[idx] = False
-                            is_perfect[idx] = True
-                    else:
-                        if offset < 0 or offset > 200:
-                            is_miss[idx] = True
-                            is_great[idx] = False
-                            is_perfect[idx] = False
-                        else:
-                            is_miss[idx] = False
-                            is_great[idx] = False
-                            is_perfect[idx] = True
-            is_miss = is_miss == 1
-            is_great = is_great == 1
-            is_perfect = is_perfect == 1
-            bonuses_0 = (1 + self.notes_data['bonuses_0'] / 100)
-            bonuses_1 = (1 + self.notes_data['bonuses_1'] / 100)
-            self.notes_data['note_score'] = 0
-            try:
-                self.notes_data.loc[is_great, 'note_score'] = np.round(
-                    self.base_score * self.notes_data[is_great]['weight'] * bonuses_1[is_great] * 0.7)
-            except KeyError:
-                pass
-            try:
-                self.notes_data.loc[is_perfect, 'note_score'] = np.round(
-                    self.base_score * self.notes_data[is_perfect]['weight'] * bonuses_0[is_perfect] * bonuses_1[
-                        is_perfect])
-            except KeyError:
-                pass
-            try:
-                self.notes_data.loc[is_miss, 'note_score'] = 0
-            except KeyError:
-                pass
-            score_array[:, _] = self.notes_data['note_score']
-        max_score = score_array.max(axis=1)
-        total_max = max_score.sum()
-        total_perfect = perfect_score.sum()
-        cumsum_max = max_score.cumsum()
-        cumsum_pft = perfect_score.cumsum()
+                        valid_intervals.append((check_interval[0], check_interval[1], inner_is_great))
+                    last_check = check
+            return valid_intervals
 
-        with open("{}.csv".format(self.live.score_id), 'w', newline='') as fw:
+        self.notes_data = clean_notes_data.copy()
+        self.notes_data['is_abuse'] = False
+        self.notes_data['is_great'] = False
+        self.notes_data['abuse_range_l'] = None
+        self.notes_data['abuse_range_r'] = None
+        self.notes_data['abuse_helper_note_group'] = self.notes_data.index
+        for idx, row in self.notes_data.iterrows():
+            # Get possible ranges
+            # Evaluate ranges
+            sec = int(row['sec'] * 1E6)
+            abuse_ranges = get_ranges(sec, row['note_type'], row['checkpoints'])
+            for abuse_range_l, abuse_range_r, is_great in abuse_ranges:
+                clone_row = row.copy()
+                clone_row['is_abuse'] = True
+                clone_row['is_great'] = is_great
+                clone_row['abuse_range_l'] = int((abuse_range_l * 1E6 - sec) / 1000)
+                clone_row['abuse_range_r'] = int((abuse_range_r * 1E6 - sec) / 1000)
+                clone_row['sec'] = (abuse_range_l + abuse_range_r) / 2E6
+                self.notes_data = self.notes_data.append(clone_row, ignore_index=True)
+        self.notes_data = self.notes_data.sort_values(by='sec', kind='mergesort', ignore_index=True)
+        self._simulate_internal(times=1, grand=grand, time_offset=0, fail_simulate=False, doublelife=doublelife,
+                                abuse_check=True)
+        bonuses_0 = (1 + self.notes_data['bonuses_0'] / 100)
+        bonuses_0[self.notes_data['is_great']] = 0.7
+        bonuses_1 = (1 + self.notes_data['bonuses_1'] / 100)
+        self.notes_data['final_bonus'] = bonuses_0 * bonuses_1
+        self.notes_data = self.notes_data \
+            .sort_values(by='final_bonus', kind='mergesort', ascending=False) \
+            .drop_duplicates(['abuse_helper_note_group']) \
+            .sort_values(by='abuse_helper_note_group', kind='mergesort', ignore_index=True)
+        # Reset weights
+        max_scores = np.round(self.base_score * self.notes_data['weight'] * self.notes_data['final_bonus'])
+        self.notes_data['delta'] = max_scores - perfect_scores
+        self.notes_data['sec'] = self.live.notes.sec
+        abuse_df = self.notes_data[self.notes_data['is_abuse']]
+        max_score = int(max_scores.sum())
+
+        cumsum_pft = perfect_scores.cumsum()
+        cumsum_max = max_scores.cumsum()
+        with get_writer(ABUSE_CHARTS_PATH / "{}.csv".format(self.live.score_id), 'w', newline='') as fw:
             csv_writer = csv.writer(fw)
             csv_writer.writerow(["Card Name", "Card ID", "Vo", "Da", "Vi", "Lf", "Sk"])
             for card in self.live.unit.all_cards():
@@ -434,30 +409,38 @@ class Simulator:
             csv_writer.writerow([])
             csv_writer.writerow(["Note", "Time", "Type", "Lane", "Perfect Score", "Left", "Right", "Delta", "Window",
                                  "Cumulative Perfect Score", "Cumulative Max Score"])
-            for idx in range(len(max_score)):
-                temp = np.array(range(1, n_intervals + 2)) * (score_array[idx, :] == max_score[idx])
-                temp = temp[temp != 0] - 1
-                delta = max_score[idx] - perfect_score[idx]
-                csv_writer.writerow([idx, self.notes_data['sec'][idx], self.notes_data['note_type'][idx],
-                                     self.notes_data['finishPos'][idx],
-                                     perfect_score[idx],
-                                     -200 + temp.min() * 400 / n_intervals,
-                                     -200 + temp.max() * 400 / n_intervals,
-                                     delta,
-                                     (temp.max() - temp.min()) * 400 / n_intervals,
+            for idx, row in self.notes_data.iterrows():
+                if row['is_abuse']:
+                    l = row['abuse_range_l']
+                    r = row['abuse_range_r']
+                    window = r - l
+                else:
+                    l = "N/A"
+                    r = "N/A"
+                    window = "N/A"
+                csv_writer.writerow([idx, row['sec'], row['note_type'],
+                                     row['finishPos'],
+                                     perfect_scores[idx],
+                                     l, r,
+                                     row['delta'],
+                                     window,
                                      cumsum_pft[idx],
                                      cumsum_max[idx]
                                      ])
 
-        return MaxSimulationResult(
-            total_appeal=self.total_appeal,
-            total_perfect=total_perfect,
-            deltas=np.array([total_max - total_perfect, 0]),
-            total_life=self.live.get_life(),
-            perfect_score=perfect_score,
-            score_array=score_array,
-            cards=self.live.unit.all_cards()
-        )
+        logger.debug("Tensor size: {}".format(self.notes_data.shape))
+        logger.debug("Appeal: {}".format(int(self.total_appeal)))
+        logger.debug("Support: {}".format(int(self.live.get_support())))
+        logger.debug("Support team: {}".format(self.live.print_support_team()))
+        logger.debug("Perfect: {}".format(int(perfect_scores.sum())))
+        logger.debug("Max Abuse: {}".format(max_score))
+        logger.debug("Total Abuse Count: {}".format(len(abuse_df)))
+        logger.debug("Average Abuse Delta: {}".format(int(abuse_df['delta'].mean())))
+
+        return MaxSimulationResult(total_appeal=self.total_appeal, total_perfect=perfect_scores.sum(),
+                                   abuse_df=abuse_df,
+                                   total_life=self.live.get_life(), perfect_score=perfect_scores,
+                                   cards=self.live.unit.all_cards(), max_score=max_score)
 
     def simulate_auto(self, appeals=None, extra_bonus=None, support=None,
                       chara_bonus_set=None, chara_bonus_value=0, special_option=None, special_value=None,
@@ -548,7 +531,8 @@ class Simulator:
             self.notes_data.loc[group.iloc[-1].name, 'checkpoints'] = False
             self.notes_data.loc[group.iloc[0].name, 'checkpoints'] = False
 
-    def _simulate_internal(self, grand, times, fail_simulate=False, time_offset=0.0, doublelife=False):
+    def _simulate_internal(self, grand, times, fail_simulate=False, time_offset=0.0, doublelife=False,
+                           abuse_check=False):
         results = self._helper_initialize_skill_activations(times=times, grand=grand,
                                                             time_offset=time_offset,
                                                             fail_simulate=fail_simulate)
@@ -559,8 +543,9 @@ class Simulator:
                                                            sparkle=False,
                                                            alternate=self.has_alternate and not self.has_sparkle,
                                                            refrain=self.has_refrain and not self.has_sparkle,
-                                                           is_magic=self.has_magic)
-        self._helper_evaluate_skill_bonuses(np_v, np_b, grand=grand, doublelife=doublelife)
+                                                           is_magic=self.has_magic,
+                                                           abuse_check=abuse_check)
+        self._helper_evaluate_skill_bonuses(np_v, np_b, grand=grand, doublelife=doublelife, abuse_check=abuse_check)
 
         if self.has_sparkle:
             np_v, np_b = self._helper_initialize_skill_bonuses(grand=grand,
@@ -568,8 +553,9 @@ class Simulator:
                                                                sparkle=self.has_sparkle,
                                                                alternate=self.has_alternate,
                                                                refrain=self.has_refrain,
-                                                               is_magic=self.has_magic)
-            self._helper_evaluate_skill_bonuses(np_v, np_b, grand=grand, doublelife=doublelife)
+                                                               is_magic=self.has_magic,
+                                                               abuse_check=abuse_check)
+            self._helper_evaluate_skill_bonuses(np_v, np_b, grand=grand, doublelife=doublelife, abuse_check=abuse_check)
 
     def _simulate_auto_internal(self, times, grand, time_offset=0.0, auto_pass=0, doublelife=False):
         results = self._helper_initialize_skill_activations(times=times, grand=grand,
@@ -775,7 +761,8 @@ class Simulator:
         self.notes_data['weight'] = self.notes_data['combo'].map(weight_dict)
         self.notes_data['combo'] += 1
 
-    def _helper_evaluate_skill_bonuses(self, np_v, np_b, grand, mutate_df=True, auto=False, doublelife=False):
+    def _helper_evaluate_skill_bonuses(self, np_v, np_b, grand, mutate_df=True, auto=False, doublelife=False,
+                                       abuse_check=False):
         """
         Evaluates and unifies skill bonuses.
         :param np_v: Numpy array of unnormalized (e.g. 120) skill values (no boost), shape: Notes x Values x Colors x Cards
@@ -907,16 +894,31 @@ class Simulator:
                 self.notes_data['life_preclip'] = life_array
                 self.notes_data['life'] = np.clip(self.notes_data['life_preclip'], a_min=0, a_max=clipped_life)
             elif any(self.has_healing):
-                self.notes_data['life'] = np.clip(
-                    self.live.get_start_life(doublelife=doublelife)
-                    + self.notes_data['bonuses_2'].groupby(self.notes_data.index // self.note_count).cumsum(),
-                    a_min=0, a_max=2 * self.live.get_life())
+                if not abuse_check:
+                    self.notes_data['life'] = np.clip(
+                        self.live.get_start_life(doublelife=doublelife)
+                        +
+                        self.notes_data['bonuses_2']
+                        .groupby(self.notes_data.index // self.note_count)
+                        .cumsum(),
+                        a_min=0, a_max=2 * self.live.get_life())
+                else:
+                    temp_life = list()
+                    clip_life = 2 * self.live.get_life()
+                    current_life = self.live.get_start_life(doublelife=doublelife)
+                    for real_idx, group in self.notes_data.groupby("abuse_helper_note_group"):
+                        current_life += group['bonuses_2'].max()
+                        if current_life > clip_life:
+                            current_life = clip_life
+                        temp_life.extend([current_life] * len(group))
+                    self.notes_data['life'] = temp_life
+
             else:
                 self.notes_data['life'] = self.live.get_start_life(doublelife=doublelife)
         return skill_bonuses_final
 
     def _helper_initialize_skill_bonuses(self, grand, np_v=None, np_b=None, sparkle=False, alternate=False,
-                                         refrain=False, is_magic=False):
+                                         refrain=False, is_magic=False, abuse_check=False):
         """
         Initializes skill values in DataFrame.
         :param grand: True if GRAND LIVE, else False.
@@ -998,7 +1000,10 @@ class Simulator:
                     s_arr[s_arr > 0] = 1
                     c_arr[np.logical_and(s_arr > 0, c_arr == 0)] = 80
 
-                note_count = len(self.live.notes)
+                if abuse_check:
+                    note_count = len(self.notes_data)
+                else:
+                    note_count = len(self.live.notes)
                 if "rep" not in self.notes_data:
                     rep = 1
                 else:
@@ -1063,7 +1068,10 @@ class Simulator:
                     self.notes_data['ref_combo_bonus_per_note'], axis=0)
                 ref_score_value = np.array(self.notes_data['ref_score_bonus_per_note'])
                 ref_combo_value = np.array(self.notes_data['ref_combo_bonus_per_note'])
-                note_count = len(self.live.notes)
+                if abuse_check:
+                    note_count = len(self.notes_data)
+                else:
+                    note_count = len(self.live.notes)
                 if "rep" not in self.notes_data:
                     rep = 1
                 else:
@@ -1239,6 +1247,8 @@ class Simulator:
         self.magic_lists = defaultdict(list)
         self.magic_set = set()
         self.all_100 = True
+        self.activation_points = defaultdict(set)
+        self.deactivation_points = defaultdict(set)
 
         if reset_notes_data:
             self.notes_data = self.original_notes_data.copy()
@@ -1267,6 +1277,26 @@ class Simulator:
                 if skill.v3 > 0 and not skill.boost:
                     # Use for early termination
                     has_support = True
+
+        def left_compare(note_times_to_compare, left_to_compare):
+            if self.left_inclusive:
+                return note_times_to_compare >= left_to_compare
+            else:
+                return note_times_to_compare > left_to_compare
+
+        def right_compare(note_times_to_compare, right_to_compare):
+            if self.right_inclusive:
+                return note_times_to_compare <= right_to_compare
+            else:
+                return note_times_to_compare < right_to_compare
+
+        def helper_fill_lr_time_alt_ref(card_idx, has_alternate, has_refrain, left, note_times, right,
+                                        unit_idx, rep_rolls=None):
+            if has_alternate or has_refrain:
+                mask = np.logical_and(left_compare(note_times, left), right_compare(note_times, right))
+                if rep_rolls is not None:
+                    mask = np.logical_and(mask, self.notes_data.rep.isin(rep_rolls))
+                self.notes_data.loc[mask, 'skill_{}_l'.format(unit_idx * 5 + card_idx)] = left
 
         for unit_idx, unit in enumerate(self.live.unit.all_units):
             has_healing = False
@@ -1304,11 +1334,13 @@ class Simulator:
                     self.notes_data['skill_{}'.format(unit_idx * 5 + card_idx)] = 0
                     for skill_activation, skill_range in enumerate(skills):
                         left, right = skill_range
+                        self.activation_points[int(left * 1E6)].add(unit_idx * 5 + card_idx)
+                        self.deactivation_points[int(right * 1E6)].add(unit_idx * 5 + card_idx)
                         self.notes_data.loc[
-                            self._left_compare(note_times, left) & self._right_compare(note_times, right),
+                            left_compare(note_times, left) & right_compare(note_times, right),
                             'skill_{}'.format(unit_idx * 5 + card_idx)] = 1 if probability > 0 else 0
-                        self._helper_fill_lr_time_alt_ref(card_idx, has_alternate, has_refrain, left,
-                                                          note_times, right, unit_idx)
+                        helper_fill_lr_time_alt_ref(card_idx, has_alternate, has_refrain, left, note_times, right,
+                                                    unit_idx)
                 else:
                     note_times = self.notes_data.sec + np.random.random(len(self.notes_data)) * 0.06 - 0.03
                     self.notes_data['skill_{}'.format(unit_idx * 5 + card_idx)] = 0
@@ -1319,18 +1351,18 @@ class Simulator:
                             rep_rolls = rep_rolls * np.arange(1, 1 + times) - 1
                             rep_rolls = rep_rolls[rep_rolls != -1]
                             self.notes_data.loc[
-                                self._left_compare(note_times, left) & self._right_compare(note_times, right)
+                                left_compare(note_times, left) & right_compare(note_times, right)
                                 & (self.notes_data.rep.isin(rep_rolls)),
                                 'skill_{}'.format(unit_idx * 5 + card_idx)] = 1
-                            self._helper_fill_lr_time_alt_ref(card_idx, has_alternate, has_refrain, left, note_times,
-                                                              right, unit_idx, rep_rolls=rep_rolls)
+                            helper_fill_lr_time_alt_ref(card_idx, has_alternate, has_refrain, left, note_times,
+                                                        right, unit_idx, rep_rolls=rep_rolls)
                         else:
                             # Save a bit more time
                             self.notes_data.loc[
-                                self._left_compare(note_times, left) & self._right_compare(note_times, right),
+                                left_compare(note_times, left) & right_compare(note_times, right),
                                 'skill_{}'.format(unit_idx * 5 + card_idx)] = 1
-                            self._helper_fill_lr_time_alt_ref(card_idx, has_alternate, has_refrain, left, note_times,
-                                                              right, unit_idx)
+                            helper_fill_lr_time_alt_ref(card_idx, has_alternate, has_refrain, left, note_times,
+                                                        right, unit_idx)
 
             self.has_healing.append(has_healing)
 
@@ -1344,23 +1376,3 @@ class Simulator:
                     self.notes_data['magic_{}'.format(unit_idx * 5 + magic)] = self.notes_data[
                         'skill_{}'.format(unit_idx * 5 + magic)]
         return has_sparkle, has_support, has_alternate, has_refrain, has_magic
-
-    def _helper_fill_lr_time_alt_ref(self, card_idx, has_alternate, has_refrain, left, note_times, right,
-                                     unit_idx, rep_rolls=None):
-        if has_alternate or has_refrain:
-            mask = np.logical_and(self._left_compare(note_times, left), self._right_compare(note_times, right))
-            if rep_rolls is not None:
-                mask = np.logical_and(mask, self.notes_data.rep.isin(rep_rolls))
-            self.notes_data.loc[mask, 'skill_{}_l'.format(unit_idx * 5 + card_idx)] = left
-
-    def _left_compare(self, note_times, left):
-        if self.left_inclusive:
-            return note_times >= left
-        else:
-            return note_times > left
-
-    def _right_compare(self, note_times, right):
-        if self.right_inclusive:
-            return note_times <= right
-        else:
-            return note_times < right

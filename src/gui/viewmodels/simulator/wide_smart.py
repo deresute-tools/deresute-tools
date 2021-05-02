@@ -17,7 +17,7 @@ from gui.events.utils.eventbus import subscribe
 from gui.events.utils.wrappers import BaseSimulationResultWithUuid, YoinkResults
 from gui.events.value_accessor_events import GetAutoplayOffsetEvent, GetAutoplayFlagEvent, GetDoublelifeFlagEvent, \
     GetSupportEvent, GetAppealsEvent, GetCustomPotsEvent, GetPerfectPlayFlagEvent, GetMirrorFlagEvent, \
-    GetCustomBonusEvent, GetGrooveSongColor, GetSkillBoundaryEvent
+    GetCustomBonusEvent, GetGrooveSongColor, GetSkillBoundaryEvent, GetTheoreticalMaxFlagEvent
 from gui.viewmodels.simulator.calculator import CalculatorModel, CalculatorView, CardsWithUnitUuid
 from gui.viewmodels.simulator.custom_bonus import CustomBonusView, CustomBonusModel
 from gui.viewmodels.simulator.custom_card import CustomCardView, CustomCardModel
@@ -29,7 +29,7 @@ from logic.grandunit import GrandUnit
 from logic.live import Live
 from logic.unit import Unit
 from network.api_client import get_top_build
-from simulator import Simulator
+from simulator import Simulator, SimulationResult
 
 
 class MainView:
@@ -168,18 +168,18 @@ class MainView:
         autoplay_offset = eventbus.eventbus.post_and_get_first(GetAutoplayOffsetEvent())
         extra_bonus, special_option, special_value = eventbus.eventbus.post_and_get_first(GetCustomBonusEvent())
         left_inclusive, right_inclusive = eventbus.eventbus.post_and_get_first(GetSkillBoundaryEvent())
+        theoretical_simulation = eventbus.eventbus.post_and_get_first(GetTheoreticalMaxFlagEvent())
 
-        hidden_feature_check = times > 0 and perfect_play is True and autoplay is False and autoplay_offset == 346
 
         self.model.simulate_internal(
             perfect_play=perfect_play,
             left_inclusive=left_inclusive, right_inclusive=right_inclusive,
+            theoretical_simulation=theoretical_simulation,
             score_id=score_id, diff_id=diff_id, times=times, all_cards=all_cards, custom_pots=custom_pots,
             appeals=appeals, support=support, extra_bonus=extra_bonus,
             special_option=special_option, special_value=special_value,
             mirror=mirror, autoplay=autoplay, autoplay_offset=autoplay_offset,
             doublelife=doublelife,
-            hidden_feature_check=hidden_feature_check,
             row=row
         )
 
@@ -197,9 +197,9 @@ class MainModel(QObject):
         self.process_simulation_results_signal.connect(lambda payload: self.process_results(payload))
         self.process_yoink_results_signal.connect(lambda payload: self._handle_yoink_done_signal(payload))
 
-    def simulate_internal(self, perfect_play, left_inclusive, right_inclusive, score_id, diff_id, times, all_cards,
+    def simulate_internal(self, perfect_play, left_inclusive, right_inclusive, theoretical_simulation, score_id, diff_id, times, all_cards,
                           custom_pots, appeals, support, extra_bonus, special_option, special_value, mirror, autoplay,
-                          autoplay_offset, doublelife, hidden_feature_check, row=None):
+                          autoplay_offset, doublelife, row=None):
         """
         :type all_cards: List[CardsWithUnitUuid]
         """
@@ -242,19 +242,19 @@ class MainModel(QObject):
 
             eventbus.eventbus.post(
                 SimulationEvent(card_with_uuid.uuid, card_with_uuid.short_uuid,
-                                row is not None and hidden_feature_check, appeals, autoplay, autoplay_offset,
-                                doublelife, extra_bonus, extra_return, hidden_feature_check, live, mirror, perfect_play,
+                                row is not None and theoretical_simulation, appeals, autoplay, autoplay_offset,
+                                doublelife, extra_bonus, extra_return, live, mirror, perfect_play,
                                 results, special_option, special_value, support, times, unit,
-                                left_inclusive, right_inclusive),
+                                left_inclusive, right_inclusive, theoretical_simulation),
                 high_priority=True, asynchronous=True)
 
     @pyqtSlot(BaseSimulationResultWithUuid)
     def process_results(self, payload: BaseSimulationResultWithUuid):
         eventbus.eventbus.post(DisplaySimulationResultEvent(payload))
         if payload.abuse_load:
-            eventbus.eventbus.post(HookAbuseToChartViewerEvent(payload.results.cards,
-                                                               payload.results.score_array,
-                                                               payload.results.perfect_score),
+            assert isinstance(payload.results, SimulationResult)
+            eventbus.eventbus.post(HookAbuseToChartViewerEvent(payload.results.max_theoretical_result.cards,
+                                                               payload.results.max_theoretical_result.abuse_df),
                                    asynchronous=False)
 
     @subscribe(SimulationEvent)
@@ -267,14 +267,6 @@ class MainModel(QObject):
                                        special_option=event.special_option, special_value=event.special_value,
                                        time_offset=event.autoplay_offset, mirror=event.mirror,
                                        doublelife=event.doublelife)
-        elif event.hidden_feature_check:
-            logger.info("Simulation mode: Theoretical - {} - {}".format(event.short_uuid, event.unit))
-            sim = Simulator(event.live)
-            result = sim.simulate_theoretical_max(appeals=event.appeals, extra_bonus=event.extra_bonus,
-                                                  support=event.support,
-                                                  special_option=event.special_option,
-                                                  special_value=event.special_value,
-                                                  left_boundary=-200, right_boundary=200, n_intervals=event.times)
         else:
             if event.perfect_play:
                 logger.info("Simulation mode: Perfect - {} - {}".format(event.short_uuid, event.unit))
@@ -286,6 +278,14 @@ class MainModel(QObject):
                                   support=event.support,
                                   special_option=event.special_option, special_value=event.special_value,
                                   doublelife=event.doublelife)
+            if event.theoretical_simulation:
+                result.max_theoretical_result = sim.simulate_theoretical_max(
+                    appeals=event.appeals,
+                    extra_bonus=event.extra_bonus,
+                    support=event.support,
+                    special_option=event.special_option,
+                    special_value=event.special_value,
+                    doublelife=event.doublelife)
         self.process_simulation_results_signal.emit(BaseSimulationResultWithUuid(event.uuid, result, event.abuse_load))
 
     def handle_yoink_button(self):

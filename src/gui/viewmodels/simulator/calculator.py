@@ -21,7 +21,7 @@ from gui.viewmodels.utils import NumericalTableWidgetItem, UniversalUniqueIdenti
 from simulator import SimulationResult, MaxSimulationResult, AutoSimulationResult
 
 UNIVERSAL_HEADERS = ["Unit", "Appeals", "Life"]
-NORMAL_SIM_HEADERS = ["Perfect", "Mean", "Max", "Min", "Fans", "Skill Off", "90%", "75%", "50%"]
+NORMAL_SIM_HEADERS = ["Perfect", "Mean", "Max", "Min", "Fans", "90%", "75%", "50%", "Theo. Max"]
 AUTOPLAY_SIM_HEADERS = ["Auto Score", "Perfects", "Misses", "Max Combo", "Lowest Life", "Lowest Life Time (s)",
                         "All Skills 100%?"]
 ALL_HEADERS = UNIVERSAL_HEADERS + NORMAL_SIM_HEADERS + AUTOPLAY_SIM_HEADERS
@@ -301,8 +301,6 @@ class CalculatorModel:
         self.view.widget.cellWidget(row_to_change, 0).toggle_running_simulation(False)
         if isinstance(payload.results, SimulationResult):
             self._process_normal_results(payload.results, row_to_change)
-        elif isinstance(payload.results, MaxSimulationResult):
-            self._process_max_results(payload.results, row_to_change)
         elif isinstance(payload.results, AutoSimulationResult):
             self._process_auto_results(payload.results, row_to_change)
 
@@ -331,7 +329,7 @@ class CalculatorModel:
         self.view.add_unit([card_id, None, None, None, None, None])
 
     def _process_normal_results(self, results: SimulationResult, row=None):
-        # ["Perfect", "Mean", "Max", "Min", "Fans", "Skill Off%", "90%", "75%", "50%"])
+        # ["Perfect", "Mean", "Max", "Min", "Fans", "Theoretical Max", "90%", "75%", "50%"])
         self.view.fill_column(False, 0, row, int(results.total_appeal))
         self.view.fill_column(False, 1, row, int(results.total_life))
         self.view.fill_column(False, 2, row, int(results.perfect_score))
@@ -339,10 +337,11 @@ class CalculatorModel:
         self.view.fill_column(False, 4, row, int(results.base + results.deltas.max()))
         self.view.fill_column(False, 5, row, int(results.base + results.deltas.min()))
         self.view.fill_column(False, 6, row, int(results.fans))
-        self.view.fill_column(False, 7, row, int(results.skill_off))
-        self.view.fill_column(False, 8, row, int(results.base + np.percentile(results.deltas, 90)))
-        self.view.fill_column(False, 9, row, int(results.base + np.percentile(results.deltas, 75)))
-        self.view.fill_column(False, 10, row, int(results.base + np.percentile(results.deltas, 50)))
+        self.view.fill_column(False, 7, row, int(results.base + np.percentile(results.deltas, 90)))
+        self.view.fill_column(False, 8, row, int(results.base + np.percentile(results.deltas, 75)))
+        self.view.fill_column(False, 9, row, int(results.base + np.percentile(results.deltas, 50)))
+        if results.max_theoretical_result is not None:
+            self.view.fill_column(False, 10, row, int(results.max_theoretical_result.max_score))
 
     def _process_auto_results(self, results: AutoSimulationResult, row=None):
         # ["Auto Score", "Perfects", "Misses", "Max Combo", "Lowest Life", "Lowest Life Time", "All Skills 100%?"]
@@ -355,18 +354,6 @@ class CalculatorModel:
         self.view.fill_column(True, 6, row, int(results.lowest_life))
         self.view.fill_column(True, 7, row, float(results.lowest_life_time))
         self.view.fill_column(True, 8, row, "Yes" if results.all_100 else "No")
-
-    def _process_max_results(self, results: MaxSimulationResult, row=None):
-        self.view.fill_column(False, 0, row, int(results.total_appeal))
-        self.view.fill_column(False, 1, row, int(results.total_life))
-        self.view.fill_column(False, 2, row, int(results.total_perfect))
-        self.view.fill_column(False, 3, row, int(results.total_perfect + results.deltas.sum()))
-        self.view.fill_column(False, 4, row, 0)
-        self.view.fill_column(False, 5, row, 0)
-        self.view.fill_column(False, 6, row, 0)
-        self.view.fill_column(False, 7, row, 0)
-        self.view.fill_column(False, 8, row, 0)
-        self.view.fill_column(False, 9, row, 0)
 
 
 class CardsWithUnitUuid:

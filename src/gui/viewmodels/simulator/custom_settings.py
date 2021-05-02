@@ -8,7 +8,7 @@ from gui.events.utils import eventbus
 from gui.events.utils.eventbus import subscribe
 from gui.events.value_accessor_events import GetMirrorFlagEvent, GetPerfectPlayFlagEvent, GetCustomPotsEvent, \
     GetAppealsEvent, GetSupportEvent, GetDoublelifeFlagEvent, GetAutoplayFlagEvent, GetAutoplayOffsetEvent, \
-    GetSkillBoundaryEvent
+    GetSkillBoundaryEvent, GetTheoreticalMaxFlagEvent
 
 
 class CustomSettingsView:
@@ -26,6 +26,8 @@ class CustomSettingsView:
         self.custom_appeal_checkbox.setToolTip("This option will ignore support appeal.")
         self.custom_support_checkbox = QtWidgets.QCheckBox("Support Appeal", self.main)
         self.custom_perfect_play_checkbox = QtWidgets.QCheckBox("Perfect Simulation", self.main)
+        self.theoretical_max_checkbox = QtWidgets.QCheckBox("Theoretical Max", self.main)
+        self.theoretical_max_checkbox.setToolTip("Get the highest score theoretically possible. Will take some time.")
         self.skill_boundary = QtWidgets.QComboBox(self.main)
         self.mirror_checkbox = QtWidgets.QCheckBox("Mirror", self.main)
         self.doublelife_checkbox = QtWidgets.QCheckBox("2x Life Start", self.main)
@@ -48,10 +50,11 @@ class CustomSettingsView:
         self._setup_skill_boundaries()
 
     def _setup_positions(self):
-        self.layout.addWidget(self.custom_perfect_play_checkbox, 1, 0, 1, 3)
+        self.layout.addWidget(self.custom_perfect_play_checkbox, 1, 0, 1, 2)
+        self.layout.addWidget(self.mirror_checkbox, 1, 2, 1, 1)
         self.layout.addWidget(self.custom_potential_checkbox, 1, 3, 1, 2)
-        self.layout.addWidget(self.skill_boundary, 2, 0, 1, 2)
-        self.layout.addWidget(self.mirror_checkbox, 2, 2, 1, 1)
+        self.layout.addWidget(self.theoretical_max_checkbox, 2, 0, 1, 2)
+        self.layout.addWidget(self.skill_boundary, 2, 2, 1, 1)
         self.layout.addWidget(self.doublelife_checkbox, 2, 3, 1, 2)
         self.layout.addWidget(self.custom_support_text, 0, 5, 1, 1)
         self.layout.addWidget(self.custom_support_checkbox, 0, 6, 1, 1)
@@ -83,7 +86,7 @@ class CustomSettingsView:
             combobox.setMaxVisibleItems(11)
 
     def _setup_skill_boundaries(self):
-        self.skill_boundary.addItem("Skill Boundary")
+        self.skill_boundary.addItem("Bound")
         self.skill_boundary.addItem("(  ]")
         self.skill_boundary.addItem("[  )")
         self.skill_boundary.addItem("[  ]")
@@ -172,6 +175,10 @@ class CustomSettingsModel:
         if self.view.autoplay_offset_text.text() == "":
             return 0
         return int(self.view.autoplay_offset_text.text())
+
+    @subscribe(GetTheoreticalMaxFlagEvent)
+    def get_theoretical_max_flag(self, event=None):
+        return self.view.theoretical_max_checkbox.isChecked()
 
     @subscribe(GetSkillBoundaryEvent)
     def get_skill_boundary(self, event=None):

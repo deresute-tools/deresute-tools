@@ -51,3 +51,8 @@ class GetGrooveSongColor:
 class GetSkillBoundaryEvent:
     def __init__(self):
         pass
+
+
+class GetTheoreticalMaxFlagEvent:
+    def __init__(self):
+        pass

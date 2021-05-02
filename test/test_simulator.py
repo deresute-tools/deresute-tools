@@ -1,4 +1,7 @@
 import customlogger as logger
+from logic.card import Card
+from logic.grandlive import GrandLive
+from logic.grandunit import GrandUnit
 from logic.live import Live
 from logic.unit import Unit
 from simulator import Simulator
@@ -112,3 +115,35 @@ sim = Simulator(live, left_inclusive=True, right_inclusive=True)
 assert sim.simulate(perfect_play=True, appeals=302495).perfect_score == 1545740
 sim = Simulator(live, left_inclusive=False, right_inclusive=False)
 assert sim.simulate(perfect_play=True, appeals=302495).perfect_score == 1500307
+
+unit = Unit.from_list([100936, 100964, 100708, 100108, 100914], custom_pots=(10, 0, 0, 0, 0))
+live = Live()
+live.set_music(music_name="Just Us Justice", difficulty=Difficulty.MPLUS, event=True)
+live.set_unit(unit)
+sim = Simulator(live)
+assert sim.simulate_theoretical_max(appeals=350528).abuse_df['delta'].sum() == 54786
+
+
+sae4 = Card.from_query("sae4", custom_pots=(5,10,10,0,10))
+riina5 = Card.from_query("riina5", custom_pots=(5,10,10,0,10))
+riina5u = Card.from_query("riina5u", custom_pots=(5,10,10,0,10))
+hajime4 = Card.from_query("hajime4", custom_pots=(5,10,10,0,10))
+arisu3 = Card.from_query("arisu3", custom_pots=(5,10,10,0,10))
+yui2 = Card.from_query("yui2", custom_pots=(10,10,10,0,00))
+unit = Unit.from_list([sae4, riina5, riina5u, hajime4, arisu3, yui2], custom_pots=(5, 10, 10, 0, 10))
+live = Live()
+live.set_music(score_id=615, difficulty=Difficulty.MPLUS, event=True)
+live.set_unit(unit)
+sim = Simulator(live)
+assert sim.simulate_theoretical_max(support=113290).abuse_df['delta'].sum() == 76303
+
+
+unitA = Unit.from_list([300940, 300888, 300690, 300844, 300856])
+unitB = Unit.from_list([300798, 300830, 300716, 200894, 100928])
+unitC = Unit.from_list([300648, 300812, 300846, 300811, 300845])
+gu = GrandUnit(unitA, unitB, unitC)
+live = GrandLive()
+live.set_music(music_name="Starry-Go-Round", difficulty=Difficulty.PIANO)
+live.set_unit(gu)
+sim = Simulator(live)
+sim.simulate_theoretical_max(appeals=480692).max_score == 5898478

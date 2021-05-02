@@ -4,13 +4,11 @@ from abc import abstractmethod, ABC
 from collections import defaultdict
 from math import ceil
 
-import numpy as np
 from PyQt5.QtCore import Qt, QPoint, QRectF, QRect
 from PyQt5.QtGui import QPixmap, QPainter, QPen, QColor, QImage, QFont, QBrush, QPainterPath, qRgba, QPolygonF
 from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QScrollArea
 
 from exceptions import InvalidUnit
-from logic.grandlive import GrandLive
 from logic.grandunit import GrandUnit
 from logic.live import fetch_chart, Live
 from logic.unit import Unit
@@ -241,7 +239,7 @@ class BaseChartPicGenerator(ABC):
                     sec - (sec // MAX_SECS_PER_GROUP + offset_group) * MAX_SECS_PER_GROUP) * SEC_HEIGHT
 
     # Lanes start from 0
-    def generate_note_objects(self, deltas=None, windows=None):
+    def generate_note_objects(self, abuse_df=None):
         # Number of groups = ceil(last sec // MAX_SECS_PER_GROUP)
         self.last_sec = int(self.notes.sec.iloc[-1]) + 1
         self.n_groups = ceil(self.last_sec / MAX_SECS_PER_GROUP)
@@ -255,12 +253,17 @@ class BaseChartPicGenerator(ABC):
                         row['type'] == 7 and self.grand)
                 if self.mirrored:
                     right_flick = not right_flick
+                if abuse_df is not None and _ in abuse_df.index:
+                    delta = abuse_df.loc[_, 'delta']
+                    early = abuse_df.loc[_, 'abuse_range_l']
+                    late = abuse_df.loc[_, 'abuse_range_r']
+                else:
+                    delta = 0
+                    early = 0
+                    late = 0
                 note_object = ChartPicNote(sec=row['sec'], note_type=row['note_type'], lane=row['finishPos'],
                                            sync=row['sync'], qgroup=n, group_id=row['groupId'],
-                                           delta=deltas[_] if deltas is not None else 0,
-                                           early=windows[_][0] if windows is not None else 0,
-                                           late=windows[_][1] if windows is not None else 0,
-                                           right_flick=right_flick,
+                                           delta=delta, early=early, late=late, right_flick=right_flick,
                                            grand=self.grand, span=row['status'] - 1 if self.grand else 0)
                 group.append(note_object)
             self.note_groups.append(group)
@@ -355,7 +358,8 @@ class BaseChartPicGenerator(ABC):
                     self.p.setPen(horizontal_grid_light_pen)
                 y = self.get_y(sec, group=0)
                 self.p.drawLine(self.get_x(0, group), y, self.get_x(self.lane_count - 1, group), y)
-                self.p.drawText(QRect(self.get_x(0, group) - 111, y - 25, 70, 50), Qt.AlignRight, str(sec + MAX_SECS_PER_GROUP * group))
+                self.p.drawText(QRect(self.get_x(0, group) - 111, y - 25, 70, 50), Qt.AlignRight,
+                                str(sec + MAX_SECS_PER_GROUP * group))
 
     @abstractmethod
     def draw_notes(self):
@@ -401,23 +405,12 @@ class BaseChartPicGenerator(ABC):
                                 grouped_notes.iloc[:-1].T.to_dict().values()):
                     self._draw_group_line(l, r, group_idx)
 
-    def hook_abuse(self, all_cards, score_matrix, perfect_score_array):
+    def hook_abuse(self, all_cards, abuse_df):
         self.hook_cards(all_cards, False)
         delta_list = list()
         window_list = list()
-        n_intervals = score_matrix.shape[1] - 1
-        for i in range(len(perfect_score_array)):
-            max_score = score_matrix[i, :].max()
-            delta = max_score - perfect_score_array[i]
-            if delta == 0:
-                window_list.append((0, 0))
-            else:
-                temp = np.array(range(1, n_intervals + 2)) * (score_matrix[i, :] == max_score)
-                temp = temp[temp != 0] - 1
-                window_list.append((-200 + temp.min() * 400 / n_intervals, -200 + temp.max() * 400 / n_intervals))
-            delta_list.append(delta)
 
-        self.generate_note_objects(delta_list, window_list)
+        self.generate_note_objects(abuse_df)
         for group_idx, qt_group in enumerate(self.note_groups):
             for note in qt_group:
                 self.draw_abuse(note, group_idx)
@@ -520,13 +513,13 @@ if __name__ == '__main__':
     app.setApplicationName("Bruh")
     main_window = QMainWindow()
     main_window.show()
-    unit = Unit.from_list([200946, 300594, 100798, 300572, 300856])
+    unit = Unit.from_query("sae4 riina5 riina5u hajime4 arisu3 yui2")
     live = Live()
-    live.set_music(score_id=55, difficulty=5)
+    live.set_music(score_id=615, difficulty=5)
     live.set_unit(unit)
     sim = Simulator(live)
-    # res: MaxSimulationResult = sim.simulate_theoretical_max(n_intervals=10)
-    cpg = BaseChartPicGenerator.get_generator(55, Difficulty(5), main_window, mirrored=True)
+    res: MaxSimulationResult = sim.simulate_theoretical_max()
+    cpg = BaseChartPicGenerator.get_generator(615, Difficulty(5), main_window, mirrored=True)
     cpg.hook_cards(unit.all_cards())
-    # cpg.hook_abuse(unit.all_cards(), res.score_array, res.perfect_score)
+    cpg.hook_abuse(unit.all_cards(), res.abuse_df)
     app.exec_()

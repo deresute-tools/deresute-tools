@@ -44,7 +44,7 @@ class ChartViewer(QMainWindow):
     def hook_abuse(self, event: HookAbuseToChartViewerEvent):
         if self.generator is None:
             return
-        self.generator.hook_abuse(event.cards, event.score_array, event.perfect_score_array)
+        self.generator.hook_abuse(event.cards, event.abuse_df)
 
     @subscribe(HookUnitToChartViewerEvent)
     def hook_unit(self, event: HookUnitToChartViewerEvent):

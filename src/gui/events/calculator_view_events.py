@@ -9,8 +9,8 @@ class GetAllCardsEvent:
 
 class SimulationEvent:
     def __init__(self, uuid, short_uuid, abuse_load, appeals, autoplay, autoplay_offset, doublelife, extra_bonus,
-                 extra_return, hidden_feature_check, live, mirror, perfect_play, results, special_option, special_value,
-                 support, times, unit, left_inclusive, right_inclusive):
+                 extra_return, live, mirror, perfect_play, results, special_option, special_value,
+                 support, times, unit, left_inclusive, right_inclusive, theoretical_simulation=False):
         self.uuid = uuid
         self.short_uuid = short_uuid
         self.abuse_load = abuse_load
@@ -20,7 +20,6 @@ class SimulationEvent:
         self.doublelife = doublelife
         self.extra_bonus = extra_bonus
         self.extra_return = extra_return
-        self.hidden_feature_check = hidden_feature_check
         self.live = live
         self.mirror = mirror
         self.perfect_play = perfect_play
@@ -32,6 +31,7 @@ class SimulationEvent:
         self.unit = unit
         self.left_inclusive = left_inclusive
         self.right_inclusive = right_inclusive
+        self.theoretical_simulation = theoretical_simulation
 
 
 class DisplaySimulationResultEvent:

@@ -15,7 +15,7 @@ class TipRefresherService(QRunnable):
     TIPS = {
         "Tip: You can use Ctrl/Alt + 1/2/3/... in the quicksearch bar to quickly send cards to the simulator.",
         "Tip: Select a unit then press Ctrl + D or Ctrl + Shift + D to clone it.",
-        "Tip: Something might happen if you run autoplay simulations at 346ms offset without using autoplay mode.",
+        "Tip: Hover on an option if you don't know what it does.",
         "Tip: Importing cards from game ID uses SSR posters to detect what cards you have.",
         "Tip: Use the \"Partial match\" option. It's fairly good, I think.",
         "Tip: Double clicking a song will also popup the chart viewer.",
