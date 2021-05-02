@@ -29,6 +29,7 @@ class CustomSettingsView:
         self.theoretical_max_checkbox = QtWidgets.QCheckBox("Theoretical Max", self.main)
         self.theoretical_max_checkbox.setToolTip("Get the highest score theoretically possible. Will take some time.")
         self.skill_boundary = QtWidgets.QComboBox(self.main)
+        self.skill_boundary.setToolTip("Change the way skill detection works.")
         self.mirror_checkbox = QtWidgets.QCheckBox("Mirror", self.main)
         self.doublelife_checkbox = QtWidgets.QCheckBox("2x Life Start", self.main)
         self.autoplay_mode_checkbox = QtWidgets.QCheckBox("Autoplay Mode", self.main)
