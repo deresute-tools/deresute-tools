@@ -44,7 +44,7 @@ CACHED_GRAND_NOTE_PICS = dict()
 
 class ChartPicNote:
     def __init__(self, sec, note_type, lane, sync, qgroup, group_id, delta, early, late, right_flick=False,
-                 grand=False, span=0):
+                 grand=False, span=0, great=False):
         self.sec = sec
         self.lane = int(lane)
         self.sync = sync
@@ -54,6 +54,7 @@ class ChartPicNote:
         self.right_flick = right_flick
         self.grand = grand
         self.span = span
+        self.great = great
 
         self.get_note_pic()
 
@@ -257,14 +258,17 @@ class BaseChartPicGenerator(ABC):
                     delta = abuse_df.loc[_, 'delta']
                     early = abuse_df.loc[_, 'abuse_range_l']
                     late = abuse_df.loc[_, 'abuse_range_r']
+                    great = abuse_df.loc[_, 'is_great']
                 else:
                     delta = 0
                     early = 0
                     late = 0
+                    great = False
                 note_object = ChartPicNote(sec=row['sec'], note_type=row['note_type'], lane=row['finishPos'],
                                            sync=row['sync'], qgroup=n, group_id=row['groupId'],
                                            delta=delta, early=early, late=late, right_flick=right_flick,
-                                           grand=self.grand, span=row['status'] - 1 if self.grand else 0)
+                                           grand=self.grand, span=row['status'] - 1 if self.grand else 0,
+                                           great=great)
                 group.append(note_object)
             self.note_groups.append(group)
 
@@ -407,8 +411,6 @@ class BaseChartPicGenerator(ABC):
 
     def hook_abuse(self, all_cards, abuse_df):
         self.hook_cards(all_cards, False)
-        delta_list = list()
-        window_list = list()
 
         self.generate_note_objects(abuse_df)
         for group_idx, qt_group in enumerate(self.note_groups):
@@ -442,7 +444,10 @@ class BaseChartPicGenerator(ABC):
         pen = QPen()
         pen.setWidth(1)
         pen.setColor(Qt.white)
-        brush = QBrush(Qt.black)
+        if note.great:
+            brush = QBrush(QColor(66, 13, 110))
+        else:
+            brush = QBrush(Qt.black)
         path = QPainterPath()
         path.addText(x, y, font, str(note.delta))
         self.p.setFont(font)
@@ -513,13 +518,13 @@ if __name__ == '__main__':
     app.setApplicationName("Bruh")
     main_window = QMainWindow()
     main_window.show()
-    unit = Unit.from_query("sae4 riina5 riina5u hajime4 arisu3 yui2")
+    unit = Unit.from_list([100936, 100708, 100914, 100584, 100456, 100964])
     live = Live()
-    live.set_music(score_id=615, difficulty=5)
+    live.set_music(score_id=637, difficulty=5)
     live.set_unit(unit)
     sim = Simulator(live)
     res: MaxSimulationResult = sim.simulate_theoretical_max()
-    cpg = BaseChartPicGenerator.get_generator(615, Difficulty(5), main_window, mirrored=True)
+    cpg = BaseChartPicGenerator.get_generator(637, Difficulty(5), main_window, mirrored=True)
     cpg.hook_cards(unit.all_cards())
     cpg.hook_abuse(unit.all_cards(), res.abuse_df)
     app.exec_()

@@ -1,7 +1,7 @@
 import csv
 import time
 from collections import defaultdict
-from decimal import Decimal
+from enum import Enum
 
 import numpy as np
 import pandas as pd
@@ -38,6 +38,12 @@ def check_long(notes_data, mask):
         elif lane in stack:
             stack.pop(lane)
             notes_data.loc[idx, 'is_long'] = True
+
+
+class Judgement(Enum):
+    PERFECT = 0
+    GREAT = 1
+    MISS = 2
 
 
 class BaseSimulationResult:
@@ -289,75 +295,86 @@ class Simulator:
 
         def get_ranges(note_time, note_type, is_checkpoint):
             if note_type == NoteType.TAP:
-                l_g = note_time - 80000
-                r_g = note_time + 80000
-                l_p = note_time - 60000
-                r_p = note_time + 60000
+                l_g = 80000
+                r_g = 80000
+                l_p = 60000
+                r_p = 60000
             elif note_type == NoteType.FLICK or note_type == NoteType.LONG:
-                l_g = note_time - 180000
-                r_g = note_time + 180000
-                l_p = note_time - 150000
-                r_p = note_time + 150000
+                l_g = 180000
+                r_g = 180000
+                l_p = 150000
+                r_p = 150000
             elif not is_checkpoint:
-                l_g = 9E9
-                r_g = -9E9
-                l_p = note_time - 200000
-                r_p = note_time + 200000
+                l_g = 0
+                r_g = 0
+                l_p = 200000
+                r_p = 200000
             else:
-                l_g = note_time
-                r_g = -9E9
-                l_p = note_time
-                r_p = note_time + 200000
-            points_gl = set()
-            points_gr = set()
-            points_p = set()
-            # Great to the left
+                l_g = 0
+                r_g = 0
+                l_p = 0
+                r_p = 200000
+
+            limit_l = min(note_time - l_g, note_time - l_p)
+            limit_r = max(note_time + r_g, note_time + r_p)
+            points = set()
             for point in interval_endpoints:
-                if l_g <= point < l_p:
-                    points_gl.add(point)
-                    continue
-                if l_p <= point <= r_p:
-                    points_p.add(point)
-                    continue
-                if r_p < point <= r_g:
-                    points_gr.add(point)
-                    continue
-            if len(points_gl) > 0:
-                if l_g != 9E9:
-                    points_gl.add(l_g)
-                points_gl.add(l_p)
-            if len(points_p) > 0:
-                points_p.add(l_p)
-                points_p.add(note_time)
-                points_p.add(r_p)
-            if len(points_gr) > 0:
-                points_gr.add(r_p)
-                if r_g != -9E9:
-                    points_gr.add(r_g)
-            points_gl = list(sorted(points_gl))
-            points_p = list(sorted(points_p))
-            points_gr = list(sorted(points_gr))
+                if limit_l <= point <= limit_r:
+                    points.add(point)
+                # Finished checking all possible interval endpoint
+                if point > limit_r:
+                    break
 
             # Nothing to check
-            if len(points_gl) == 0 and len(points_p) == 0 and len(points_gr) == 0:
+            if len(points) == 0:
                 return list()
+
+            has_cc = len(self.cc_set) > 0
+
+            def get_status(abuse_time, activated_indices):
+                in_cc = has_cc and len(activated_indices.intersection(self.cc_set)) > 0
+                inner_l_g = l_g
+                inner_l_p = l_p if not in_cc else l_p // 2
+                inner_r_p = r_p if not in_cc else r_p // 2
+                inner_r_g = r_g
+                if -inner_l_p <= abuse_time <= inner_r_p:
+                    return Judgement.PERFECT
+                if note_type == NoteType.TAP or note_type == NoteType.FLICK or note_type == NoteType.LONG:
+                    if -inner_l_g <= abuse_time < -inner_l_p or inner_r_p < abuse_time <= inner_r_g:
+                        return Judgement.GREAT
+                return Judgement.MISS
+
+            if len(points) > 0:
+                points.add(note_time - l_g)
+                points.add(note_time - l_p)
+                points.add(note_time + r_p)
+                points.add(note_time + r_g)
+                if has_cc:
+                    points.add(note_time - l_p // 2)
+                    points.add(note_time + r_p // 2)
+
+            points = list(sorted(list(points)))
 
             valid_intervals = list()
             perfect_hit = skill_interval_tree.query(note_time)
-            for list_idx, list_to_check in enumerate([points_gl, points_gr, points_p]):
-                last_check = None
-                for check_interval in zip(list_to_check[:-1], list_to_check[1:]):
-                    check = skill_interval_tree.query((check_interval[0] + check_interval[1]) / 2)
-                    if check.issubset(perfect_hit):
-                        continue
-                    # Merge interval if possible
-                    inner_is_great = list_idx <= 1
-                    if last_check is not None and last_check == check:
-                        last_appended = valid_intervals[-1]
-                        valid_intervals[-1] = (last_appended[0], check_interval[1], inner_is_great)
-                    else:
-                        valid_intervals.append((check_interval[0], check_interval[1], inner_is_great))
-                    last_check = check
+            last_check = (None, None)
+            for check_interval in zip(points[:-1], points[1:]):
+                midpoint = (check_interval[0] + check_interval[1]) // 2
+                check = skill_interval_tree.query(midpoint)
+                if check.issubset(perfect_hit):
+                    continue
+                # Merge interval if possible
+                inner_status = get_status(midpoint - note_time, check)
+                if inner_status is Judgement.MISS:
+                    last_check = (None, None)
+                    continue
+                inner_is_great = inner_status is Judgement.GREAT
+                if last_check is not (None, None) and last_check == (check, inner_is_great):
+                    last_appended = valid_intervals[-1]
+                    valid_intervals[-1] = (last_appended[0], check_interval[1], inner_is_great)
+                else:
+                    valid_intervals.append((check_interval[0], check_interval[1], inner_is_great))
+                last_check = (check, inner_is_great)
             return valid_intervals
 
         self.notes_data = clean_notes_data.copy()
@@ -1247,8 +1264,10 @@ class Simulator:
         self.magic_lists = defaultdict(list)
         self.magic_set = set()
         self.all_100 = True
+        self.cc_set = set()
         self.activation_points = defaultdict(set)
         self.deactivation_points = defaultdict(set)
+        units_with_cc = set()
 
         if reset_notes_data:
             self.notes_data = self.original_notes_data.copy()
@@ -1320,6 +1339,10 @@ class Simulator:
                 if probability > 0 and skill.skill_type == 41:
                     self.magic_lists[unit_idx].append(card_idx)
 
+                if probability > 0 and skill.skill_type == 15:
+                    self.cc_set.add(unit_idx * 5 + card_idx)
+                    units_with_cc.add(unit_idx)
+
                 skill_times = int((self.notes_data.iloc[-1].sec - 3) // skill.interval)
                 if skill_times == 0:
                     self.notes_data['skill_{}'.format(unit_idx * 5 + card_idx)] = 0
@@ -1375,4 +1398,6 @@ class Simulator:
                     self.magic_set.add(unit_idx * 5 + magic)
                     self.notes_data['magic_{}'.format(unit_idx * 5 + magic)] = self.notes_data[
                         'skill_{}'.format(unit_idx * 5 + magic)]
+                    if unit_idx in units_with_cc:
+                        self.cc_set.add(unit_idx * 5 + magic)
         return has_sparkle, has_support, has_alternate, has_refrain, has_magic

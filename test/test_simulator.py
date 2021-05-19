@@ -147,3 +147,10 @@ live.set_music(music_name="Starry-Go-Round", difficulty=Difficulty.PIANO)
 live.set_unit(gu)
 sim = Simulator(live)
 sim.simulate_theoretical_max(appeals=480692).max_score == 5898478
+
+unit = Unit.from_list([100936, 100708, 100914, 100584, 100456, 100964], custom_pots=(10, 5, 0, 10, 10))
+live = Live()
+live.set_music(score_id=637, difficulty=Difficulty.MPLUS, event=True)
+live.set_unit(unit)
+sim = Simulator(live)
+assert sim.simulate_theoretical_max(appeals=243551).abuse_df['delta'].sum() == 47441
