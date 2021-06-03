@@ -10,7 +10,8 @@ from PyQt5.QtWidgets import QHBoxLayout, QAbstractItemView, QTableWidget, QAppli
 
 import customlogger as logger
 from gui.events.calculator_view_events import GetAllCardsEvent, DisplaySimulationResultEvent, \
-    AddEmptyUnitEvent, SetSupportCardsEvent, RequestSupportTeamEvent, ContextAwarePushCardEvent
+    AddEmptyUnitEvent, SetSupportCardsEvent, RequestSupportTeamEvent, ContextAwarePushCardEvent, \
+    TurnOffRunningLabelFromUuidEvent
 from gui.events.chart_viewer_events import HookUnitToChartViewerEvent
 from gui.events.state_change_events import AutoFlagChangeEvent
 from gui.events.utils import eventbus
@@ -340,22 +341,35 @@ class CalculatorModel:
     @subscribe(DisplaySimulationResultEvent)
     def display_simulation_result(self, event):
         payload: BaseSimulationResultWithUuid = event.payload
-        row_to_change = -1
-        for r in range(self.view.widget.rowCount()):
-            uuid = self.view.widget.cellWidget(r, 0).get_uuid()
-            if uuid == payload.uuid:
-                row_to_change = r
-                break
+
+        row_to_change = self.get_row_from_uuid(payload.uuid)
+
         if row_to_change == -1:
             return
+        self.view.widget.cellWidget(row_to_change, 0).toggle_running_simulation(False)
 
         self.view.widget.setSortingEnabled(False)
-        self.view.widget.cellWidget(row_to_change, 0).toggle_running_simulation(False)
         if isinstance(payload.results, SimulationResult):
             self._process_normal_results(payload.results, row_to_change)
         elif isinstance(payload.results, AutoSimulationResult):
             self._process_auto_results(payload.results, row_to_change)
         self.view.widget.setSortingEnabled(True)
+
+    def get_row_from_uuid(self, check_uuid):
+        row_to_change = -1
+        for r in range(self.view.widget.rowCount()):
+            uuid = self.view.widget.cellWidget(r, 0).get_uuid()
+            if uuid == check_uuid:
+                row_to_change = r
+                break
+        return row_to_change
+
+    @subscribe(TurnOffRunningLabelFromUuidEvent)
+    def turn_off_running_label_from_uuid(self, event):
+        row_to_change = self.get_row_from_uuid(event.uuid)
+        if row_to_change == -1:
+            return
+        self.view.widget.cellWidget(row_to_change, 0).toggle_running_simulation(False)
 
     @subscribe(AddEmptyUnitEvent)
     def add_empty_unit(self, event):

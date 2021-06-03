@@ -75,3 +75,8 @@ class ContextAwarePushCardEvent:
     def __init__(self, model, event: PushCardEvent):
         self.model = model
         self.event = event
+
+
+class TurnOffRunningLabelFromUuidEvent:
+    def __init__(self, uuid):
+        self.uuid = uuid

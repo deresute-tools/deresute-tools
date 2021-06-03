@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import QSizePolicy, QTabWidget
 import customlogger as logger
 from exceptions import InvalidUnit
 from gui.events.calculator_view_events import GetAllCardsEvent, SimulationEvent, DisplaySimulationResultEvent, \
-    AddEmptyUnitEvent, YoinkUnitEvent, PushCardEvent, ContextAwarePushCardEvent
+    AddEmptyUnitEvent, YoinkUnitEvent, PushCardEvent, ContextAwarePushCardEvent, TurnOffRunningLabelFromUuidEvent
 from gui.events.chart_viewer_events import HookAbuseToChartViewerEvent
 from gui.events.song_view_events import GetSongDetailsEvent
 from gui.events.state_change_events import PostYoinkEvent, InjectTextEvent
@@ -238,6 +238,7 @@ class MainModel(QObject):
             except InvalidUnit:
                 logger.info("Invalid unit: {}".format(cards))
                 results.append(None)
+                eventbus.eventbus.post_and_get_first(TurnOffRunningLabelFromUuidEvent(card_with_uuid.uuid))
                 continue
 
             eventbus.eventbus.post(
