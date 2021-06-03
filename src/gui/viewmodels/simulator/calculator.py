@@ -1,4 +1,5 @@
 import ast
+import threading
 
 import numpy as np
 from PyQt5.QtCore import QSize, Qt, QMimeData
@@ -26,6 +27,7 @@ AUTOPLAY_SIM_HEADERS = ["Auto Score", "Perfects", "Misses", "Max Combo", "Lowest
                         "All Skills 100%?"]
 ALL_HEADERS = UNIVERSAL_HEADERS + NORMAL_SIM_HEADERS + AUTOPLAY_SIM_HEADERS
 
+mutex = threading.Lock()
 
 class CalculatorUnitWidget(UnitWidget, UniversalUniqueIdentifiable):
     def __init__(self, unit_view, parent=None, size=32):
@@ -298,11 +300,14 @@ class CalculatorModel:
                 break
         if row_to_change == -1:
             return
+
+        self.view.widget.setSortingEnabled(False)
         self.view.widget.cellWidget(row_to_change, 0).toggle_running_simulation(False)
         if isinstance(payload.results, SimulationResult):
             self._process_normal_results(payload.results, row_to_change)
         elif isinstance(payload.results, AutoSimulationResult):
             self._process_auto_results(payload.results, row_to_change)
+        self.view.widget.setSortingEnabled(True)
 
     @subscribe(AddEmptyUnitEvent)
     def add_empty_unit(self, event):
