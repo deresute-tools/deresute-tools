@@ -108,7 +108,7 @@ class UnitWidget(QWidget):
             self.cards_internal[idx] = card
         else:
             if idx == 5 and len(self.cards) != 15:
-                custom_pots = (10,10,10,0,5)
+                custom_pots = (10, 10, 10, 0, 5)
             else:
                 custom_pots = None
             self.cards_internal[idx] = Card.from_id(card, custom_pots)
@@ -151,11 +151,6 @@ class UnitWidget(QWidget):
     def handle_lost_mime(self, mime_text):
         if type(self.unit_view) == UnitView:
             self.unit_view.handle_lost_mime(mime_text)
-
-
-class UnitWidgetWithExtraData(UnitWidget):
-    def __init__(self, unit_view, parent=None, size=64):
-        super().__init__(unit_view, parent, size)
 
 
 class SmallUnitWidget(UnitWidget):

@@ -19,7 +19,7 @@ from gui.events.utils.eventbus import subscribe
 from gui.events.utils.wrappers import BaseSimulationResultWithUuid
 from gui.events.value_accessor_events import GetAppealsEvent, GetSupportEvent
 from gui.viewmodels.mime_headers import CALCULATOR_UNIT, UNIT_EDITOR_UNIT
-from gui.viewmodels.unit import UnitView, UnitWidgetWithExtraData
+from gui.viewmodels.unit import UnitView, UnitWidget
 from gui.viewmodels.utils import NumericalTableWidgetItem, UniversalUniqueIdentifiable
 from simulator import SimulationResult, AutoSimulationResult
 
@@ -32,7 +32,7 @@ ALL_HEADERS = UNIVERSAL_HEADERS + NORMAL_SIM_HEADERS + AUTOPLAY_SIM_HEADERS
 mutex = threading.Lock()
 
 
-class CalculatorUnitWidgetWithExtraFieldsAndRunningLayout(UnitWidgetWithExtraData):
+class CalculatorUnitWidgetWithExtraData(UnitWidget):
     def __init__(self, unit_view, parent=None, size=32, *args, **kwargs):
         super().__init__(unit_view, parent, size, *args, **kwargs)
         self.card_widget = QWidget(self)
@@ -101,7 +101,7 @@ class CalculatorUnitWidgetWithExtraFieldsAndRunningLayout(UnitWidgetWithExtraDat
         pass
 
 
-class CalculatorUnitWidget(CalculatorUnitWidgetWithExtraFieldsAndRunningLayout, UniversalUniqueIdentifiable):
+class CalculatorUnitWidget(CalculatorUnitWidgetWithExtraData, UniversalUniqueIdentifiable):
     def __init__(self, unit_view, parent=None, size=32):
         super(CalculatorUnitWidget, self).__init__(unit_view, parent, size)
 
