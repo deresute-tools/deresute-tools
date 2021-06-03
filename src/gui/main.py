@@ -101,7 +101,7 @@ class UiMainWindow:
         self.song_model.initialize_data()
         self.song_view.set_model(self.song_model)
         self.song_layout.addWidget(self.song_view.widget)
-        self.songsearch_view = SongQuickSearchView(self.central_widget, self.song_model)
+        self.songsearch_view = SongQuickSearchView(self.central_widget)
         self.songsearch_model = SongQuickSearchModel(self.songsearch_view, self.song_view)
         self.songsearch_view.set_model(self.songsearch_model)
         hl = QHBoxLayout()
@@ -136,7 +136,7 @@ class UiMainWindow:
         self.card_layout.addWidget(self.card_view.widget)
 
         # Need card view
-        self.quicksearch_view = QuickSearchView(self.central_widget, self.card_model)
+        self.quicksearch_view = QuickSearchView(self.central_widget)
         self.quicksearch_model = QuickSearchModel(self.quicksearch_view, self.card_view)
         self.quicksearch_view.set_model(self.quicksearch_model)
         self.card_quicksearch_layout.addLayout(self.quicksearch_layout)

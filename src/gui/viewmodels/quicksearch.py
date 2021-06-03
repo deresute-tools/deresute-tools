@@ -2,13 +2,15 @@ from PyQt5.QtCore import QSize, Qt
 from PyQt5.QtWidgets import QCheckBox, QLineEdit, QApplication
 
 import customlogger as logger
+from gui.events.quicksearch_events import PushCardIndexEvent, ToggleQuickSearchOptionEvent
+from gui.events.utils import eventbus
+from gui.events.utils.eventbus import subscribe
 from logic.search import search_engine
 
 
 class ShortcutQuickSearchWidget(QLineEdit):
-    def __init__(self, parent, base_model, *__args):
+    def __init__(self, parent, *__args):
         super().__init__(parent, *__args)
-        self.card_model = base_model
 
     def keyPressEvent(self, event):
         key = event.key()
@@ -25,17 +27,30 @@ class ShortcutQuickSearchWidget(QLineEdit):
             Qt.Key_0: 9
         }
         if QApplication.keyboardModifiers() == Qt.AltModifier and key in match_dict:
+            eventbus.eventbus.post(PushCardIndexEvent(match_dict[key], False))
             self.card_model.push_card(match_dict[key])
             return
         if QApplication.keyboardModifiers() == Qt.ControlModifier and key in match_dict:
-            self.card_model.push_card(match_dict[key], True)
+            eventbus.eventbus.post(PushCardIndexEvent(match_dict[key], True))
+            return
+        if QApplication.keyboardModifiers() == (Qt.ControlModifier | Qt.ShiftModifier) and key == Qt.Key_Q:
+            eventbus.eventbus.post(ToggleQuickSearchOptionEvent("ssr"))
+            return
+        if QApplication.keyboardModifiers() == (Qt.ControlModifier | Qt.ShiftModifier) and key == Qt.Key_W:
+            eventbus.eventbus.post(ToggleQuickSearchOptionEvent("idolized"))
+            return
+        if QApplication.keyboardModifiers() == (Qt.ControlModifier | Qt.ShiftModifier) and key == Qt.Key_E:
+            eventbus.eventbus.post(ToggleQuickSearchOptionEvent("owned_only"))
+            return
+        if QApplication.keyboardModifiers() == (Qt.ControlModifier | Qt.ShiftModifier) and key == Qt.Key_R:
+            eventbus.eventbus.post(ToggleQuickSearchOptionEvent("partial_match"))
             return
         super().keyPressEvent(event)
 
 
 class QuickSearchView:
-    def __init__(self, main, card_model):
-        self.widget = ShortcutQuickSearchWidget(main, card_model)
+    def __init__(self, main):
+        self.widget = ShortcutQuickSearchWidget(main)
         self.widget.setPlaceholderText("Search for card")
         self.widget.setMaximumSize(QSize(2000, 25))
         self.model = None
@@ -57,6 +72,7 @@ class QuickSearchModel:
         self.view = view
         self._card_view = card_view
         self.options = dict()
+        eventbus.eventbus.register(self)
 
     def call_searchengine(self, query):
         if query == "" \
@@ -94,6 +110,10 @@ class QuickSearchModel:
         self.options['partial_match'].setToolTip("This option might significantly increase query time!")
         self.options['partial_match'].setChecked(True)
 
+    @subscribe(ToggleQuickSearchOptionEvent)
+    def toggle_option(self, event: ToggleQuickSearchOptionEvent):
+        self.options[event.option].nextCheckState()
+
 
 class SongShortcutQuickSearchWidget(ShortcutQuickSearchWidget):
     def keyPressEvent(self, event):
@@ -101,8 +121,8 @@ class SongShortcutQuickSearchWidget(ShortcutQuickSearchWidget):
 
 
 class SongQuickSearchView:
-    def __init__(self, main, song_model):
-        self.widget = SongShortcutQuickSearchWidget(main, song_model)
+    def __init__(self, main):
+        self.widget = SongShortcutQuickSearchWidget(main)
         self.widget.setMaximumSize(QSize(2000, 25))
         self.widget.setPlaceholderText("Search for song")
         self.model = None

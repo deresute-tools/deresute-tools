@@ -5,6 +5,7 @@ from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QComboBox, QAbstract
 import customlogger as logger
 from db import db
 from gui.events.calculator_view_events import PushCardEvent
+from gui.events.quicksearch_events import PushCardIndexEvent
 from gui.events.state_change_events import PotentialUpdatedEvent
 from gui.events.utils import eventbus
 from gui.events.utils.eventbus import subscribe
@@ -263,7 +264,10 @@ class CardModel:
         self.owned[card_id] = new_value
         card_storage.update_owned_cards(card_id, new_value)
 
-    def push_card(self, idx, skip_guest_push=False):
+    @subscribe(PushCardIndexEvent)
+    def push_card(self, event: PushCardIndexEvent):
+        idx = event.idx
+        skip_guest_push = event.skip_guest_push
         count = 0
         cell_widget = None
         for row in range(self.view.widget.rowCount()):
