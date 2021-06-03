@@ -1,11 +1,12 @@
 import ast
 import threading
+from abc import abstractmethod
 
 import numpy as np
 from PyQt5.QtCore import QSize, Qt, QMimeData
 from PyQt5.QtGui import QDrag, QFont
 from PyQt5.QtWidgets import QHBoxLayout, QAbstractItemView, QTableWidget, QApplication, QTableWidgetItem, \
-    QWidget, QLabel, QSizePolicy, QStackedLayout
+    QWidget, QLabel, QSizePolicy, QStackedLayout, QVBoxLayout, QCheckBox
 
 import customlogger as logger
 from gui.events.calculator_view_events import GetAllCardsEvent, DisplaySimulationResultEvent, \
@@ -17,9 +18,9 @@ from gui.events.utils.eventbus import subscribe
 from gui.events.utils.wrappers import BaseSimulationResultWithUuid
 from gui.events.value_accessor_events import GetAppealsEvent, GetSupportEvent
 from gui.viewmodels.mime_headers import CALCULATOR_UNIT, UNIT_EDITOR_UNIT
-from gui.viewmodels.unit import UnitWidget, UnitView
+from gui.viewmodels.unit import UnitView, UnitWidgetWithExtraData
 from gui.viewmodels.utils import NumericalTableWidgetItem, UniversalUniqueIdentifiable
-from simulator import SimulationResult, MaxSimulationResult, AutoSimulationResult
+from simulator import SimulationResult, AutoSimulationResult
 
 UNIVERSAL_HEADERS = ["Unit", "Appeals", "Life"]
 NORMAL_SIM_HEADERS = ["Perfect", "Mean", "Max", "Min", "Fans", "90%", "75%", "50%", "Theo. Max"]
@@ -29,47 +30,92 @@ ALL_HEADERS = UNIVERSAL_HEADERS + NORMAL_SIM_HEADERS + AUTOPLAY_SIM_HEADERS
 
 mutex = threading.Lock()
 
-class CalculatorUnitWidget(UnitWidget, UniversalUniqueIdentifiable):
-    def __init__(self, unit_view, parent=None, size=32):
-        super(CalculatorUnitWidget, self).__init__(unit_view, parent, size)
 
-        # Setup card layout
+class CalculatorUnitWidgetWithExtraFieldsAndRunningLayout(UnitWidgetWithExtraData):
+    def __init__(self, unit_view, parent=None, size=32, *args, **kwargs):
+        super().__init__(unit_view, parent, size, *args, **kwargs)
         self.card_widget = QWidget(self)
-        self.cardLayout = QHBoxLayout()
-        for idx, card in enumerate(self.cards):
-            card.setMinimumSize(QSize(self.size + 2, self.size + 2))
-            self.cardLayout.addWidget(card)
 
-        self.card_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.card_widget.setLayout(self.cardLayout)
+        self.master_layout = QVBoxLayout()
 
-        # Setup overlay
-        self.label = QLabel(self.card_widget)
-        self.label.setText("Running...")
-        font = QFont()
-        font.setPixelSize(20)
-        self.label.setFont(font)
-        self.label.setAlignment(Qt.AlignCenter)
-        self.label.setStyleSheet("background-color: rgba(255, 255, 255, 100);")
-        self.label.setAutoFillBackground(True)
+        # Abstract
+        self.create_card_layout()
 
-        self.stacked_layout = QStackedLayout()
-        self.stacked_layout.addWidget(self.card_widget)
-        self.stacked_layout.addWidget(self.label)
-        self.stacked_layout.setContentsMargins(0, 0, 0, 0)
-        self.stacked_layout.setStackingMode(QStackedLayout.StackAll)
+        self.initialize_running_label()
+        self.stack_card_layout_and_running_label()
+        self.initialize_song_name_label()
+        self.initialize_checkboxes()
 
-        self.setLayout(self.stacked_layout)
+        self.setup_master_layout()
+
+        self.setLayout(self.master_layout)
         self.toggle_running_simulation(False)
         self.running_simulation = False
 
+    def initialize_running_label(self):
+        self.running_label = QLabel(self.card_widget)
+        self.running_label.setText("Running...")
+        font = QFont()
+        font.setPixelSize(20)
+        self.running_label.setFont(font)
+        self.running_label.setAlignment(Qt.AlignCenter)
+        self.running_label.setStyleSheet("background-color: rgba(255, 255, 255, 100);")
+        self.running_label.setAutoFillBackground(True)
+
+    def stack_card_layout_and_running_label(self):
+        self.stacked_layout = QStackedLayout()
+        self.stacked_layout.addWidget(self.card_widget)
+        self.stacked_layout.addWidget(self.running_label)
+        self.stacked_layout.setContentsMargins(0, 0, 0, 0)
+        self.stacked_layout.setStackingMode(QStackedLayout.StackAll)
+
+    def initialize_song_name_label(self):
+        self.song_name_label = QLabel()
+        self.song_name_label.setText("No chart loaded")
+        self.song_name_label.setAlignment(Qt.AlignCenter)
+
+    def initialize_checkboxes(self):
+        self.checkbox_container_widget = QWidget()
+        checkbox_layout = QHBoxLayout()
+        self.lock_chart_checkbox = QCheckBox("Lock Chart")
+        self.lock_unit_checkbox = QCheckBox("Lock Unit")
+        checkbox_layout.addWidget(self.lock_chart_checkbox)
+        checkbox_layout.addWidget(self.lock_unit_checkbox)
+        checkbox_layout.setAlignment(Qt.AlignCenter)
+        self.checkbox_container_widget.setLayout(checkbox_layout)
+
+    def setup_master_layout(self):
+        self.master_layout.addLayout(self.stacked_layout)
+        self.master_layout.addWidget(self.song_name_label)
+        self.master_layout.addWidget(self.checkbox_container_widget)
+        self.master_layout.setContentsMargins(3, 3, 3, 3)
+        self.master_layout.setSpacing(1)
+
     def toggle_running_simulation(self, running=False):
-        self.label.setVisible(running)
+        self.running_label.setVisible(running)
         self.running_simulation = running
+
+    @abstractmethod
+    def create_card_layout(self):
+        pass
+
+
+class CalculatorUnitWidget(CalculatorUnitWidgetWithExtraFieldsAndRunningLayout, UniversalUniqueIdentifiable):
+    def __init__(self, unit_view, parent=None, size=32):
+        super(CalculatorUnitWidget, self).__init__(unit_view, parent, size)
 
     def handle_lost_mime(self, mime_text):
         if type(self.unit_view) == UnitView:
             self.unit_view.handle_lost_mime(mime_text)
+
+    def create_card_layout(self):
+        self.card_widget = QWidget(self)
+        self.cardLayout = QHBoxLayout()
+        for idx, card in enumerate(self.cards):
+            card.setMinimumSize(QSize(self.icon_size + 2, self.icon_size + 2))
+            self.cardLayout.addWidget(card)
+        self.card_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.card_widget.setLayout(self.cardLayout)
 
 
 class DroppableCalculatorWidget(QTableWidget):
@@ -147,8 +193,8 @@ class CalculatorView:
         self.widget.setVerticalScrollMode(1)  # Smooth scroll
         self.widget.setColumnCount(len(ALL_HEADERS))
         self.widget.setRowCount(0)
-        self.widget.verticalHeader().setDefaultSectionSize(50)
-        self.widget.verticalHeader().setSectionResizeMode(2)
+        self.widget.verticalHeader().setDefaultSectionSize(75)
+        self.widget.verticalHeader().setSectionResizeMode(3)
         self.widget.horizontalHeader().setSectionResizeMode(3)  # Auto fit
         self.widget.setHorizontalHeaderLabels(ALL_HEADERS)
         self.widget.setColumnWidth(0, 40 * 6)
@@ -178,6 +224,7 @@ class CalculatorView:
         self.widget.setCellWidget(self.widget.rowCount() - 1, 0, simulator_unit_widget)
         logger.debug("Inserted empty unit at {}".format(self.widget.rowCount()))
         self.widget.setColumnWidth(0, 40 * 6)
+        self.widget.setRowHeight(self.widget.rowCount() - 1, 300)
 
     def delete_unit(self):
         if len(self.widget.selectionModel().selectedRows()) == 0:
@@ -206,7 +253,8 @@ class CalculatorView:
             if card is None:
                 continue
             self.widget.cellWidget(row, 0).set_card(idx=idx, card=card)
-        logger.info("Unit insert: {} - {} row {}".format(self.widget.cellWidget(row, 0).get_short_uuid(), " ".join(map(str, cards)), row))
+        logger.info("Unit insert: {} - {} row {}".format(self.widget.cellWidget(row, 0).get_short_uuid(),
+                                                         " ".join(map(str, cards)), row))
 
     def add_unit(self, cards):
         if len(cards) == 15:

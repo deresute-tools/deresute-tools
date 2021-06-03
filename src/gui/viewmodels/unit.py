@@ -62,12 +62,12 @@ class UnitWidget(QWidget):
         self.unitName.setMinimumSize(QSize(0, 15))
         self.unitName.setMaximumSize(QSize(16777215, 25))
         self.unitName.setMaxLength(80)
-        self.size = size
-        if self.size == 32:
+        self.icon_size = size
+        if self.icon_size == 32:
             self.path = IMAGE_PATH32
-        elif self.size == 64:
+        elif self.icon_size == 64:
             self.path = IMAGE_PATH64
-        elif self.size == 124:
+        elif self.icon_size == 124:
             self.path = IMAGE_PATH
 
     def clone_internal(self):
@@ -153,6 +153,11 @@ class UnitWidget(QWidget):
             self.unit_view.handle_lost_mime(mime_text)
 
 
+class UnitWidgetWithExtraData(UnitWidget):
+    def __init__(self, unit_view, parent=None, size=64):
+        super().__init__(unit_view, parent, size)
+
+
 class SmallUnitWidget(UnitWidget):
     def __init__(self, unit_view, parent=None):
         super(SmallUnitWidget, self).__init__(unit_view, parent)
@@ -173,7 +178,7 @@ class SmallUnitWidget(UnitWidget):
         self.cardLayout = QHBoxLayout()
 
         for card in self.cards:
-            card.setMinimumSize(QSize(self.size + 2, self.size + 2))
+            card.setMinimumSize(QSize(self.icon_size + 2, self.icon_size + 2))
             self.cardLayout.addWidget(card)
 
         self.verticalLayout.addLayout(self.cardLayout)
