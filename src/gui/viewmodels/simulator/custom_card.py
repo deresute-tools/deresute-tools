@@ -1,13 +1,28 @@
 from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QAbstractItemView
 
-from gui.viewmodels.utils import NumericalTableWidgetItem
+from gui.viewmodels.utils import ValidatableNumericalTableWidgetItem
 from static.color import Color
 
-HEADERS = ["Color",
-           "Vocal", "Dance", "Visual", "Life", "Skill Duration", "Skill Interval",
-           "Vocal Potential", "Dance Potential", "Visual Potential", "Life Potential", "Skill Potential",
-           "Star Rank"]
+COLOR_KEY = "Color"
+VOCAL_KEY = "Vocal"
+DANCE_KEY = "Dance"
+VISUAL_KEY = "Visual"
+LIFE_KEY = "Life"
+SKILL_DURATION_KEY = "Skill Duration"
+SKILL_INTERVAL_KEY = "Skill Interval"
+VOCAL_POTENTIAL_KEY = "Vocal Potential"
+DANCE_POTENTIAL_KEY = "Dance Potential"
+VISUAL_POTENTIAL_KEY = "Visual Potential"
+LIFE_POTENTIAL_KEY = "Life Potential"
+SKILL_POTENTIAL_KEY = "Skill Potential"
+STAR_RANK_KEY = "Star Rank"
+
+HEADERS = [COLOR_KEY,
+           VOCAL_KEY, DANCE_KEY, VISUAL_KEY, LIFE_KEY,
+           SKILL_DURATION_KEY, SKILL_INTERVAL_KEY,
+           VOCAL_POTENTIAL_KEY, DANCE_POTENTIAL_KEY, VISUAL_POTENTIAL_KEY, LIFE_POTENTIAL_KEY, SKILL_POTENTIAL_KEY,
+           STAR_RANK_KEY]
 
 
 class CustomCardView:
@@ -31,8 +46,20 @@ class CustomCardView:
         self.disconnect_cell_changed()
         if len(values) != len(HEADERS):
             return
-        for _ in range(len(HEADERS)):
-            self.widget.setItem(_, 0, NumericalTableWidgetItem(values[_]))
+        for _, header in enumerate(HEADERS):
+            class_type = int
+            if header == COLOR_KEY:
+                validator = lambda x: 0 <= x <= 2
+            elif header in {VOCAL_POTENTIAL_KEY, DANCE_POTENTIAL_KEY, VISUAL_POTENTIAL_KEY, LIFE_POTENTIAL_KEY,
+                            SKILL_POTENTIAL_KEY}:
+                validator = lambda x: 0 <= x <= 10
+            elif header == STAR_RANK_KEY:
+                validator = lambda x: 1 <= x <= 20
+            else:
+                validator = lambda x: True
+            if header in {SKILL_DURATION_KEY, SKILL_INTERVAL_KEY}:
+                class_type = float
+            self.widget.setItem(_, 0, ValidatableNumericalTableWidgetItem(values[_], validator, class_type))
         self.connect_cell_changed()
 
     def connect_cell_changed(self):

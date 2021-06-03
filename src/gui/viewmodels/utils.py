@@ -47,23 +47,42 @@ class ImageWidget(QWidget):
 class NumericalTableWidgetItem(QTableWidgetItem):
     def __init__(self, value):
         if isinstance(value, int) or isinstance(value, float) or isinstance(value, int32):
-            self.__number = value
+            self.number = value
         QTableWidgetItem.__init__(self, str(value))
 
     def __lt__(self, other):
         if not isinstance(other, NumericalTableWidgetItem):
             comparatee = 0
         else:
-            comparatee = other.__number
-        return self.__number < comparatee
+            comparatee = other.number
+        return self.number < comparatee
 
-    def setData(self, p_int, Any):
+    def setData(self, p_int, Any, class_type=int):
         super().setData(p_int, Any)
         try:
-            int(Any)
+            class_type(Any)
         except ValueError:
             return
-        self.__number = int(Any)
+        self.number = class_type(Any)
+
+
+class ValidatableNumericalTableWidgetItem(NumericalTableWidgetItem):
+    def __init__(self, value, validator, class_type):
+        super().__init__(value)
+        self.validator = validator
+        self.class_type = class_type
+
+    def setData(self, p_int, Any):
+        passed = False
+        try:
+            self.class_type(Any)
+            passed = True
+        except:
+            pass
+        if passed and self.validator(self.class_type(Any)):
+            super().setData(p_int, Any, self.class_type)
+        else:
+            super().setData(p_int, self.number, self.class_type)
 
 
 class UniversalUniqueIdentifiable:
