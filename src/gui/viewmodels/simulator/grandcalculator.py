@@ -146,17 +146,22 @@ class GrandCalculatorView(CalculatorView):
     def permute_units(self):
         n = self.widget.rowCount()
         all_units = list()
+        all_units_card_ids = list()
         for r in range(n):
             card_ids = self.widget.cellWidget(r, 0).card_ids
+            cards_internal = self.widget.cellWidget(r, 0).cards_internal
             if None in card_ids:
                 continue
             units = [card_ids[0:5], card_ids[5:10], card_ids[10:15]]
-            all_units.append(units)
-        for grand_unit in all_units:
-            for permutation in itertools.permutations(grand_unit, 3):
+            units_internal = [cards_internal[0:5], cards_internal[5:10], cards_internal[10:15]]
+            all_units.append(list(zip(units, units_internal)))
+            all_units_card_ids.append(units)
+        for zipped in all_units:
+            for permutation in itertools.permutations(zipped, 3):
                 permutation = list(permutation)
-                if permutation in all_units:
+                unit_card_ids = [_[0] for _ in permutation]
+                unit_internal = permutation[0][1] + permutation[1][1] + permutation[2][1]
+                if unit_card_ids in all_units_card_ids:
                     continue
-                self.model.add_empty_unit(AddEmptyUnitEvent(self.model))
-                for unit_idx, unit in enumerate(permutation):
-                    self.set_unit(row=self.widget.rowCount() - 1, unit=unit_idx, cards=unit)
+                self.add_unit(unit_internal)
+                all_units_card_ids.append(unit_card_ids)
