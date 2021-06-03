@@ -115,17 +115,13 @@ class CustomBonusModel:
                 item.setData(Qt.EditRole, 0)
                 self.view.custom_bonus_table.setItem(r, c, item)
 
-    def apply_groove_bonus(self, appeal_idx):
+    def apply_groove_bonus(self, appeal_idx, value):
         if appeal_idx == APPEAL_PRESETS["Vocal Groove"]:
             match_c = 0
         elif appeal_idx == APPEAL_PRESETS["Dance Groove"]:
             match_c = 1
         elif appeal_idx == APPEAL_PRESETS["Visual Groove"]:
             match_c = 2
-        value = self.view.custom_bonus_preset_value.text()
-        if value == "":
-            value = 0
-        value = int(value)
         for r in range(3):
             for c in range(3):
                 if c == match_c:
@@ -138,7 +134,7 @@ class CustomBonusModel:
 
     def apply_bonus_template(self):
         text = self.view.custom_bonus_preset_value.text()
-        if text == "":
+        if text == "" or text == "-":
             value = 0
         else:
             value = int(text)
@@ -152,7 +148,7 @@ class CustomBonusModel:
                 or appeal_idx == APPEAL_PRESETS["Dance Groove"] \
                 or appeal_idx == APPEAL_PRESETS["Visual Groove"]:
             self.clear_bonus_template()
-            self.apply_groove_bonus(appeal_idx)
+            self.apply_groove_bonus(appeal_idx, value)
             return
         elif appeal_idx == APPEAL_PRESETS["Vocal Only"]:
             appeals = [1, -99, -99]
@@ -178,6 +174,8 @@ class CustomBonusModel:
             for c in range(3):
                 item = QTableWidgetItem()
                 if appeals[c] == -99:
+                    if value == 0:
+                        continue
                     item.setData(Qt.EditRole, value * colors[r] * -9000 / value)
                 else:
                     item.setData(Qt.EditRole, value * colors[r] * appeals[c])

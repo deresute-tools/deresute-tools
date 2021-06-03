@@ -115,6 +115,9 @@ class SongQuickSearchView:
     def trigger(self):
         self.model.call_searchengine(self.widget.text().strip())
 
+    def focus(self):
+        self.widget.setFocus()
+
 
 class SongQuickSearchModel:
     def __init__(self, view, song_view):

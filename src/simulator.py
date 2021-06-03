@@ -1146,6 +1146,9 @@ class Simulator:
         def handle_magic_pass_one():
             for unit_idx, unit in enumerate(self.live.unit.all_units):
                 for magic in self.magic_lists[unit_idx]:
+                    # Nothing for magic to copy
+                    if len(self.magic_copies[unit_idx]) == 0:
+                        continue
                     np_mv = np.zeros(
                         (len(self.notes_data), 4, len(self.magic_copies[unit_idx])))  # Notes x Values x Cards
                     for magic_idx, magic_copy in enumerate(self.magic_copies[unit_idx]):

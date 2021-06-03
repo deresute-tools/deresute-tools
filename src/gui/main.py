@@ -30,6 +30,8 @@ class CustomMainWindow(QMainWindow):
         key = event.key()
         if QApplication.keyboardModifiers() == Qt.ControlModifier and key == Qt.Key_F:
             self.ui.quicksearch_view.focus()
+        if QApplication.keyboardModifiers() == (Qt.ShiftModifier | Qt.ControlModifier) and key == Qt.Key_F:
+            self.ui.songsearch_view.focus()
         if QApplication.keyboardModifiers() == Qt.ControlModifier and key == Qt.Key_S:
             logger.info("User data backed up")
             unit_storage.clean_all_units(grand=False)
