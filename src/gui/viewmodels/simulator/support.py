@@ -5,6 +5,7 @@ from gui.events.calculator_view_events import SetSupportCardsEvent, RequestSuppo
 from gui.events.utils import eventbus
 from gui.events.utils.eventbus import subscribe
 from gui.events.value_accessor_events import GetCustomPotsEvent, GetCustomBonusEvent, GetGrooveSongColor
+from gui.viewmodels.simulator.calculator import CardsWithUnitUuidAndExtraData
 from gui.viewmodels.utils import NumericalTableWidgetItem, ImageWidget
 from logic.grandlive import GrandLive
 from logic.grandunit import GrandUnit
@@ -41,21 +42,27 @@ class SupportView:
 
 
 class SupportModel:
+    extended_cards_data: CardsWithUnitUuidAndExtraData
+
     def __init__(self, view):
         self.view = view
         self.live = Live()
         self.music = None
         self.card_ids = None
         self.cards = list()
+        self.extended_cards_data = None
         eventbus.eventbus.register(self)
 
     @subscribe(SetSupportCardsEvent)
-    def set_cards(self, event):
-        cards = event.cards
-        self.cards = cards
+    def set_cards(self, event: SetSupportCardsEvent):
+        self.extended_cards_data = event.extended_cards_data
+        self.cards = self.extended_cards_data.cards
         try:
-            custom_pots = eventbus.eventbus.post_and_get_first(GetCustomPotsEvent())
-            if len(cards) == 15:
+            if self.extended_cards_data.lock_unit:
+                custom_pots = eventbus.eventbus.post_and_get_first(GetCustomPotsEvent())
+            else:
+                custom_pots = None
+            if len(self.cards) == 15:
                 unit = GrandUnit.from_list(self.cards, custom_pots)
                 self.live = GrandLive()
                 self.live.set_unit(unit)
@@ -78,12 +85,25 @@ class SupportModel:
     def generate_support(self, event):
         if self.live.unit is None:
             return
-        if self.music is not None:
-            self.live.set_music(score_id=self.music[0], difficulty=self.music[1])
-        groove_song_color = eventbus.eventbus.post_and_get_first(GetGrooveSongColor())
+        if self.extended_cards_data.lock_chart and self.extended_cards_data is not None and self.extended_cards_data.score_id is not None:
+            self.live.set_music(score_id=self.extended_cards_data.score_id, difficulty=self.extended_cards_data.diff_id)
+        else:
+            if self.music is not None:
+                self.live.set_music(score_id=self.music[0], difficulty=self.music[1])
+        if self.extended_cards_data.lock_chart and self.extended_cards_data.groove_song_color is not None:
+            groove_song_color = self.extended_cards_data.groove_song_color
+        else:
+            groove_song_color = eventbus.eventbus.post_and_get_first(GetGrooveSongColor())
+
         if groove_song_color is not None:
             self.live.color = groove_song_color
-        self.live.set_extra_bonus(*eventbus.eventbus.post_and_get_first(GetCustomBonusEvent()))
+        if self.extended_cards_data.lock_unit:
+            self.live.set_extra_bonus(
+                self.extended_cards_data.extra_bonus,
+                self.extended_cards_data.special_option,
+                self.extended_cards_data.special_value)
+        else:
+            self.live.set_extra_bonus(*eventbus.eventbus.post_and_get_first(GetCustomBonusEvent()))
         self.live.get_support()
         self.view.display_support(self.live.support.copy())
         return self.live.get_appeals(), self.live.get_support(), self.live.get_life()

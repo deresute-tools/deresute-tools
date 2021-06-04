@@ -50,8 +50,8 @@ class YoinkUnitEvent:
 
 
 class SetSupportCardsEvent:
-    def __init__(self, cards):
-        self.cards = cards
+    def __init__(self, extended_cards_data):
+        self.extended_cards_data = extended_cards_data
 
 
 class RequestSupportTeamEvent:

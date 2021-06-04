@@ -4,7 +4,7 @@ from abc import abstractmethod
 
 import numpy as np
 from PyQt5.QtCore import QSize, Qt, QMimeData
-from PyQt5.QtGui import QDrag, QFont
+from PyQt5.QtGui import QDrag, QFont, QFontMetrics
 from PyQt5.QtWidgets import QHBoxLayout, QAbstractItemView, QTableWidget, QApplication, QTableWidgetItem, \
     QWidget, QLabel, QSizePolicy, QStackedLayout, QVBoxLayout, QCheckBox
 
@@ -13,11 +13,13 @@ from gui.events.calculator_view_events import GetAllCardsEvent, DisplaySimulatio
     AddEmptyUnitEvent, SetSupportCardsEvent, RequestSupportTeamEvent, ContextAwarePushCardEvent, \
     TurnOffRunningLabelFromUuidEvent, ToggleUnitLockingOptionsVisibilityEvent
 from gui.events.chart_viewer_events import HookUnitToChartViewerEvent
+from gui.events.song_view_events import GetSongDetailsEvent
 from gui.events.state_change_events import AutoFlagChangeEvent
 from gui.events.utils import eventbus
 from gui.events.utils.eventbus import subscribe
 from gui.events.utils.wrappers import BaseSimulationResultWithUuid
-from gui.events.value_accessor_events import GetAppealsEvent, GetSupportEvent, GetUnitLockingOptionsVisibilityEvent
+from gui.events.value_accessor_events import GetAppealsEvent, GetSupportEvent, GetUnitLockingOptionsVisibilityEvent, \
+    GetCustomBonusEvent, GetGrooveSongColor
 from gui.viewmodels.mime_headers import CALCULATOR_UNIT, UNIT_EDITOR_UNIT
 from gui.viewmodels.unit import UnitView, UnitWidget
 from gui.viewmodels.utils import NumericalTableWidgetItem, UniversalUniqueIdentifiable
@@ -46,12 +48,73 @@ class CalculatorUnitWidgetWithExtraData(UnitWidget):
         self.stack_card_layout_and_running_label()
         self.initialize_song_name_label()
         self.initialize_checkboxes()
+        self.lock_chart_checkbox.toggled.connect(lambda: self.toggle_lock_chart())
+        self.lock_unit_checkbox.toggled.connect(lambda: self.toggle_lock_unit())
 
         self.setup_master_layout()
 
         self.setLayout(self.master_layout)
         self.toggle_running_simulation(False)
         self.running_simulation = False
+
+        self.lock_unit = False
+        self.extra_bonus = None
+        self.special_option = None
+        self.special_value = None
+
+        self.lock_chart = False
+        self.score_id = None
+        self.diff_id = None
+        self.live_detail_id = None
+        self.groove_song_color = None
+
+    @property
+    def extended_cards_data(self):
+        return CardsWithUnitUuidAndExtraData(self.get_uuid(),
+                                             self.get_short_uuid(),
+                                             self.cards_internal,
+                                             self.lock_unit,
+                                             self.extra_bonus,
+                                             self.special_option,
+                                             self.special_value,
+                                             self.lock_chart,
+                                             self.score_id,
+                                             self.diff_id,
+                                             self.live_detail_id,
+                                             self.groove_song_color)
+
+    def toggle_lock_unit(self):
+        self.lock_unit = not self.lock_unit
+        if not self.lock_unit:
+            self.extra_bonus = None
+            self.special_option = None
+            self.special_value = None
+            return
+        extra_bonus, special_option, special_value = eventbus.eventbus.post_and_get_first(GetCustomBonusEvent())
+        self.extra_bonus = extra_bonus
+        self.special_option = special_option
+        self.special_value = special_value
+
+    def toggle_lock_chart(self):
+        self.lock_chart = not self.lock_chart
+        if not self.lock_chart:
+            self.score_id = None
+            self.diff_id = None
+            self.live_detail_id = None
+            self.groove_song_color = None
+            self.song_name_label.setText("No chart loaded")
+            return
+        score_id, diff_id, live_detail_id, song_name, diff_name = eventbus.eventbus.post_and_get_first(
+            GetSongDetailsEvent())
+        groove_song_color = eventbus.eventbus.post_and_get_first(GetGrooveSongColor())
+        self.score_id = score_id
+        self.diff_id = diff_id
+        self.live_detail_id = live_detail_id
+        self.groove_song_color = groove_song_color
+        string = "{} - {}".format(diff_name, song_name)
+        metrics = QFontMetrics(self.song_name_label.font())
+        elided_text = metrics.elidedText(string, Qt.ElideRight, self.song_name_label.width())
+        self.song_name_label.setText(elided_text)
 
     def initialize_running_label(self):
         self.running_label = QLabel(self.card_widget)
@@ -281,7 +344,7 @@ class CalculatorView:
         self.set_unit(row=self.widget.rowCount() - 1, cards=cards)
 
     def create_support_team(self, r):
-        if not eventbus.eventbus.post_and_get_first(SetSupportCardsEvent(self.widget.cellWidget(r, 0).cards_internal)):
+        if not eventbus.eventbus.post_and_get_first(SetSupportCardsEvent(self.widget.cellWidget(r, 0).extended_cards_data)):
             logger.info("Invalid unit to evaluate support team")
             return
         appeals, support, life = eventbus.eventbus.post_and_get_first(RequestSupportTeamEvent())
@@ -341,9 +404,7 @@ class CalculatorModel:
                     unit_widget.get_uuid()))
                 continue
             unit_widget.toggle_running_simulation(True)
-            res.append(CardsWithUnitUuid(self.view.widget.cellWidget(r_idx, 0).get_uuid(),
-                                         self.view.widget.cellWidget(r_idx, 0).get_short_uuid(),
-                                         self.view.widget.cellWidget(r_idx, 0).cards_internal))
+            res.append(self.view.widget.cellWidget(r_idx, 0).extended_cards_data)
         return res
 
     @subscribe(DisplaySimulationResultEvent)
@@ -443,8 +504,22 @@ class CalculatorModel:
         self.view.fill_column(True, 8, row, "Yes" if results.all_100 else "No")
 
 
-class CardsWithUnitUuid:
-    def __init__(self, uuid, short_uuid, cards):
+class CardsWithUnitUuidAndExtraData:
+    def __init__(self, uuid, short_uuid, cards,
+                 lock_unit, extra_bonus, special_option, special_value,
+                 lock_chart, score_id, diff_id, live_detail_id,
+                 groove_song_color):
         self.uuid = uuid
         self.short_uuid = short_uuid
         self.cards = cards
+
+        self.lock_unit = lock_unit
+        self.extra_bonus = extra_bonus
+        self.special_option = special_option
+        self.special_value = special_value
+
+        self.lock_chart = lock_chart
+        self.score_id = score_id
+        self.diff_id = diff_id
+        self.live_detail_id = live_detail_id
+        self.groove_song_color = groove_song_color

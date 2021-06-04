@@ -170,7 +170,7 @@ class SongModel:
         difficulty = int(self.view.widget.item(r, 2).text())
         eventbus.eventbus.post(SendMusicEvent(song_id, difficulty))
         eventbus.eventbus.post(SupportTeamSetMusicEvent(song_id, difficulty))
-        eventbus.eventbus.post(RequestSupportTeamEvent)
+        eventbus.eventbus.post(RequestSupportTeamEvent())
 
     def popup_and_load_chart(self, r):
         eventbus.eventbus.post(PopupChartViewerEvent())

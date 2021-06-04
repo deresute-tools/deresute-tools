@@ -18,7 +18,7 @@ from gui.events.utils.wrappers import BaseSimulationResultWithUuid, YoinkResults
 from gui.events.value_accessor_events import GetAutoplayOffsetEvent, GetAutoplayFlagEvent, GetDoublelifeFlagEvent, \
     GetSupportEvent, GetAppealsEvent, GetCustomPotsEvent, GetPerfectPlayFlagEvent, GetMirrorFlagEvent, \
     GetCustomBonusEvent, GetGrooveSongColor, GetSkillBoundaryEvent, GetTheoreticalMaxFlagEvent
-from gui.viewmodels.simulator.calculator import CalculatorModel, CalculatorView, CardsWithUnitUuid
+from gui.viewmodels.simulator.calculator import CalculatorModel, CalculatorView, CardsWithUnitUuidAndExtraData
 from gui.viewmodels.simulator.custom_bonus import CustomBonusView, CustomBonusModel
 from gui.viewmodels.simulator.custom_card import CustomCardView, CustomCardModel
 from gui.viewmodels.simulator.custom_settings import CustomSettingsView, CustomSettingsModel
@@ -156,7 +156,7 @@ class MainView:
             logger.info("No chart loaded")
             return
         times = self.get_times()
-        all_cards: List[CardsWithUnitUuid] = eventbus.eventbus.post_and_get_first(
+        all_cards: List[CardsWithUnitUuidAndExtraData] = eventbus.eventbus.post_and_get_first(
             GetAllCardsEvent(self.get_current_model(), row), required_non_none=True)
         perfect_play = eventbus.eventbus.post_and_get_first(GetPerfectPlayFlagEvent())
         custom_pots = eventbus.eventbus.post_and_get_first(GetCustomPotsEvent())
@@ -201,7 +201,7 @@ class MainModel(QObject):
                           custom_pots, appeals, support, extra_bonus, special_option, special_value, mirror, autoplay,
                           autoplay_offset, doublelife, row=None):
         """
-        :type all_cards: List[CardsWithUnitUuid]
+        :type all_cards: List[CardsWithUnitUuidAndExtraData]
         """
         results = list()
         if len(all_cards) == 0:
@@ -212,22 +212,39 @@ class MainModel(QObject):
         # Initialize song first because SQLite DB thread lock
         # Live objects are mutable so create one for each simulation
         # TODO: Minor optimize by calling set_music only once then clone, but set_music shouldn't take too long to run so this is on low priority
-        live_objects = list()
-        for card_with_uuid in all_cards:
-            cards = card_with_uuid.cards
+        # Load cards
+        for extended_cards_data in all_cards:
+
+            cards = extended_cards_data.cards
             if len(cards) == 15:
                 live = GrandLive()
             else:
                 live = Live()
-            live.set_music(score_id=score_id, difficulty=diff_id)
+
             groove_song_color = eventbus.eventbus.post_and_get_first(GetGrooveSongColor())
+
+            # Load preset music if defined, else load default music
+            if extended_cards_data.lock_chart:
+                if extended_cards_data.score_id is None:
+                    # Lock chart but no music found
+                    results.append(None)
+                    eventbus.eventbus.post_and_get_first(TurnOffRunningLabelFromUuidEvent(extended_cards_data.uuid))
+                    continue
+                score_id = extended_cards_data.score_id
+                diff_id = extended_cards_data.diff_id
+                groove_song_color = extended_cards_data.groove_song_color
+            live.set_music(score_id=score_id, difficulty=diff_id)
+
+            # Negate custom_pots + load preset appeal bonus if defined, else ignore
+            if extended_cards_data.lock_unit:
+                custom_pots = None
+                extra_bonus = extended_cards_data.extra_bonus
+                special_option = extended_cards_data.special_option
+                special_value = extended_cards_data.special_value
+
             if groove_song_color is not None:
                 live.color = groove_song_color
-            live_objects.append(live)
 
-        # Load cards
-        for live, card_with_uuid in zip(live_objects, all_cards):
-            cards = card_with_uuid.cards
             try:
                 if len(cards) == 15:
                     unit = GrandUnit.from_list(cards, custom_pots)
@@ -238,11 +255,11 @@ class MainModel(QObject):
             except InvalidUnit:
                 logger.info("Invalid unit: {}".format(cards))
                 results.append(None)
-                eventbus.eventbus.post_and_get_first(TurnOffRunningLabelFromUuidEvent(card_with_uuid.uuid))
+                eventbus.eventbus.post_and_get_first(TurnOffRunningLabelFromUuidEvent(extended_cards_data.uuid))
                 continue
 
             eventbus.eventbus.post(
-                SimulationEvent(card_with_uuid.uuid, card_with_uuid.short_uuid,
+                SimulationEvent(extended_cards_data.uuid, extended_cards_data.short_uuid,
                                 row is not None and theoretical_simulation, appeals, autoplay, autoplay_offset,
                                 doublelife, extra_bonus, extra_return, live, mirror, perfect_play,
                                 results, special_option, special_value, support, times, unit,
