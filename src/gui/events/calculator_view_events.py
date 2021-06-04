@@ -80,3 +80,8 @@ class ContextAwarePushCardEvent:
 class TurnOffRunningLabelFromUuidEvent:
     def __init__(self, uuid):
         self.uuid = uuid
+
+
+class ToggleUnitLockingOptionsVisibilityEvent:
+    def __init__(self):
+        pass

@@ -27,7 +27,7 @@ class TipRefresherService(QRunnable):
         "Tip: Press Ctrl + F from anywhere to quickly jump to the search bar.",
         "Tip: Press Ctrl + Shift + F from anywhere to quickly jump to the song search bar.",
         "Tip: Press Ctrl + Shift + Q/W/E/R in the quicksearch bar to toggle the 4 options (except carnival cards).",
-        "Tip: Press Ctrl + Shift + H from anywhere to hide the unit locking options, making the calculator view more compact.",
+        "Tip: Press Ctrl + Shift + H from anywhere to hide/unhide the unit locking options, making the calculator view more compact.",
         "Tip: Select a unit with the chart viewer open to view the unit's timers on the chart.",
         "Tip: If you see some discrepancy between Chihiro and Dereguide2, it is because Dereguide2 likely uses [ ] skill boundary while Chihiro uses ( ] by default.",
         "Tip: Report on github or reddit if you discover any bug.",

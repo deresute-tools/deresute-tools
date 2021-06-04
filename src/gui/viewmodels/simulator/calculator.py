@@ -11,13 +11,13 @@ from PyQt5.QtWidgets import QHBoxLayout, QAbstractItemView, QTableWidget, QAppli
 import customlogger as logger
 from gui.events.calculator_view_events import GetAllCardsEvent, DisplaySimulationResultEvent, \
     AddEmptyUnitEvent, SetSupportCardsEvent, RequestSupportTeamEvent, ContextAwarePushCardEvent, \
-    TurnOffRunningLabelFromUuidEvent
+    TurnOffRunningLabelFromUuidEvent, ToggleUnitLockingOptionsVisibilityEvent
 from gui.events.chart_viewer_events import HookUnitToChartViewerEvent
 from gui.events.state_change_events import AutoFlagChangeEvent
 from gui.events.utils import eventbus
 from gui.events.utils.eventbus import subscribe
 from gui.events.utils.wrappers import BaseSimulationResultWithUuid
-from gui.events.value_accessor_events import GetAppealsEvent, GetSupportEvent
+from gui.events.value_accessor_events import GetAppealsEvent, GetSupportEvent, GetUnitLockingOptionsVisibilityEvent
 from gui.viewmodels.mime_headers import CALCULATOR_UNIT, UNIT_EDITOR_UNIT
 from gui.viewmodels.unit import UnitView, UnitWidget
 from gui.viewmodels.utils import NumericalTableWidgetItem, UniversalUniqueIdentifiable
@@ -71,12 +71,12 @@ class CalculatorUnitWidgetWithExtraData(UnitWidget):
         self.stacked_layout.setStackingMode(QStackedLayout.StackAll)
 
     def initialize_song_name_label(self):
-        self.song_name_label = QLabel()
+        self.song_name_label = QLabel(self)
         self.song_name_label.setText("No chart loaded")
         self.song_name_label.setAlignment(Qt.AlignCenter)
 
     def initialize_checkboxes(self):
-        self.checkbox_container_widget = QWidget()
+        self.checkbox_container_widget = QWidget(self)
         checkbox_layout = QHBoxLayout()
         self.lock_chart_checkbox = QCheckBox("Lock Chart")
         self.lock_unit_checkbox = QCheckBox("Lock Unit")
@@ -91,6 +91,9 @@ class CalculatorUnitWidgetWithExtraData(UnitWidget):
         self.master_layout.addWidget(self.checkbox_container_widget)
         self.master_layout.setContentsMargins(3, 3, 3, 3)
         self.master_layout.setSpacing(1)
+        state = eventbus.eventbus.post_and_get_first(GetUnitLockingOptionsVisibilityEvent())
+        self.song_name_label.setVisible(state)
+        self.checkbox_container_widget.setVisible(state)
 
     def toggle_running_simulation(self, running=False):
         self.running_label.setVisible(running)
@@ -99,6 +102,10 @@ class CalculatorUnitWidgetWithExtraData(UnitWidget):
     @abstractmethod
     def create_card_layout(self):
         pass
+
+    def toggle_unit_locking_options_visibility(self, flag):
+        self.song_name_label.setVisible(flag)
+        self.checkbox_container_widget.setVisible(flag)
 
 
 class CalculatorUnitWidget(CalculatorUnitWidgetWithExtraData, UniversalUniqueIdentifiable):
@@ -314,6 +321,7 @@ class CalculatorModel:
     def __init__(self, view):
         self.view = view
         eventbus.eventbus.register(self)
+        self.unit_locking_options_visibility = True
         self.add_empty_unit(AddEmptyUnitEvent(self))
 
     @subscribe(AutoFlagChangeEvent)
@@ -394,6 +402,18 @@ class CalculatorModel:
                     cell_widget.set_card(idx=c_idx, card=card_id)
                     return
         self.view.add_unit([card_id, None, None, None, None, None])
+
+    @subscribe(ToggleUnitLockingOptionsVisibilityEvent)
+    def toggle_unit_locking_options_visibility(self, event):
+        self.unit_locking_options_visibility = not self.unit_locking_options_visibility
+        for row in range(self.view.widget.rowCount()):
+            cell_widget = self.view.widget.cellWidget(row, 0)
+            cell_widget.toggle_unit_locking_options_visibility(self.unit_locking_options_visibility)
+        self.view.widget.verticalHeader().setSectionResizeMode(3)
+
+    @subscribe(GetUnitLockingOptionsVisibilityEvent)
+    def get_unit_locking_options_visibility(self, event):
+        return self.unit_locking_options_visibility
 
     def _process_normal_results(self, results: SimulationResult, row=None):
         # ["Perfect", "Mean", "Max", "Min", "Fans", "Theoretical Max", "90%", "75%", "50%"])
