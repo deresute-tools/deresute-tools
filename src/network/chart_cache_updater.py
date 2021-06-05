@@ -52,6 +52,7 @@ def _get_song_list():
                 'song_id_list': list()
             }
         song_dict[song_name]['song_id_list'].append(song_id)
+    carnival_set_list = _get_carnival_set_list()
     for song_name, value in song_dict.items():
         live_list = list()
         for song_id in value['song_id_list']:
@@ -97,6 +98,12 @@ def _get_song_list():
                     """, (value['sort'],))
         value['performers'] = ", ".join([_[0] for _ in performers])
         value['special_keys'] = _get_special_keys(value['sort'])
+        for live_id in [_['id'] for _ in live_list]:
+            if live_id in carnival_set_list.keys():
+                if value['special_keys'] != "":
+                    value['special_keys'] += ","
+                value['special_keys'] += carnival_set_list[live_id]
+                break
         value['jp_name'] = song_name
         if value['sort'] in translated_names:
             value['name'] = translated_names[value['sort']]
@@ -106,6 +113,40 @@ def _get_song_list():
     db.masterdb.commit()
     return song_dict
 
+
+def _get_carnival_set_list():
+    RANK_STRING = {
+        1: "d3",
+        2: "d2",
+        3: "d1",
+        4: "c3",
+        5: "c2",
+        6: "c1",
+        7: "b3",
+        8: "b2",
+        9: "b1",
+        10: "a3",
+        11: "a2",
+        12: "a1",
+        13: "s",
+        14: "ss",
+        15: "sss",
+    }
+    query = """
+    SELECT 
+        carnival_map.rank,
+        carnival_map.booth_id,
+        carnival_map.value2,
+        carnival_setlist.live_id
+    FROM carnival_map
+    LEFT JOIN carnival_setlist ON carnival_setlist.setlist_id = carnival_map.value2
+    WHERE carnival_map.value2 > 0 AND carnival_map.rank > 0
+    """
+    res = db.masterdb.execute_and_fetchall(query)
+    ret_dict = dict()
+    for rank, booth_id, _, live_id in res:
+        ret_dict[live_id] = "carnival" + RANK_STRING[rank] + str(booth_id)
+    return ret_dict
 
 def _get_special_keys(song_id):
     if 3200 > song_id > 3000:
@@ -215,14 +256,16 @@ def _insert_into_live_detail_cache(hashable):
         hashable["Slide"],
     ])
 
+
 def _overwrite_song_name(expanded_song_list):
     for live_detail_id, song_data in expanded_song_list.items():
         db.cachedb.execute("""
                     UPDATE live_detail_cache
-                    SET name = ?
+                    SET name = ?, special_keys = ?
                     WHERE live_detail_id = ?
                 """, [
             song_data["name"],
+            song_data["special_keys"],
             live_detail_id,
         ])
     db.cachedb.commit()
