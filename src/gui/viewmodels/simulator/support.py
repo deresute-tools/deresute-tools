@@ -59,9 +59,9 @@ class SupportModel:
         self.cards = self.extended_cards_data.cards
         try:
             if self.extended_cards_data.lock_unit:
-                custom_pots = eventbus.eventbus.post_and_get_first(GetCustomPotsEvent())
-            else:
                 custom_pots = None
+            else:
+                custom_pots = eventbus.eventbus.post_and_get_first(GetCustomPotsEvent())
             if len(self.cards) == 15:
                 unit = GrandUnit.from_list(self.cards, custom_pots)
                 self.live = GrandLive()
