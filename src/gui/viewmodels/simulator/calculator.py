@@ -196,7 +196,8 @@ class CalculatorUnitWidgetWithExtraData(UnitWidget):
             logger.debug("Dragged {} into unit".format(mimetext))
             self.handle_hooked_chart(*mimetext[len(MUSIC):].split("|"))
         else:
-            e.acceptProposedAction()
+            if type(self.unit_view.widget) == DroppableCalculatorWidget:
+                self.unit_view.widget.handle_lost_mime(mimetext)
 
 
 class CalculatorUnitWidget(CalculatorUnitWidgetWithExtraData, UniversalUniqueIdentifiable):
@@ -276,6 +277,11 @@ class DroppableCalculatorWidget(QTableWidget):
             self.calculator_view.add_unit(card_ids)
         else:
             e.acceptProposedAction()
+
+    def handle_lost_mime(self, mimetext):
+        card_ids = ast.literal_eval(mimetext[len(UNIT_EDITOR_UNIT):])
+        logger.debug("Dragged {} into calculator".format(card_ids))
+        self.calculator_view.add_unit(card_ids)
 
 
 class CalculatorView:
