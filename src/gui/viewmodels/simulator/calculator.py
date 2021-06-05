@@ -52,8 +52,8 @@ class CalculatorUnitWidgetWithExtraData(UnitWidget):
         self.stack_card_layout_and_running_label()
         self.initialize_song_name_label()
         self.initialize_checkboxes()
-        self.lock_chart_checkbox.toggled.connect(lambda: self.toggle_lock_chart())
-        self.lock_unit_checkbox.toggled.connect(lambda: self.toggle_lock_unit())
+        self.lock_chart_checkbox.clicked.connect(lambda: self.toggle_lock_chart())
+        self.lock_unit_checkbox.clicked.connect(lambda: self.toggle_lock_unit())
 
         self.setup_master_layout()
 
@@ -86,6 +86,17 @@ class CalculatorUnitWidgetWithExtraData(UnitWidget):
                                              self.diff_id,
                                              self.live_detail_id,
                                              self.groove_song_color)
+
+    def clone_extended_cards_data(self, extended_card_data):
+        self.lock_unit = extended_card_data.lock_unit
+        self.extra_bonus = extended_card_data.extra_bonus
+        self.special_option = extended_card_data.special_option
+        self.special_value = extended_card_data.special_value
+        self.lock_chart = extended_card_data.lock_chart
+        self.score_id = extended_card_data.score_id
+        self.diff_id = extended_card_data.diff_id
+        self.live_detail_id = extended_card_data.live_detail_id
+        self.groove_song_color = extended_card_data.groove_song_color
 
     def toggle_lock_unit(self):
         self.lock_unit = not self.lock_unit
@@ -133,6 +144,11 @@ class CalculatorUnitWidgetWithExtraData(UnitWidget):
         string = "{} - {}".format(diff_name, song_name)
         metrics = QFontMetrics(self.song_name_label.font())
         elided_text = metrics.elidedText(string, Qt.ElideRight, self.song_name_label.width())
+        self.song_name_label.setText(elided_text)
+
+    def clone_label(self, label: QLabel):
+        metrics = QFontMetrics(self.song_name_label.font())
+        elided_text = metrics.elidedText(label.text(), Qt.ElideRight, self.song_name_label.width())
         self.song_name_label.setText(elided_text)
 
     def initialize_running_label(self):
@@ -232,8 +248,11 @@ class DroppableCalculatorWidget(QTableWidget):
         self.setSelectionMode(QAbstractItemView.SingleSelection)
         self.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.verticalHeader().setSectionsMovable(True)
+        self.verticalHeader().setDragEnabled(True)
+        self.verticalHeader().setDragDropMode(QAbstractItemView.InternalMove)
+        self.verticalHeader().setVisible(True)
         self.setSortingEnabled(True)
-        self.verticalHeader().setVisible(False)
         self.setAcceptDrops(True)
         self.setDragEnabled(True)
         self.setStyleSheet(
@@ -333,6 +352,8 @@ class CalculatorView:
 
     def insert_unit(self):
         self.widget.insertRow(self.widget.rowCount())
+        self.widget.setVerticalHeaderItem(self.widget.rowCount() - 1, QTableWidgetItem(""))
+        self.widget.verticalHeader().setFixedWidth(25)
         simulator_unit_widget = CalculatorUnitWidget(self, None, size=32)
         self.widget.setCellWidget(self.widget.rowCount() - 1, 0, simulator_unit_widget)
         logger.debug("Inserted empty unit at {}".format(self.widget.rowCount()))
@@ -354,6 +375,10 @@ class CalculatorView:
             cloned_card_internals = cell_widget.clone_internal()
             new_unit = self.widget.cellWidget(self.widget.rowCount() - 1, 0)
             new_unit.cards_internal = cloned_card_internals
+            new_unit.clone_extended_cards_data(cell_widget.extended_cards_data)
+            new_unit.lock_chart_checkbox.setChecked(cell_widget.lock_chart_checkbox.isChecked())
+            new_unit.lock_unit_checkbox.setChecked(cell_widget.lock_unit_checkbox.isChecked())
+            new_unit.clone_label(cell_widget.song_name_label)
             for card in cloned_card_internals:
                 if card is None:
                     continue
