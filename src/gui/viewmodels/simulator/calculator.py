@@ -20,7 +20,7 @@ from gui.events.utils.eventbus import subscribe
 from gui.events.utils.wrappers import BaseSimulationResultWithUuid
 from gui.events.value_accessor_events import GetAppealsEvent, GetSupportEvent, GetUnitLockingOptionsVisibilityEvent, \
     GetCustomBonusEvent, GetGrooveSongColor
-from gui.viewmodels.mime_headers import CALCULATOR_UNIT, UNIT_EDITOR_UNIT
+from gui.viewmodels.mime_headers import CALCULATOR_UNIT, UNIT_EDITOR_UNIT, MUSIC
 from gui.viewmodels.unit import UnitView, UnitWidget
 from gui.viewmodels.utils import NumericalTableWidgetItem, UniversalUniqueIdentifiable
 from simulator import SimulationResult, AutoSimulationResult
@@ -37,6 +37,8 @@ mutex = threading.Lock()
 class CalculatorUnitWidgetWithExtraData(UnitWidget):
     def __init__(self, unit_view, parent=None, size=32, *args, **kwargs):
         super().__init__(unit_view, parent, size, *args, **kwargs)
+        self.setAcceptDrops(True)
+
         self.card_widget = QWidget(self)
 
         self.master_layout = QVBoxLayout()
@@ -104,13 +106,25 @@ class CalculatorUnitWidgetWithExtraData(UnitWidget):
             self.groove_song_color = None
             self.song_name_label.setText("No chart loaded")
             return
-        score_id, diff_id, live_detail_id, song_name, diff_name = eventbus.eventbus.post_and_get_first(
-            GetSongDetailsEvent())
+        self.handle_hooked_chart(*eventbus.eventbus.post_and_get_first(GetSongDetailsEvent()))
         groove_song_color = eventbus.eventbus.post_and_get_first(GetGrooveSongColor())
-        self.score_id = score_id
-        self.diff_id = diff_id
-        self.live_detail_id = live_detail_id
         self.groove_song_color = groove_song_color
+
+    def handle_hooked_chart(self, score_id, diff_id, live_detail_id, song_name, diff_name):
+        if not self.lock_chart:
+            return
+        try:
+            self.score_id = int(score_id)
+        except:
+            self.score_id = score_id
+        try:
+            self.diff_id = int(diff_id)
+        except:
+            self.diff_id = diff_id
+        try:
+            self.live_detail_id = int(live_detail_id)
+        except:
+            self.live_detail_id = live_detail_id
         string = "{} - {}".format(diff_name, song_name)
         metrics = QFontMetrics(self.song_name_label.font())
         elided_text = metrics.elidedText(string, Qt.ElideRight, self.song_name_label.width())
@@ -169,6 +183,20 @@ class CalculatorUnitWidgetWithExtraData(UnitWidget):
     def toggle_unit_locking_options_visibility(self, flag):
         self.song_name_label.setVisible(flag)
         self.checkbox_container_widget.setVisible(flag)
+
+    def dragEnterEvent(self, e):
+        e.acceptProposedAction()
+
+    def dragMoveEvent(self, e):
+        e.acceptProposedAction()
+
+    def dropEvent(self, e):
+        mimetext = e.mimeData().text()
+        if mimetext.startswith(MUSIC):
+            logger.debug("Dragged {} into unit".format(mimetext))
+            self.handle_hooked_chart(*mimetext[len(MUSIC):].split("|"))
+        else:
+            e.acceptProposedAction()
 
 
 class CalculatorUnitWidget(CalculatorUnitWidgetWithExtraData, UniversalUniqueIdentifiable):
@@ -344,7 +372,8 @@ class CalculatorView:
         self.set_unit(row=self.widget.rowCount() - 1, cards=cards)
 
     def create_support_team(self, r):
-        if not eventbus.eventbus.post_and_get_first(SetSupportCardsEvent(self.widget.cellWidget(r, 0).extended_cards_data)):
+        if not eventbus.eventbus.post_and_get_first(
+                SetSupportCardsEvent(self.widget.cellWidget(r, 0).extended_cards_data)):
             logger.info("Invalid unit to evaluate support team")
             return
         appeals, support, life = eventbus.eventbus.post_and_get_first(RequestSupportTeamEvent())

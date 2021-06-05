@@ -31,6 +31,7 @@ class TipRefresherService(QRunnable):
         "Tip: Select a unit with the chart viewer open to view the unit's timers on the chart.",
         "Tip: If you see some discrepancy between Chihiro and Dereguide2, it is because Dereguide2 likely uses [ ] skill boundary while Chihiro uses ( ] by default.",
         "Tip: Report on github or reddit if you discover any bug.",
+        "Tip: Drag and drop a song into an unit while it's chart locked to quickly change the chart."
     }
 
     def __init__(self):

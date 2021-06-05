@@ -230,28 +230,33 @@ class MainModel(QObject):
                     results.append(None)
                     eventbus.eventbus.post_and_get_first(TurnOffRunningLabelFromUuidEvent(extended_cards_data.uuid))
                     continue
-                score_id = extended_cards_data.score_id
-                diff_id = extended_cards_data.diff_id
+                live.set_music(score_id=extended_cards_data.score_id, difficulty=extended_cards_data.diff_id)
                 groove_song_color = extended_cards_data.groove_song_color
-            live.set_music(score_id=score_id, difficulty=diff_id)
+            else:
+                live.set_music(score_id=score_id, difficulty=diff_id)
 
             # Negate custom_pots + load preset appeal bonus if defined, else ignore
             if extended_cards_data.lock_unit:
-                custom_pots = None
-                extra_bonus = extended_cards_data.extra_bonus
-                special_option = extended_cards_data.special_option
-                special_value = extended_cards_data.special_value
+                inner_custom_pots = None
+                inner_extra_bonus = extended_cards_data.extra_bonus
+                inner_special_option = extended_cards_data.special_option
+                inner_special_value = extended_cards_data.special_value
+            else:
+                inner_custom_pots = custom_pots
+                inner_extra_bonus = extra_bonus
+                inner_special_option = special_option
+                inner_special_value = special_value
 
             if groove_song_color is not None:
                 live.color = groove_song_color
 
             try:
                 if len(cards) == 15:
-                    unit = GrandUnit.from_list(cards, custom_pots)
+                    unit = GrandUnit.from_list(cards, inner_custom_pots)
                 else:
                     if cards[5] is None:
                         cards = cards[:5]
-                    unit = Unit.from_list(cards, custom_pots)
+                    unit = Unit.from_list(cards, inner_custom_pots)
             except InvalidUnit:
                 logger.info("Invalid unit: {}".format(cards))
                 results.append(None)
@@ -261,8 +266,8 @@ class MainModel(QObject):
             eventbus.eventbus.post(
                 SimulationEvent(extended_cards_data.uuid, extended_cards_data.short_uuid,
                                 row is not None and theoretical_simulation, appeals, autoplay, autoplay_offset,
-                                doublelife, extra_bonus, extra_return, live, mirror, perfect_play,
-                                results, special_option, special_value, support, times, unit,
+                                doublelife, inner_extra_bonus, extra_return, live, mirror, perfect_play,
+                                results, inner_special_option, inner_special_value, support, times, unit,
                                 left_inclusive, right_inclusive, theoretical_simulation),
                 high_priority=True, asynchronous=True)
 

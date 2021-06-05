@@ -1,5 +1,6 @@
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QTableWidget, QAbstractItemView, QTableWidgetItem
+from PyQt5.QtCore import Qt, QMimeData
+from PyQt5.QtGui import QDrag
+from PyQt5.QtWidgets import QTableWidget, QAbstractItemView, QTableWidgetItem, QApplication
 
 import customlogger as logger
 from db import db
@@ -8,6 +9,7 @@ from gui.events.chart_viewer_events import SendMusicEvent, PopupChartViewerEvent
 from gui.events.song_view_events import GetSongDetailsEvent
 from gui.events.utils import eventbus
 from gui.events.utils.eventbus import subscribe
+from gui.viewmodels.mime_headers import MUSIC
 from gui.viewmodels.utils import NumericalTableWidgetItem
 from static.color import Color
 from static.song_difficulty import Difficulty
@@ -22,7 +24,25 @@ class SongViewWidget(QTableWidget):
         if event.button() == Qt.RightButton:
             self.song_view.toggle_percentage()
             return
+        if event.button() == Qt.LeftButton:
+            self.drag_start_position = event.pos()
+            self.selected = self.selectedIndexes()
         super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        if not (event.buttons() & Qt.LeftButton):
+            return
+        if (event.pos() - self.drag_start_position).manhattanLength() < QApplication.startDragDistance():
+            return
+        if self.selectedItems():
+            self.selected = self.selectedIndexes()
+        if not self.selected:
+            return
+        drag = QDrag(self)
+        mimedata = QMimeData()
+        mimedata.setText(MUSIC + "|".join(map(str, self.song_view.model.get_song(GetSongDetailsEvent()))))
+        drag.setMimeData(mimedata)
+        drag.exec_(Qt.CopyAction | Qt.MoveAction)
 
 
 class SongView:
@@ -33,6 +53,7 @@ class SongView:
         self.widget.setHorizontalScrollMode(1)  # Smooth scroll
         self.widget.verticalHeader().setVisible(False)
         self.widget.setSortingEnabled(True)
+        self.widget.setDragEnabled(True)
         self.widget.setSelectionMode(QAbstractItemView.SingleSelection)
         self.widget.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.widget.setToolTip("Right click to show percentage.")
