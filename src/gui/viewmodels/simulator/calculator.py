@@ -204,7 +204,7 @@ class CalculatorUnitWidgetWithExtraData(UnitWidget):
             logger.debug("Dragged {} into unit".format(mimetext))
             self.handle_hooked_chart(*mimetext[len(MUSIC):].split("|"))
         else:
-            if type(self.unit_view.widget) == DroppableCalculatorWidget:
+            if type(self.unit_view.widget) == DroppableCalculatorWidget and mimetext.startswith(UNIT_EDITOR_UNIT):
                 self.unit_view.widget.handle_lost_mime(mimetext)
 
 
