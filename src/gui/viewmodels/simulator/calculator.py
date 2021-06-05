@@ -15,6 +15,7 @@ from gui.events.calculator_view_events import GetAllCardsEvent, DisplaySimulatio
 from gui.events.chart_viewer_events import HookUnitToChartViewerEvent
 from gui.events.song_view_events import GetSongDetailsEvent
 from gui.events.state_change_events import AutoFlagChangeEvent
+from gui.events.unit_details_events import HookUnitToUnitDetailsEvent
 from gui.events.utils import eventbus
 from gui.events.utils.eventbus import subscribe
 from gui.events.utils.wrappers import BaseSimulationResultWithUuid
@@ -26,7 +27,7 @@ from gui.viewmodels.utils import NumericalTableWidgetItem, UniversalUniqueIdenti
 from simulator import SimulationResult, AutoSimulationResult
 
 UNIVERSAL_HEADERS = ["Unit", "Appeals", "Life"]
-NORMAL_SIM_HEADERS = ["Perfect", "Mean", "Max", "Min", "Fans", "90%", "75%", "50%", "Theo. Max"]
+NORMAL_SIM_HEADERS = ["Perfect", "Mean", "Max", "Min", "Fans", "90%", "75%", "50%", "Theo. Max", "Full Roll Chance (%)"]
 AUTOPLAY_SIM_HEADERS = ["Auto Score", "Perfects", "Misses", "Max Combo", "Lowest Life", "Lowest Life Time (s)",
                         "All Skills 100%?"]
 ALL_HEADERS = UNIVERSAL_HEADERS + NORMAL_SIM_HEADERS + AUTOPLAY_SIM_HEADERS
@@ -423,6 +424,7 @@ class CalculatorView:
         else:
             _, _, _, song_name, diff_name = eventbus.eventbus.post_and_get_first(GetSongDetailsEvent())
             self.widget.cellWidget(r, 0).display_chart_name(diff_name, song_name)
+        eventbus.eventbus.post(HookUnitToUnitDetailsEvent())
 
 
 class CalculatorModel:
@@ -541,6 +543,7 @@ class CalculatorModel:
         self.view.fill_column(False, 9, row, int(results.base + np.percentile(results.deltas, 50)))
         if results.max_theoretical_result is not None:
             self.view.fill_column(False, 10, row, int(results.max_theoretical_result.max_score))
+        self.view.fill_column(False, 11, row, float(int(results.full_roll_chance * 10000) / 100))
 
     def _process_auto_results(self, results: AutoSimulationResult, row=None):
         # ["Auto Score", "Perfects", "Misses", "Max Combo", "Lowest Life", "Lowest Life Time", "All Skills 100%?"]

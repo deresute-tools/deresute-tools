@@ -2,6 +2,7 @@ from PyQt5.QtWidgets import QTableWidget, QAbstractItemView
 
 from exceptions import InvalidUnit
 from gui.events.calculator_view_events import SetSupportCardsEvent, RequestSupportTeamEvent, SupportTeamSetMusicEvent
+from gui.events.unit_details_events import GetSupportLiveObjectEvent
 from gui.events.utils import eventbus
 from gui.events.utils.eventbus import subscribe
 from gui.events.value_accessor_events import GetCustomPotsEvent, GetCustomBonusEvent, GetGrooveSongColor
@@ -107,3 +108,7 @@ class SupportModel:
         self.live.get_support()
         self.view.display_support(self.live.support.copy())
         return self.live.get_appeals(), self.live.get_support(), self.live.get_life()
+
+    @subscribe(GetSupportLiveObjectEvent)
+    def get_support_live_object(self, event):
+        return self.live

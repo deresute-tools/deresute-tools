@@ -64,7 +64,7 @@ class MaxSimulationResult(BaseSimulationResult):
 
 
 class SimulationResult(BaseSimulationResult):
-    def __init__(self, total_appeal, perfect_score, skill_off, base, deltas, total_life, fans,
+    def __init__(self, total_appeal, perfect_score, skill_off, base, deltas, total_life, fans, full_roll_chance,
                  max_theoretical_result: MaxSimulationResult = None):
         super().__init__()
         self.total_appeal = total_appeal
@@ -74,6 +74,7 @@ class SimulationResult(BaseSimulationResult):
         self.deltas = deltas
         self.total_life = total_life
         self.fans = fans
+        self.full_roll_chance = full_roll_chance
         self.max_theoretical_result = max_theoretical_result
 
 
@@ -252,6 +253,7 @@ class Simulator:
             base=base,
             deltas=deltas,
             total_life=self.live.get_life(),
+            full_roll_chance=self.full_roll_probability,
             fans=total_fans
         )
 
@@ -1270,6 +1272,7 @@ class Simulator:
         self.cc_set = set()
         self.activation_points = defaultdict(set)
         self.deactivation_points = defaultdict(set)
+        self.full_roll_probability = 1
         units_with_cc = set()
 
         if reset_notes_data:
@@ -1347,6 +1350,9 @@ class Simulator:
                     units_with_cc.add(unit_idx)
 
                 skill_times = int((self.notes_data.iloc[-1].sec - 3) // skill.interval)
+
+                self.full_roll_probability *= probability ** skill_times
+
                 if skill_times == 0:
                     self.notes_data['skill_{}'.format(unit_idx * 5 + card_idx)] = 0
                     continue  # Skip empty skill

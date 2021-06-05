@@ -24,6 +24,7 @@ from gui.viewmodels.simulator.custom_card import CustomCardView, CustomCardModel
 from gui.viewmodels.simulator.custom_settings import CustomSettingsView, CustomSettingsModel
 from gui.viewmodels.simulator.grandcalculator import GrandCalculatorView
 from gui.viewmodels.simulator.support import SupportView, SupportModel
+from gui.viewmodels.simulator.unit_details import UnitDetailsView, UnitDetailsModel
 from logic.grandlive import GrandLive
 from logic.grandunit import GrandUnit
 from logic.live import Live
@@ -67,14 +68,21 @@ class MainView:
         self.custom_card_and_support_widget = QTabWidget(self.widget)
         self._setup_support()
         self._setup_custom_card()
+        self._setup_unit_details()
         self.custom_card_and_support_widget.addTab(self.support_view.widget, "Support Team")
         self.custom_card_and_support_widget.addTab(self.custom_card_view.widget, "Custom Card")
+        self.custom_card_and_support_widget.addTab(self.unit_details_view.widget, "Unit Details")
         self.custom_appeal_and_support_layout.addWidget(self.custom_card_and_support_widget)
 
     def _setup_custom_card(self):
         self.custom_card_view = CustomCardView(self.widget)
         self.custom_card_model = CustomCardModel(self.custom_card_view)
         self.custom_card_view.set_model(self.custom_card_model)
+
+    def _setup_unit_details(self):
+        self.unit_details_view = UnitDetailsView(self.widget)
+        self.unit_details_model = UnitDetailsModel(self.unit_details_view)
+        self.unit_details_view.set_model(self.unit_details_model)
 
     def _setup_support(self):
         self.support_view = SupportView(self.widget)
