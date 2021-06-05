@@ -38,6 +38,7 @@ class CalculatorUnitWidgetWithExtraData(UnitWidget):
     def __init__(self, unit_view, parent=None, size=32, *args, **kwargs):
         super().__init__(unit_view, parent, size, *args, **kwargs)
         self.setAcceptDrops(True)
+        self.setStyleSheet("padding: 0px")
 
         self.card_widget = QWidget(self)
 
@@ -125,6 +126,9 @@ class CalculatorUnitWidgetWithExtraData(UnitWidget):
             self.live_detail_id = int(live_detail_id)
         except:
             self.live_detail_id = live_detail_id
+        self.display_chart_name(diff_name, song_name)
+
+    def display_chart_name(self, diff_name, song_name):
         string = "{} - {}".format(diff_name, song_name)
         metrics = QFontMetrics(self.song_name_label.font())
         elided_text = metrics.elidedText(string, Qt.ElideRight, self.song_name_label.width())
@@ -144,13 +148,14 @@ class CalculatorUnitWidgetWithExtraData(UnitWidget):
         self.stacked_layout = QStackedLayout()
         self.stacked_layout.addWidget(self.card_widget)
         self.stacked_layout.addWidget(self.running_label)
-        self.stacked_layout.setContentsMargins(0, 0, 0, 0)
         self.stacked_layout.setStackingMode(QStackedLayout.StackAll)
+        self.stacked_layout.setContentsMargins(0, 0, 0, 0)
 
     def initialize_song_name_label(self):
         self.song_name_label = QLabel(self)
         self.song_name_label.setText("No chart loaded")
         self.song_name_label.setAlignment(Qt.AlignCenter)
+        self.song_name_label.setContentsMargins(0, 0, 0, 0)
 
     def initialize_checkboxes(self):
         self.checkbox_container_widget = QWidget(self)
@@ -160,14 +165,16 @@ class CalculatorUnitWidgetWithExtraData(UnitWidget):
         checkbox_layout.addWidget(self.lock_chart_checkbox)
         checkbox_layout.addWidget(self.lock_unit_checkbox)
         checkbox_layout.setAlignment(Qt.AlignCenter)
+        checkbox_layout.setContentsMargins(0, 0, 0, 0)
         self.checkbox_container_widget.setLayout(checkbox_layout)
+        self.checkbox_container_widget.setContentsMargins(0, 3, 0, 3)
 
     def setup_master_layout(self):
         self.master_layout.addLayout(self.stacked_layout)
         self.master_layout.addWidget(self.song_name_label)
         self.master_layout.addWidget(self.checkbox_container_widget)
-        self.master_layout.setContentsMargins(3, 3, 3, 3)
-        self.master_layout.setSpacing(1)
+        self.master_layout.setContentsMargins(0, 0, 0, 0)
+        self.master_layout.setSpacing(0)
         state = eventbus.eventbus.post_and_get_first(GetUnitLockingOptionsVisibilityEvent())
         self.song_name_label.setVisible(state)
         self.checkbox_container_widget.setVisible(state)
@@ -411,6 +418,11 @@ class CalculatorView:
     def handle_unit_click(self, r):
         eventbus.eventbus.post(HookUnitToChartViewerEvent(self.widget.cellWidget(r, 0).cards_internal))
         self.create_support_team(r)
+        if self.widget.cellWidget(r, 0).extended_cards_data.lock_chart:
+            return
+        else:
+            _, _, _, song_name, diff_name = eventbus.eventbus.post_and_get_first(GetSongDetailsEvent())
+            self.widget.cellWidget(r, 0).display_chart_name(diff_name, song_name)
 
 
 class CalculatorModel:
@@ -451,6 +463,10 @@ class CalculatorModel:
         if row_to_change == -1:
             return
         self.view.widget.cellWidget(row_to_change, 0).toggle_running_simulation(False)
+
+        if not self.view.widget.cellWidget(row_to_change, 0).extended_cards_data.lock_chart:
+            _, _, _, song_name, diff_name = eventbus.eventbus.post_and_get_first(GetSongDetailsEvent())
+            self.view.widget.cellWidget(row_to_change, 0).display_chart_name(diff_name, song_name)
 
         self.view.widget.setSortingEnabled(False)
         if isinstance(payload.results, SimulationResult):
