@@ -478,6 +478,14 @@ class CalculatorView:
             self.widget.cellWidget(r, 0).display_chart_name(diff_name, song_name)
         eventbus.eventbus.post(HookUnitToUnitDetailsEvent())
 
+    def backup(self):
+        logger.info("{} backing up unit for next session...".format(type(self).__name__))
+        try:
+            units = [self.widget.cellWidget(r, 0).backup() for r in range(self.widget.rowCount())]
+            pickle.dump(units, get_writer(BACKUP_PATH / "{}.bk".format(type(self).__name__)))
+        except:
+            logger.error("Failed to back up session units")
+
     def _restore_from_backup(self):
         try:
             if not (BACKUP_PATH / "{}.bk".format(type(self).__name__)).exists():
@@ -606,12 +614,7 @@ class CalculatorModel:
     # Backup units
     @subscribe(ShutdownTriggeredEvent)
     def backup(self, event):
-        logger.info("{} backing up unit for next session...".format(type(self).__name__))
-        try:
-            units = [self.view.widget.cellWidget(r, 0).backup() for r in range(self.view.widget.rowCount())]
-            pickle.dump(units, get_writer(BACKUP_PATH / "{}.bk".format(type(self).__name__)))
-        except:
-            logger.error("Failed to back up session units")
+        self.view.backup()
 
     def _process_normal_results(self, results: SimulationResult, row=None):
         # ["Perfect", "Mean", "Max", "Min", "Fans", "Theoretical Max", "90%", "75%", "50%"])
