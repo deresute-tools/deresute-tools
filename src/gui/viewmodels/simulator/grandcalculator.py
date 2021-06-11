@@ -2,7 +2,7 @@ import itertools
 
 from PyQt5.QtCore import QSize, Qt, QMimeData
 from PyQt5.QtGui import QDrag
-from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QApplication, QSizePolicy
+from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QApplication, QSizePolicy, QTableWidgetItem
 
 import customlogger as logger
 from gui.events.calculator_view_events import AddEmptyUnitEvent
@@ -92,6 +92,8 @@ class GrandCalculatorView(CalculatorView):
 
     def insert_unit(self):
         self.widget.insertRow(self.widget.rowCount())
+        self.widget.setVerticalHeaderItem(self.widget.rowCount() - 1, QTableWidgetItem(""))
+        self.widget.verticalHeader().setFixedWidth(25)
         simulator_unit_widget = GrandCalculatorUnitWidget(self, None, size=32)
         self.widget.setCellWidget(self.widget.rowCount() - 1, 0, simulator_unit_widget)
         logger.debug("Inserted empty unit at {}".format(self.widget.rowCount()))
@@ -138,6 +140,8 @@ class GrandCalculatorView(CalculatorView):
                 permutation = list(permutation)
                 unit_card_ids = [_[0] for _ in permutation]
                 unit_internal = permutation[0][1] + permutation[1][1] + permutation[2][1]
+                for idx, _ in enumerate(unit_internal):
+                    unit_internal[idx] = _.clone_card()
                 if unit_card_ids in all_units_card_ids:
                     continue
                 self.add_unit(unit_internal)

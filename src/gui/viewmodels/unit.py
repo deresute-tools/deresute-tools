@@ -76,22 +76,7 @@ class UnitWidget(QWidget):
             if card_internal is None:
                 res.append(None)
                 continue
-            clone_card = Card.from_id(card_internal.card_id)
-            clone_card.color = card_internal.color
-            clone_card.skill.color = card_internal.skill.color
-            clone_card.base_vo = card_internal.base_vo
-            clone_card.base_da = card_internal.base_da
-            clone_card.base_vi = card_internal.base_vi
-            clone_card.base_li = card_internal.base_li
-            clone_card.skill.duration = card_internal.skill.duration
-            clone_card.skill.interval = card_internal.skill.interval
-            clone_card.vo_pots = card_internal.vo_pots
-            clone_card.da_pots = card_internal.da_pots
-            clone_card.vi_pots = card_internal.vi_pots
-            clone_card.li_pots = card_internal.li_pots
-            clone_card.sk_pots = card_internal.sk_pots
-            clone_card.star = card_internal.star
-            res.append(clone_card)
+            res.append(card_internal.clone_card())
         return res
 
     @property

@@ -99,6 +99,24 @@ class Card:
                    card_id=card_id,
                    chara_id=card_data['chara_id'])
 
+    def clone_card(self):
+        clone_card = Card.from_id(self.card_id)
+        clone_card.color = self.color
+        clone_card.skill.color = self.skill.color
+        clone_card.base_vo = self.base_vo
+        clone_card.base_da = self.base_da
+        clone_card.base_vi = self.base_vi
+        clone_card.base_li = self.base_li
+        clone_card.skill.duration = self.skill.duration
+        clone_card.skill.interval = self.skill.interval
+        clone_card.vo_pots = self.vo_pots
+        clone_card.da_pots = self.da_pots
+        clone_card.vi_pots = self.vi_pots
+        clone_card.li_pots = self.li_pots
+        clone_card.sk_pots = self.sk_pots
+        clone_card.star = self.star
+        return clone_card
+
     def refresh_values(self):
         self.is_refreshed = True
         card_data = db.masterdb.execute_and_fetchone(
