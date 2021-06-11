@@ -1126,6 +1126,7 @@ class Simulator:
                         first_combo_note = local_notes_data.iloc[first_combo_note].sec
                     for skill_idx in refrains:
                         skill = self.live.unit.get_card(skill_idx).skill
+                        sec = self.notes_data.loc[:len(local_ref_score_value), 'sec']
                         fail_ref_score_notes = local_notes_data[local_notes_data.sec < first_score_note][
                             "skill_{}_l".format(skill_idx)].max()
                         if not np.isnan(fail_ref_score_notes):
@@ -1142,8 +1143,20 @@ class Simulator:
                             local_np_v[:remove_index + 1, 1:2, skill.color.value, skill_idx] = 0
                         local_np_v[:, 0, skill.color.value, skill_idx] = local_np_v[:, 0, skill.color.value,
                                                                          skill_idx] * local_ref_score_value / 1000
-                        local_np_v[:, 1, skill.color.value, skill_idx] = local_np_v[:, 1, skill.color.value,
-                                                                         skill_idx] * local_ref_combo_value / 1000
+                        skill_times = int((self.song_duration - 3) // skill.interval)
+                        unit_offset = 3 if grand else 1
+                        for skill_activation in range(skill.offset + 1, skill_times + 1, unit_offset):
+                            idxes = sec[(skill_activation * skill.interval <= sec)
+                                        & (sec < (skill_activation + 1) * skill.interval)].index
+                            effective_ref_combo_bonus = local_ref_combo_value[idxes]
+                            try:
+                                effective_ref_combo_bonus = effective_ref_combo_bonus[
+                                    effective_ref_combo_bonus != 0].min()
+                            except ValueError:
+                                effective_ref_combo_bonus = 0
+                                print(skill_activation)
+                            local_np_v[idxes, 1, skill.color.value, skill_idx] = local_np_v[idxes, 1, skill.color.value,
+                                                                                            skill_idx] * effective_ref_combo_bonus / 1000
 
         def handle_magic_pass_one():
             for unit_idx, unit in enumerate(self.live.unit.all_units):
