@@ -1,6 +1,8 @@
 import ast
+import pickle
 import threading
 from abc import abstractmethod
+from datetime import datetime
 
 import numpy as np
 from PyQt5.QtCore import QSize, Qt, QMimeData
@@ -14,7 +16,7 @@ from gui.events.calculator_view_events import GetAllCardsEvent, DisplaySimulatio
     TurnOffRunningLabelFromUuidEvent, ToggleUnitLockingOptionsVisibilityEvent
 from gui.events.chart_viewer_events import HookUnitToChartViewerEvent
 from gui.events.song_view_events import GetSongDetailsEvent
-from gui.events.state_change_events import AutoFlagChangeEvent
+from gui.events.state_change_events import AutoFlagChangeEvent, ShutdownTriggeredEvent
 from gui.events.unit_details_events import HookUnitToUnitDetailsEvent
 from gui.events.utils import eventbus
 from gui.events.utils.eventbus import subscribe
@@ -24,7 +26,9 @@ from gui.events.value_accessor_events import GetAppealsEvent, GetSupportEvent, G
 from gui.viewmodels.mime_headers import CALCULATOR_UNIT, UNIT_EDITOR_UNIT, MUSIC
 from gui.viewmodels.unit import UnitView, UnitWidget
 from gui.viewmodels.utils import NumericalTableWidgetItem, UniversalUniqueIdentifiable
+from settings import BACKUP_PATH
 from simulator import SimulationResult, AutoSimulationResult
+from utils.storage import get_writer, get_reader
 
 UNIVERSAL_HEADERS = ["Unit", "Appeals", "Life"]
 NORMAL_SIM_HEADERS = ["Perfect", "Mean", "Max", "Min", "Fans", "90%", "75%", "50%", "Theo. Max", "Full Roll Chance (%)"]
@@ -33,6 +37,16 @@ AUTOPLAY_SIM_HEADERS = ["Auto Score", "Perfects", "Misses", "Max Combo", "Lowest
 ALL_HEADERS = UNIVERSAL_HEADERS + NORMAL_SIM_HEADERS + AUTOPLAY_SIM_HEADERS
 
 mutex = threading.Lock()
+
+
+class BackupUnit:
+    def __init__(self, card_ids, cards_internal, lock_unit, lock_chart, extended_cards_data, text):
+        self.card_ids = card_ids
+        self.cards_internal = cards_internal
+        self.lock_unit = lock_unit
+        self.lock_chart = lock_chart
+        self.extended_cards_data = extended_cards_data
+        self.text = text
 
 
 class CalculatorUnitWidgetWithExtraData(UnitWidget):
@@ -142,13 +156,18 @@ class CalculatorUnitWidgetWithExtraData(UnitWidget):
 
     def display_chart_name(self, diff_name, song_name):
         string = "{} - {}".format(diff_name, song_name)
-        metrics = QFontMetrics(self.song_name_label.font())
-        elided_text = metrics.elidedText(string, Qt.ElideRight, self.song_name_label.width())
-        self.song_name_label.setText(elided_text)
+        self.set_text(string)
 
     def clone_label(self, label: QLabel):
         metrics = QFontMetrics(self.song_name_label.font())
         elided_text = metrics.elidedText(label.text(), Qt.ElideRight, self.song_name_label.width())
+        self.song_name_label.setText(elided_text)
+
+    def set_text(self, string, width=None):
+        metrics = QFontMetrics(self.song_name_label.font())
+        if width is None:
+            width = self.song_name_label.width()
+        elided_text = metrics.elidedText(string, Qt.ElideRight, width)
         self.song_name_label.setText(elided_text)
 
     def initialize_running_label(self):
@@ -222,6 +241,10 @@ class CalculatorUnitWidgetWithExtraData(UnitWidget):
         else:
             if type(self.unit_view.widget) == DroppableCalculatorWidget and mimetext.startswith(UNIT_EDITOR_UNIT):
                 self.unit_view.widget.handle_lost_mime(mimetext)
+
+    def backup(self):
+        return BackupUnit(self.card_ids, self.cards_internal, self.lock_unit, self.lock_chart, self.extended_cards_data,
+                          self.song_name_label.text())
 
 
 class CalculatorUnitWidget(CalculatorUnitWidgetWithExtraData, UniversalUniqueIdentifiable):
@@ -316,6 +339,7 @@ class CalculatorView:
         self.main_view = main_view
         self.initialize_widget(main)
         self.setup_widget()
+        eventbus.eventbus.register(self)
 
     def initialize_widget(self, main):
         self.widget = DroppableCalculatorWidget(self, main)
@@ -349,12 +373,13 @@ class CalculatorView:
 
     def set_model(self, model):
         self.model = model
+        self._restore_from_backup()
 
     def insert_unit(self):
         self.widget.insertRow(self.widget.rowCount())
         self.widget.setVerticalHeaderItem(self.widget.rowCount() - 1, QTableWidgetItem(""))
         self.widget.verticalHeader().setFixedWidth(25)
-        simulator_unit_widget = CalculatorUnitWidget(self, None, size=32)
+        simulator_unit_widget = CalculatorUnitWidget(self, self.widget, size=32)
         self.widget.setCellWidget(self.widget.rowCount() - 1, 0, simulator_unit_widget)
         logger.debug("Inserted empty unit at {}".format(self.widget.rowCount()))
         self.widget.setColumnWidth(0, 40 * 6)
@@ -450,6 +475,38 @@ class CalculatorView:
             _, _, _, song_name, diff_name = eventbus.eventbus.post_and_get_first(GetSongDetailsEvent())
             self.widget.cellWidget(r, 0).display_chart_name(diff_name, song_name)
         eventbus.eventbus.post(HookUnitToUnitDetailsEvent())
+
+    # Backup units
+    @subscribe(ShutdownTriggeredEvent)
+    def backup(self, event):
+        logger.info("Backing up unit for next session...")
+        try:
+            units = [self.widget.cellWidget(r, 0).backup() for r in range(self.widget.rowCount())]
+            pickle.dump(units, get_writer(BACKUP_PATH / "{}.bk".format(type(self).__name__)))
+        except:
+            logger.error("Failed to back up session units")
+
+    def _restore_from_backup(self):
+        try:
+            if not (BACKUP_PATH / "{}.bk".format(type(self).__name__)).exists():
+                return
+            units = pickle.load(get_reader(BACKUP_PATH / "{}.bk".format(type(self).__name__)))
+        except:
+            logger.error("Failed to load units from last session")
+            return
+        unit: BackupUnit
+        for unit in units:
+            self.add_unit(unit.card_ids)
+            new_unit: CalculatorUnitWidgetWithExtraData = self.widget.cellWidget(self.widget.rowCount() - 1, 0)
+            new_unit.cards_internal = unit.cards_internal
+            new_unit.clone_extended_cards_data(unit.extended_cards_data)
+            new_unit.lock_chart_checkbox.setChecked(unit.lock_chart)
+            new_unit.lock_unit_checkbox.setChecked(unit.lock_unit)
+            new_unit.set_text(unit.text, 252)
+            for card in new_unit.cards_internal:
+                if card is None:
+                    continue
+                card.refresh_values()
 
 
 class CalculatorModel:

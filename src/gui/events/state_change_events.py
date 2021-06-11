@@ -22,3 +22,8 @@ class InjectTextEvent:
     def __init__(self, text, offset=10):
         self.text = text
         self.offset = offset
+
+
+class ShutdownTriggeredEvent:
+    def __init__(self):
+        pass

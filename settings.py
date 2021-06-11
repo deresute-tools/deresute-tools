@@ -5,6 +5,7 @@ LOG_DIR = ROOT_DIR / "logs"
 MAX_WORKERS = 6  # Set this high and your PC dies
 
 DATA_PATH = ROOT_DIR / "data"
+BACKUP_PATH = DATA_PATH / "backup"
 DB_PATH = DATA_PATH / "db"
 IMAGE_PATH = DATA_PATH / "img"
 IMAGE_PATH32 = DATA_PATH / "img32"
