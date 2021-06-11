@@ -490,6 +490,7 @@ class CalculatorView:
         try:
             if not (BACKUP_PATH / "{}.bk".format(type(self).__name__)).exists():
                 return
+            logger.info("Restoring last session")
             units = pickle.load(get_reader(BACKUP_PATH / "{}.bk".format(type(self).__name__)))
         except:
             logger.error("Failed to load units from last session")
