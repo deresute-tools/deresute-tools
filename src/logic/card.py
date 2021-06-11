@@ -196,4 +196,4 @@ class Card:
     def __eq__(self, other):
         if other is None or not isinstance(other, Card):
             return False
-        return self.card_id == other.card_id
+        return self.card_id == other.card_id and self.skill == other.skill

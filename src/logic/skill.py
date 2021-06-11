@@ -155,3 +155,8 @@ class Skill:
             min_requirements=min_requirements,
             max_requirements=max_requirements
         )
+
+    def __eq__(self, other):
+        if other is None or not isinstance(other, Skill):
+            return False
+        return self.skill_type == other.skill_type and self.duration == other.duration and self.interval == other.interval
