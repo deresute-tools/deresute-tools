@@ -146,7 +146,7 @@ live = GrandLive()
 live.set_music(music_name="Starry-Go-Round", difficulty=Difficulty.PIANO)
 live.set_unit(gu)
 sim = Simulator(live)
-sim.simulate_theoretical_max(appeals=480692).max_score == 6037174
+assert sim.simulate_theoretical_max(appeals=480692).max_score == 6037174
 
 unit = Unit.from_list([100936, 100708, 100914, 100584, 100456, 100964], custom_pots=(10, 5, 0, 10, 10))
 live = Live()

@@ -433,15 +433,17 @@ class Simulator:
                     l = row['abuse_range_l']
                     r = row['abuse_range_r']
                     window = r - l
+                    delta = row['delta']
                 else:
                     l = "N/A"
                     r = "N/A"
                     window = "N/A"
+                    delta = 0
                 csv_writer.writerow([idx, row['sec'], row['note_type'],
                                      row['finishPos'],
                                      perfect_scores[idx],
                                      l, r,
-                                     row['delta'],
+                                     delta,
                                      window,
                                      cumsum_pft[idx],
                                      cumsum_max[idx]
@@ -455,7 +457,6 @@ class Simulator:
         logger.debug("Max Abuse: {}".format(max_score))
         logger.debug("Total Abuse Count: {}".format(len(abuse_df)))
         logger.debug("Average Abuse Delta: {}".format(int(abuse_df['delta'].mean())))
-
         return MaxSimulationResult(total_appeal=self.total_appeal, total_perfect=perfect_scores.sum(),
                                    abuse_df=abuse_df,
                                    total_life=self.live.get_life(), perfect_score=perfect_scores,
