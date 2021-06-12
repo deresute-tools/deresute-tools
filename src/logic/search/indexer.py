@@ -1,9 +1,10 @@
 import ast
+import os
 import shutil
 
 from whoosh.analysis import SimpleAnalyzer
 from whoosh.fields import *
-from whoosh.index import create_in
+from whoosh.index import create_in, open_dir
 
 import customlogger as logger
 from db import db
@@ -21,7 +22,9 @@ KEYWORD_KEYS = KEYWORD_KEYS_STR_ONLY + ["owned", "idolized"]
 class IndexManager:
 
     def __init__(self):
-        if self.cleanup():
+        is_debug = os.environ["DEBUG_MODE"] == "1"
+        # Skip cleanup in debug
+        if not is_debug and self.cleanup():
             INDEX_PATH.mkdir()
         self.index = None
         self.song_index = None
@@ -146,6 +149,10 @@ class IndexManager:
         self.index = ix
         logger.debug("Quicksearch index initialized for {} cards".format(len(results)))
 
+    def load_indices(self):
+        self.index = open_dir(INDEX_PATH)
+        self.song_index = open_dir(INDEX_PATH, indexname="score")
+
     def initialize_chart_index(self):
         results = db.cachedb.execute_and_fetchall(
             "SELECT live_detail_id, performers, special_keys, jp_name, name, level, color, difficulty FROM live_detail_cache")
@@ -205,10 +212,13 @@ class IndexManager:
         writer.commit()
 
     def get_index(self, song_index=False):
-        if self.index is None:
+        is_debug = os.environ["DEBUG_MODE"] == "1"
+        if not is_debug and self.index is None:
             im.initialize_index_db()
             im.initialize_index()
             im.initialize_chart_index()
+        else:
+            im.load_indices()
         if song_index:
             return self.song_index
         return self.index
