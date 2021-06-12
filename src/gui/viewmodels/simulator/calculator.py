@@ -355,7 +355,9 @@ class CalculatorView:
         self.widget.setColumnWidth(0, 40 * 6)
         self.widget.horizontalHeader().resizeSections(3)  # Auto fit
         self.widget.horizontalHeader().setSectionResizeMode(0, 2)
+        self.widget.horizontalHeader().setMinimumSectionSize(55)
         self.widget.horizontalHeader().setMinimumSectionSize(0)
+        self.widget.setColumnWidth(2, 30)
         self.toggle_auto(False)
 
         self.widget.cellClicked.connect(lambda r, _: self.handle_unit_click(r))
