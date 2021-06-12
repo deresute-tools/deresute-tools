@@ -1160,7 +1160,6 @@ class Simulator:
                                     effective_ref_combo_bonus != 0].min()
                             except ValueError:
                                 effective_ref_combo_bonus = 0
-                                print(skill_activation)
                             local_np_v[idxes, 1, skill.color.value, skill_idx] = local_np_v[idxes, 1, skill.color.value,
                                                                                             skill_idx] * effective_ref_combo_bonus / 1000
 
