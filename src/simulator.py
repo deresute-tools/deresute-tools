@@ -1083,18 +1083,23 @@ class Simulator:
                         inner_mask = np.logical_and(self.notes_data['note_type'] == note_type, mask)
                         self.notes_data.loc[inner_mask, 'ref_score_bonus_per_note'] = np.maximum.accumulate(
                             self.notes_data.loc[inner_mask, 'ref_score_bonus_per_note'], axis=0)
-                self.notes_data['ref_combo_bonus_per_note'] = np.maximum.accumulate(
-                    self.notes_data['ref_combo_bonus_per_note'], axis=0)
+                if "rep" not in self.notes_data:
+                    rep = 1
+                    self.notes_data['ref_combo_bonus_per_note'] = np.maximum.accumulate(
+                        self.notes_data['ref_combo_bonus_per_note'], axis=0)
+                else:
+                    rep = self.notes_data['rep'].max() + 1
+                    for _ in range(rep):
+                        l = len(self.live.notes) * _
+                        r = len(self.live.notes) * (_ + 1) - 1
+                    self.notes_data.loc[l:r, 'ref_combo_bonus_per_note'] = np.maximum.accumulate(
+                        self.notes_data.loc[l:r, 'ref_combo_bonus_per_note'], axis=0)
                 ref_score_value = np.array(self.notes_data['ref_score_bonus_per_note'])
                 ref_combo_value = np.array(self.notes_data['ref_combo_bonus_per_note'])
                 if abuse_check:
                     note_count = len(self.notes_data)
                 else:
                     note_count = len(self.live.notes)
-                if "rep" not in self.notes_data:
-                    rep = 1
-                else:
-                    rep = self.notes_data['rep'].max() + 1
                 for rep_idx in range(rep):
                     local_ref_score_value = ref_score_value[rep_idx * note_count: (rep_idx + 1) * note_count]
                     local_ref_combo_value = ref_combo_value[rep_idx * note_count: (rep_idx + 1) * note_count]
