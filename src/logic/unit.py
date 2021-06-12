@@ -196,25 +196,29 @@ class Unit(BaseUnit):
                 return True
         return False
 
-    def convert_motif(self, grand=False):
-        for card in self._cards[:5]:
-            if card.skill.skill_type == 35:
-                total = self._get_motif_vocal()
-            elif card.skill.skill_type == 36:
-                total = self._get_motif_dance()
-            elif card.skill.skill_type == 37:
-                total = self._get_motif_visual()
-            else:
-                continue
-            if grand:
-                values = [_[0] for _ in
-                          db.masterdb.execute_and_fetchall("SELECT type_01_value FROM skill_motif_value_grand")]
-            else:
-                values = [_[0] for _ in db.masterdb.execute_and_fetchall("SELECT type_01_value FROM skill_motif_value")]
-            total = total // 1000
-            if total >= len(values):
-                total = len(values) - 1
-            card.skill.v0 = values[int(total)]
+    def get_base_motif_appeals(self):
+        self.motif_vocal = self._get_motif_vocal()
+        self.motif_dance = self._get_motif_dance()
+        self.motif_visual = self._get_motif_visual()
+
+    def convert_motif(self, skill_type, grand=False):
+        if grand:
+            values = [_[0] for _ in
+                      db.masterdb.execute_and_fetchall("SELECT type_01_value FROM skill_motif_value_grand")]
+        else:
+            values = [_[0] for _ in db.masterdb.execute_and_fetchall("SELECT type_01_value FROM skill_motif_value")]
+        if skill_type == 35:
+            total = self.motif_vocal
+        elif skill_type == 36:
+            total = self.motif_dance
+        elif skill_type == 37:
+            total = self.motif_visual
+        else:
+            return
+        total = total // 1000
+        if total >= len(values):
+            total = len(values) - 1
+        return values[int(total)]
 
     def update_card(self, idx, card):
         self._cards[idx] = card

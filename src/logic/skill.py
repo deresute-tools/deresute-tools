@@ -15,7 +15,7 @@ class Skill:
     def __init__(self, color=Color.CUTE, duration=0, probability=0, interval=999,
                  values=None, v0=0, v1=0, v2=0, v3=0, offset=0,
                  boost=False, color_target=False, act=None, bonus_skill=2000, skill_type=None,
-                 min_requirements=None, max_requirements=None):
+                 min_requirements=None, max_requirements=None, life_requirement=0):
         if values is None and v0 == v1 == v2 == v3 == 0:
             raise ValueError("Invalid skill values", values, v0, v1, v2, v3)
 
@@ -43,6 +43,7 @@ class Skill:
         self.skill_type = skill_type
         self.min_requirements = min_requirements
         self.max_requirements = max_requirements
+        self.life_requirement = life_requirement
 
     @property
     def is_support(self):
@@ -134,7 +135,7 @@ class Skill:
         elif skill_type == 17:  # Healer
             values[2] = skill_values[0]
         elif skill_type == 39:
-            values[0] = 1
+            values[0] = skill_values[1] / 1000
             values[1] = skill_values[0]
         elif skill_type == 42:
             values[0] = skill_values[0]
@@ -157,6 +158,8 @@ class Skill:
         elif skill_data['skill_trigger_type'] == 3:
             min_requirements = [1, 1, 1]
 
+        life_requirement = skill_data['skill_trigger_value'] if skill_data['skill_type'] == 14 else 0
+
         is_boost = skill_data['skill_type'] in BOOST_TYPES
         if is_boost:
             values = cls._fetch_boost_value_from_db(skill_data['value'])
@@ -176,7 +179,8 @@ class Skill:
             bonus_skill=bonus_skill,
             skill_type=skill_data['skill_type'],
             min_requirements=min_requirements,
-            max_requirements=max_requirements
+            max_requirements=max_requirements,
+            life_requirement=life_requirement
         )
 
     def __eq__(self, other):
