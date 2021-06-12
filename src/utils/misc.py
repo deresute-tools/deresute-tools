@@ -1,3 +1,4 @@
+import os
 from itertools import chain, combinations
 from math import ceil, log2
 
@@ -126,3 +127,9 @@ class SegmentTree:
         for depth in range(self.depth):
             res += "\t".join(map(str, self.skill_tree[2 ** depth - 1:2 ** (depth + 1) - 1])) + "\n"
         return res
+
+
+def is_debug_mode():
+    if "DEBUG_MODE" not in os.environ:
+        os.environ["DEBUG_MODE"] = "0"
+    return os.environ["DEBUG_MODE"] == "1"

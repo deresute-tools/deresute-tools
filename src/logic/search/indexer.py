@@ -13,6 +13,7 @@ from network.meta_updater import get_masterdb_path
 from settings import INDEX_PATH
 from static.color import Color
 from static.song_difficulty import Difficulty
+from utils.misc import is_debug_mode
 
 KEYWORD_KEYS_STR_ONLY = ["short", "chara", "rarity", "color", "skill", "leader", "time_prob_key", "fes", "noir",
                          "blanc", "carnival", "main_attribute"]
@@ -22,9 +23,8 @@ KEYWORD_KEYS = KEYWORD_KEYS_STR_ONLY + ["owned", "idolized"]
 class IndexManager:
 
     def __init__(self):
-        is_debug = os.environ["DEBUG_MODE"] == "1"
         # Skip cleanup in debug
-        if not is_debug and self.cleanup():
+        if not is_debug_mode() and self.cleanup():
             INDEX_PATH.mkdir()
         self.index = None
         self.song_index = None
@@ -212,8 +212,7 @@ class IndexManager:
         writer.commit()
 
     def get_index(self, song_index=False):
-        is_debug = os.environ["DEBUG_MODE"] == "1"
-        if not is_debug and self.index is None:
+        if not is_debug_mode() and self.index is None:
             im.initialize_index_db()
             im.initialize_index()
             im.initialize_chart_index()

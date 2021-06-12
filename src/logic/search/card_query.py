@@ -5,6 +5,7 @@ from collections import defaultdict
 from db import db
 from network import kirara_query
 from static.rarity import Rarity
+from utils.misc import is_debug_mode
 
 ALIASES = {
     "santaclaus": "eve",
@@ -17,9 +18,8 @@ queried_to_kirara = False
 def get_chara_dict():
     global queried_to_kirara
     # Prevent query if debugging
-    is_debug = os.environ["DEBUG_MODE"] == "1"
     if not queried_to_kirara and (
-            not is_debug or not db.cachedb.execute_and_fetchone("""
+            not is_debug_mode() or not db.cachedb.execute_and_fetchone("""
             SELECT name FROM sqlite_master WHERE type='table' AND name='chara_cache'
         """)):
         kirara_query.update_chara_data()
