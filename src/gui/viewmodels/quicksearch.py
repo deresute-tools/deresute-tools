@@ -28,7 +28,6 @@ class ShortcutQuickSearchWidget(QLineEdit):
         }
         if QApplication.keyboardModifiers() == Qt.AltModifier and key in match_dict:
             eventbus.eventbus.post(PushCardIndexEvent(match_dict[key], False))
-            self.card_model.push_card(match_dict[key])
             return
         if QApplication.keyboardModifiers() == Qt.ControlModifier and key in match_dict:
             eventbus.eventbus.post(PushCardIndexEvent(match_dict[key], True))
