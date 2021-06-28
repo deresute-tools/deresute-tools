@@ -242,7 +242,8 @@ class BaseChartPicGenerator(ABC):
     # Lanes start from 0
     def generate_note_objects(self, abuse_df=None):
         # Number of groups = ceil(last sec // MAX_SECS_PER_GROUP)
-        self.last_sec = int(self.notes.sec.iloc[-1]) + 1
+        self.last_sec_float = self.notes.sec.iloc[-1]
+        self.last_sec = int(self.last_sec_float) + 1
         self.n_groups = ceil(self.last_sec / MAX_SECS_PER_GROUP)
         self.note_groups = list()
         for n in range(self.n_groups):
@@ -271,6 +272,7 @@ class BaseChartPicGenerator(ABC):
                                            great=great)
                 group.append(note_object)
             self.note_groups.append(group)
+
 
     def draw(self):
         self.draw_grid_and_secs()
@@ -303,7 +305,7 @@ class BaseChartPicGenerator(ABC):
             skill = card.sk
             interval = skill.interval
             duration = skill.duration
-            skill_times = int((self.last_sec - 3) // interval)
+            skill_times = int((self.last_sec_float - 3) // interval)
             skill_time = 1
             group = 0
             while group < self.n_groups:
