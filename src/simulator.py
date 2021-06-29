@@ -996,7 +996,7 @@ class Simulator:
                     if _ in alternates or _ in all_refrains:
                         continue
                     non_alternate.append(_)
-                alternate_value = np.ceil(np.clip(np_v[:, 0:1, :, non_alternate] - 100, a_min=0, a_max=9000) * 1.5)
+                alternate_value = np.ceil(np.clip(np_v[:, 0:1, :, non_alternate] - 100, a_min=0, a_max=9000) * 1.7)
                 alternate_value[alternate_value != 0] += 100
                 self.notes_data['alternate_bonus_per_note'] = alternate_value.max(axis=2).max(axis=2)
                 for note_type in NoteType:
