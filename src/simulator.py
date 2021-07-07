@@ -12,7 +12,7 @@ from static.color import Color
 from static.live_values import WEIGHT_RANGE, DIFF_MULTIPLIERS
 from static.note_type import NoteType
 from static.skill import get_sparkle_bonus
-from static.song_difficulty import FLICK_DRAIN, NONFLICK_DRAIN
+from static.song_difficulty import FLICK_DRAIN, NONFLICK_DRAIN, PERFECT_TAP_RANGE, GREAT_TAP_RANGE
 from utils.misc import SegmentTree
 from utils.storage import get_writer
 
@@ -297,10 +297,10 @@ class Simulator:
 
         def get_ranges(note_time, note_type, is_checkpoint):
             if note_type == NoteType.TAP:
-                l_g = 80000
-                r_g = 80000
-                l_p = 60000
-                r_p = 60000
+                l_g = GREAT_TAP_RANGE[self.live.difficulty]
+                r_g = GREAT_TAP_RANGE[self.live.difficulty]
+                l_p = PERFECT_TAP_RANGE[self.live.difficulty]
+                r_p = PERFECT_TAP_RANGE[self.live.difficulty]
             elif note_type == NoteType.FLICK or note_type == NoteType.LONG:
                 l_g = 180000
                 r_g = 180000
@@ -456,7 +456,8 @@ class Simulator:
         logger.debug("Perfect: {}".format(int(perfect_scores.sum())))
         logger.debug("Max Abuse: {}".format(max_score))
         logger.debug("Total Abuse Count: {}".format(len(abuse_df)))
-        logger.debug("Average Abuse Delta: {}".format(int(abuse_df['delta'].mean())))
+        if len(abuse_df['delta']) > 0:
+            logger.debug("Average Abuse Delta: {}".format(int(abuse_df['delta'].mean())))
         return MaxSimulationResult(total_appeal=self.total_appeal, total_perfect=perfect_scores.sum(),
                                    abuse_df=abuse_df,
                                    total_life=self.live.get_life(), perfect_score=perfect_scores,

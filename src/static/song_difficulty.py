@@ -42,6 +42,32 @@ NONFLICK_DRAIN = {
     Difficulty.FORTE: 10,
 }
 
+GREAT_TAP_RANGE = {
+    Difficulty.LIGHT: 120000,
+    Difficulty.TRICK: 90000,
+    Difficulty.DEBUT: 120000,
+    Difficulty.REGULAR: 120000,
+    Difficulty.PRO: 90000,
+    Difficulty.MASTER: 80000,
+    Difficulty.MPLUS: 80000,
+    Difficulty.LEGACY: 80000,
+    Difficulty.PIANO: 80000,
+    Difficulty.FORTE: 80000,
+}
+
+PERFECT_TAP_RANGE = {
+    Difficulty.LIGHT: 80000,
+    Difficulty.TRICK: 70000,
+    Difficulty.DEBUT: 80000,
+    Difficulty.REGULAR: 80000,
+    Difficulty.PRO: 70000,
+    Difficulty.MASTER: 60000,
+    Difficulty.MPLUS: 60000,
+    Difficulty.LEGACY: 60000,
+    Difficulty.PIANO: 60000,
+    Difficulty.FORTE: 60000,
+}
+
 logger.debug("Creating chihiro.difficulty_text...")
 
 db.cachedb.execute(""" DROP TABLE IF EXISTS difficulty_text """)
