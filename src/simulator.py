@@ -1076,15 +1076,26 @@ class Simulator:
                 ref_combo_value[ref_combo_value != 0] += 100
                 self.notes_data['ref_score_bonus_per_note'] = ref_score_value.max(axis=2).max(axis=2)
                 self.notes_data['ref_combo_bonus_per_note'] = ref_combo_value.max(axis=2).max(axis=2)
-                for note_type in NoteType:
-                    for mask in [
-                        self.notes_data.is_slide,
-                        self.notes_data.is_long,
-                        np.invert(np.logical_or(self.notes_data.is_slide, self.notes_data.is_long))
-                    ]:
-                        inner_mask = np.logical_and(self.notes_data['note_type'] == note_type, mask)
-                        self.notes_data.loc[inner_mask, 'ref_score_bonus_per_note'] = np.maximum.accumulate(
-                            self.notes_data.loc[inner_mask, 'ref_score_bonus_per_note'], axis=0)
+
+                if self.unit_has_act[unit_idx]:
+                    clone_for_taps = np.zeros(len(self.notes_data))
+                    tap_mask = self.notes_data['note_type'] == NoteType.TAP
+                    self.notes_data.loc[tap_mask, 'ref_score_bonus_per_note'] = np.maximum.accumulate(
+                        self.notes_data.loc[tap_mask, 'ref_score_bonus_per_note'], axis=0)
+                    clone_for_taps[tap_mask] = self.notes_data.loc[tap_mask, 'ref_score_bonus_per_note']
+                    clone_for_taps = np.maximum.accumulate(clone_for_taps)
+                    self.notes_data['ref_score_bonus_per_note'] = np.max(self.notes_data['ref_score_bonus_per_note'], clone_for_taps)
+                    for note_type in NoteType:
+                        for mask in [
+                            self.notes_data.is_slide,
+                            self.notes_data.is_long,
+                            np.invert(np.logical_or(self.notes_data.is_slide, self.notes_data.is_long))
+                        ]:
+                            inner_mask = np.logical_and(self.notes_data['note_type'] == note_type, mask)
+                            self.notes_data.loc[inner_mask, 'ref_score_bonus_per_note'] = np.maximum.accumulate(
+                                self.notes_data.loc[inner_mask, 'ref_score_bonus_per_note'], axis=0)
+                else:
+                    self.notes_data['ref_score_bonus_per_note'] = np.maximum.accumulate(self.notes_data['ref_score_bonus_per_note'], axis=0)
                 if "rep" not in self.notes_data:
                     rep = 1
                     self.notes_data['ref_combo_bonus_per_note'] = np.maximum.accumulate(
@@ -1292,6 +1303,7 @@ class Simulator:
         self.activation_points = defaultdict(set)
         self.deactivation_points = defaultdict(set)
         self.full_roll_probability = 1
+        self.unit_has_act = defaultdict(bool)
         units_with_cc = set()
 
         if reset_notes_data:
@@ -1363,6 +1375,8 @@ class Simulator:
                         self.magic_copies[unit_idx].add(card_idx)
                 if probability > 0 and skill.skill_type == 41:
                     self.magic_lists[unit_idx].append(card_idx)
+                if probability > 0 and skill.act is not None:
+                    self.unit_has_act[unit_idx] = True
 
                 if probability > 0 and skill.skill_type == 15:
                     self.cc_set.add(unit_idx * 5 + card_idx)
