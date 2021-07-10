@@ -1084,7 +1084,8 @@ class Simulator:
                         self.notes_data.loc[tap_mask, 'ref_score_bonus_per_note'], axis=0)
                     clone_for_taps[tap_mask] = self.notes_data.loc[tap_mask, 'ref_score_bonus_per_note']
                     clone_for_taps = np.maximum.accumulate(clone_for_taps)
-                    self.notes_data['ref_score_bonus_per_note'] = np.max(self.notes_data['ref_score_bonus_per_note'], clone_for_taps)
+                    self.notes_data['ref_score_bonus_per_note'] = np.max(self.notes_data['ref_score_bonus_per_note'],
+                                                                         clone_for_taps)
                     for note_type in NoteType:
                         for mask in [
                             self.notes_data.is_slide,
@@ -1095,7 +1096,8 @@ class Simulator:
                             self.notes_data.loc[inner_mask, 'ref_score_bonus_per_note'] = np.maximum.accumulate(
                                 self.notes_data.loc[inner_mask, 'ref_score_bonus_per_note'], axis=0)
                 else:
-                    self.notes_data['ref_score_bonus_per_note'] = np.maximum.accumulate(self.notes_data['ref_score_bonus_per_note'], axis=0)
+                    self.notes_data['ref_score_bonus_per_note'] = np.maximum.accumulate(
+                        self.notes_data['ref_score_bonus_per_note'], axis=0)
                 if "rep" not in self.notes_data:
                     rep = 1
                     self.notes_data['ref_combo_bonus_per_note'] = np.maximum.accumulate(
@@ -1206,6 +1208,21 @@ class Simulator:
                         np_v[:, 1, unit.get_card(magic).color.value, unit_idx * 5 + magic] = np.maximum(
                             np_v[:, 1, unit.get_card(magic).color.value, unit_idx * 5 + magic], ls_value)
 
+        def handle_encore(encore):
+            card = self.live.unit.get_card(encore)
+            uniques = self.notes_data['skill_{}'.format(encore)].unique()
+            uniques = uniques[uniques != 0] - 1
+            for skill_to_copy in uniques:
+                # TODO: Handle encore-magic
+                if self.live.unit.get_card(skill_to_copy).skill.is_magic:
+                    continue
+                v_copy = np_v[:, :, :, skill_to_copy].max(axis=2).max(axis=0)
+                b_copy = np_b[:, :, :, skill_to_copy].max(axis=0)
+                index_mask = self.notes_data[self.notes_data['skill_{}'.format(encore)] == skill_to_copy + 1].index
+                self.notes_data.loc[index_mask, 'skill_{}'.format(encore)] = 1
+                np_v[index_mask, :, card.color.value, encore] = v_copy
+                np_b[index_mask, :, :, encore] = b_copy
+
         def null_deactivated_skills(unit_idx, card_idx=None):
             if card_idx is not None:
                 assert isinstance(card_idx, int)
@@ -1232,6 +1249,7 @@ class Simulator:
             np_b = np.zeros((len(self.notes_data), 4, 3, 5 * units))  # Notes x Values x Colors x Cards
         alternates = list()
         refrains = list()
+        encores = list()
         for unit_idx, unit in enumerate(self.live.unit.all_units):
             if first_pass:
                 unit.convert_motif(grand=grand)
@@ -1250,6 +1268,8 @@ class Simulator:
                         alternates.append(unit_idx * 5 + card_idx)
                     elif skill.skill_type == 40 and refrain:
                         refrains.append(unit_idx * 5 + card_idx)
+                    elif skill.is_encore:
+                        encores.append(unit_idx * 5 + card_idx)
                     if first_pass:
                         for _, __ in enumerate(skill.values):
                             np_v[:, _, skill.color.value, unit_idx * 5 + card_idx] = __
@@ -1276,6 +1296,10 @@ class Simulator:
             for unit_idx, unit in enumerate(self.live.unit.all_units):
                 for magic in self.magic_lists[unit_idx]:
                     null_deactivated_skills(unit_idx, magic)
+        if not self.has_sparkle or self.has_sparkle and sparkle:
+            for encore in encores:
+                handle_encore(encore)
+                null_deactivated_skills(encore // 5, encore % 5)
         return np_v, np_b
 
     def _helper_initialize_skill_activations(self, grand, times, time_offset=0.0, fail_simulate=False,
@@ -1304,6 +1328,7 @@ class Simulator:
         self.deactivation_points = defaultdict(set)
         self.full_roll_probability = 1
         self.unit_has_act = defaultdict(bool)
+        self.activation_time_cache = [dict()]
         units_with_cc = set()
 
         if reset_notes_data:
@@ -1354,61 +1379,102 @@ class Simulator:
                     mask = np.logical_and(mask, self.notes_data.rep.isin(rep_rolls))
                 self.notes_data.loc[mask, 'skill_{}_l'.format(unit_idx * 5 + card_idx)] = left
 
-        for unit_idx, unit in enumerate(self.live.unit.all_units):
-            has_healing = False
-            for card_idx, card in enumerate(unit.all_cards()):
-                skill = card.skill
-                probability = self.live.get_probability(unit_idx * 5 + card_idx)
-
-                if probability < 1:
-                    self.all_100 = False
-
-                if probability > 0 and skill.values[2] > 0:
-                    has_healing = True
-
-                if probability > 0 and skill.skill_type != 41 and skill.skill_type != 40:
-                    if skill.skill_type == 25:
-                        self.ls_magic_copies[unit_idx].add(card_idx)
-                    elif skill.skill_type == 39:
-                        self.alt_magic_copy.add(unit_idx)
+        def helper_fill_encore(unit_idx, card_idx, skill, left, right, note_times, rep_rolls):
+            extended_card_idx = unit_idx * 5 + card_idx
+            if rep_rolls is None:
+                padded_rep_rolls = [0]
+            else:
+                padded_rep_rolls = rep_rolls
+            for rep in padded_rep_rolls:
+                # Fill up the activation time dict first
+                if not skill.is_encore:
+                    if left not in self.activation_time_cache[rep]:
+                        self.activation_time_cache[rep][left] = extended_card_idx
                     else:
-                        self.magic_copies[unit_idx].add(card_idx)
-                if probability > 0 and skill.skill_type == 41:
-                    self.magic_lists[unit_idx].append(card_idx)
-                if probability > 0 and skill.act is not None:
-                    self.unit_has_act[unit_idx] = True
-
-                if probability > 0 and skill.skill_type == 15:
-                    self.cc_set.add(unit_idx * 5 + card_idx)
-                    units_with_cc.add(unit_idx)
-
-                skill_times = int((self.notes_data.iloc[-1].sec - 3) // skill.interval)
-
-                self.full_roll_probability *= probability ** skill_times
-
-                if skill_times == 0:
-                    self.notes_data['skill_{}'.format(unit_idx * 5 + card_idx)] = 0
-                    continue  # Skip empty skill
-                skills = np.array([
-                    [skill_activation * skill.interval,
-                     skill_activation * skill.interval + skill.duration]
-                    for skill_activation in range(skill.offset + 1, skill_times + 1, unit_offset)])
-
-                if not fail_simulate:
-                    note_times = self.notes_data.sec + time_offset
-                    self.notes_data['skill_{}'.format(unit_idx * 5 + card_idx)] = 0
-                    for skill_activation, skill_range in enumerate(skills):
-                        left, right = skill_range
-                        self.activation_points[int(left * 1E6)].add(unit_idx * 5 + card_idx)
-                        self.deactivation_points[int(right * 1E6)].add(unit_idx * 5 + card_idx)
-                        self.notes_data.loc[
-                            left_compare(note_times, left) & right_compare(note_times, right),
-                            'skill_{}'.format(unit_idx * 5 + card_idx)] = 1 if probability > 0 else 0
-                        helper_fill_lr_time_alt_ref(card_idx, has_alternate, has_refrain, left, note_times, right,
-                                                    unit_idx)
+                        self.activation_time_cache[rep][left] = min(extended_card_idx,
+                                                                    self.activation_time_cache[rep][left])
+                    continue
+                # By this point, the activation time dict should have been filled completely
+                match = None
+                for k, v in self.activation_time_cache[rep].items():
+                    if left > k:
+                        match = v
+                    else:
+                        break
+                mask = np.logical_and(left_compare(note_times, left), right_compare(note_times, right))
+                if rep_rolls is not None:
+                    mask = np.logical_and(mask, self.notes_data.rep == rep)
+                if match is None:
+                    self.notes_data.loc[mask, 'skill_{}'.format(extended_card_idx)] = 0
                 else:
+                    self.notes_data.loc[mask, 'skill_{}'.format(extended_card_idx)] = match + 1
+
+        # Evaluate encores later
+        for evaluate_encore in [False, True]:
+            for unit_idx, unit in enumerate(self.live.unit.all_units):
+                has_healing = False
+                for card_idx, card in enumerate(unit.all_cards()):
+                    skill = card.skill
+
+                    if skill.is_encore and not evaluate_encore:
+                        continue
+
+                    if not skill.is_encore and evaluate_encore:
+                        continue
+
+                    extended_card_idx = unit_idx * 5 + card_idx
+                    probability = self.live.get_probability(extended_card_idx)
+
+                    if probability < 1:
+                        self.all_100 = False
+
+                    if probability > 0 and skill.values[2] > 0:
+                        has_healing = True
+
+                    if probability > 0 and skill.skill_type != 41 and skill.skill_type != 40:
+                        if skill.skill_type == 25:
+                            self.ls_magic_copies[unit_idx].add(card_idx)
+                        elif skill.skill_type == 39:
+                            self.alt_magic_copy.add(unit_idx)
+                        else:
+                            self.magic_copies[unit_idx].add(card_idx)
+                    if probability > 0 and skill.skill_type == 41:
+                        self.magic_lists[unit_idx].append(card_idx)
+                    if probability > 0 and skill.act is not None:
+                        self.unit_has_act[unit_idx] = True
+
+                    if probability > 0 and skill.skill_type == 15:
+                        self.cc_set.add(extended_card_idx)
+                        units_with_cc.add(unit_idx)
+
+                    skill_times = int((self.notes_data.iloc[-1].sec - 3) // skill.interval)
+
+                    if skill_times == 0:
+                        self.notes_data['skill_{}'.format(extended_card_idx)] = 0
+                        continue  # Skip empty skill
+                    skills = np.array([
+                        [skill_activation * skill.interval,
+                         skill_activation * skill.interval + skill.duration]
+                        for skill_activation in range(skill.offset + 1, skill_times + 1, unit_offset)])
+
+                    self.full_roll_probability *= probability ** len(skills)
+
+                    if not fail_simulate:
+                        note_times = self.notes_data.sec + time_offset
+                        self.notes_data['skill_{}'.format(extended_card_idx)] = 0
+                        for skill_activation, skill_range in enumerate(skills):
+                            left, right = skill_range
+                            self.activation_points[int(left * 1E6)].add(extended_card_idx)
+                            self.deactivation_points[int(right * 1E6)].add(extended_card_idx)
+                            self.notes_data.loc[
+                                left_compare(note_times, left) & right_compare(note_times, right),
+                                'skill_{}'.format(extended_card_idx)] = 1 if probability > 0 else 0
+                            helper_fill_lr_time_alt_ref(card_idx, has_alternate, has_refrain, left, note_times, right,
+                                                        unit_idx)
+                            helper_fill_encore(unit_idx, card_idx, skill, left, right, note_times, None)
+                        continue
                     note_times = self.notes_data.sec + np.random.random(len(self.notes_data)) * 0.06 - 0.03
-                    self.notes_data['skill_{}'.format(unit_idx * 5 + card_idx)] = 0
+                    self.notes_data['skill_{}'.format(extended_card_idx)] = 0
                     for skill_activation, skill_range in enumerate(skills):
                         left, right = skill_range
                         if probability < 1:
@@ -1418,18 +1484,24 @@ class Simulator:
                             self.notes_data.loc[
                                 left_compare(note_times, left) & right_compare(note_times, right)
                                 & (self.notes_data.rep.isin(rep_rolls)),
-                                'skill_{}'.format(unit_idx * 5 + card_idx)] = 1
+                                'skill_{}'.format(extended_card_idx)] = 1
                             helper_fill_lr_time_alt_ref(card_idx, has_alternate, has_refrain, left, note_times,
                                                         right, unit_idx, rep_rolls=rep_rolls)
+                            helper_fill_encore(unit_idx, card_idx, skill, left, right, note_times, rep_rolls)
                         else:
                             # Save a bit more time
                             self.notes_data.loc[
                                 left_compare(note_times, left) & right_compare(note_times, right),
-                                'skill_{}'.format(unit_idx * 5 + card_idx)] = 1
+                                'skill_{}'.format(extended_card_idx)] = 1
                             helper_fill_lr_time_alt_ref(card_idx, has_alternate, has_refrain, left, note_times,
                                                         right, unit_idx)
+                            helper_fill_encore(unit_idx, card_idx, skill, left, right, note_times, range(times))
 
-            self.has_healing.append(has_healing)
+                self.has_healing.append(has_healing)
+
+            if not evaluate_encore:
+                for rep, act_list in enumerate(self.activation_time_cache):
+                    self.activation_time_cache[rep] = dict(sorted(act_list.items()))
 
         if not has_magic:
             self.magic_copies = dict()

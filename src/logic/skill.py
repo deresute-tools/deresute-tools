@@ -57,6 +57,14 @@ class Skill:
         return self.skill_type == 31
 
     @property
+    def is_encore(self):
+        return self.skill_type == 16
+
+    @property
+    def is_magic(self):
+        return self.skill_type == 41
+
+    @property
     def values(self):
         return [self.v0, self.v1, self.v2, self.v3]
 
