@@ -1328,7 +1328,9 @@ class Simulator:
         self.deactivation_points = defaultdict(set)
         self.full_roll_probability = 1
         self.unit_has_act = defaultdict(bool)
-        self.activation_time_cache = [dict()]
+        self.activation_time_cache = []
+        for _ in range(times):
+            self.activation_time_cache.append(dict())
         units_with_cc = set()
 
         if reset_notes_data:
