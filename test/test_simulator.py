@@ -38,14 +38,14 @@ live = Live()
 live.set_music(music_name="in fact", difficulty=Difficulty.MPLUS)
 live.set_unit(unit)
 sim = Simulator(live)
-assert sim.simulate(perfect_play=True, appeals=302495).perfect_score == 1318765
+assert sim.simulate(perfect_play=True, appeals=302495).perfect_score == 1366223
 
 unit = Unit.from_query("kaede5 syoko4 yui5 shin3 makino2 frederica5", custom_pots=(0, 0, 0, 0, 10))
 live = Live()
 live.set_music(music_name="Absolute Nine", difficulty=Difficulty.REGULAR)
 live.set_unit(unit)
 sim = Simulator(live)
-assert sim.simulate(perfect_play=True, appeals=208617).perfect_score == 745549
+assert sim.simulate(perfect_play=True, appeals=208617).perfect_score == 776777
 
 unit = Unit.from_query("kaede5 rin5 riina5 yasuha1 nono4 karen4", custom_pots=(0, 0, 0, 0, 10))
 unit.get_card(5).li = 50
@@ -53,7 +53,7 @@ live = Live()
 live.set_music(music_name="バベル", difficulty=Difficulty.MASTER)
 live.set_unit(unit)
 sim = Simulator(live)
-assert sim.simulate(perfect_play=True, appeals=217911).perfect_score == 1412046
+assert sim.simulate(perfect_play=True, appeals=217911).perfect_score == 1412638
 
 unit = Unit.from_list([200946, 200058, 100076, 100396, 300530, 200294], custom_pots=(0, 0, 0, 0, 10))
 live = Live()
@@ -108,13 +108,13 @@ live = Live()
 live.set_music(music_name="あらかねの器", difficulty=Difficulty.MPLUS)
 live.set_unit(unit)
 sim = Simulator(live)
-assert sim.simulate(perfect_play=True, appeals=302495).perfect_score == 1516852
+assert sim.simulate(perfect_play=True, appeals=302495).perfect_score == 1576804
 sim = Simulator(live, left_inclusive=True, right_inclusive=False)
-assert sim.simulate(perfect_play=True, appeals=302495).perfect_score == 1530958
+assert sim.simulate(perfect_play=True, appeals=302495).perfect_score == 1593970
 sim = Simulator(live, left_inclusive=True, right_inclusive=True)
-assert sim.simulate(perfect_play=True, appeals=302495).perfect_score == 1545740
+assert sim.simulate(perfect_play=True, appeals=302495).perfect_score == 1610415
 sim = Simulator(live, left_inclusive=False, right_inclusive=False)
-assert sim.simulate(perfect_play=True, appeals=302495).perfect_score == 1500307
+assert sim.simulate(perfect_play=True, appeals=302495).perfect_score == 1557771
 
 unit = Unit.from_list([100936, 100964, 100708, 100108, 100914], custom_pots=(10, 0, 0, 0, 0))
 live = Live()
@@ -146,7 +146,7 @@ live = GrandLive()
 live.set_music(music_name="Starry-Go-Round", difficulty=Difficulty.PIANO)
 live.set_unit(gu)
 sim = Simulator(live)
-assert sim.simulate_theoretical_max(appeals=480692).max_score == 6037174
+assert sim.simulate_theoretical_max(appeals=480692).max_score == 6428640
 
 unit = Unit.from_list([100936, 100708, 100914, 100584, 100456, 100964], custom_pots=(10, 5, 0, 10, 10))
 live = Live()
