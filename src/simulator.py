@@ -1213,15 +1213,21 @@ class Simulator:
             uniques = self.notes_data['skill_{}'.format(encore)].unique()
             uniques = uniques[uniques != 0] - 1
             for skill_to_copy in uniques:
-                # TODO: Handle encore-magic
-                if self.live.unit.get_card(skill_to_copy).skill.is_magic:
-                    continue
                 v_copy = np_v[:, :, :, skill_to_copy].max(axis=2).max(axis=0)
                 b_copy = np_b[:, :, :, skill_to_copy].max(axis=0)
-                index_mask = self.notes_data[self.notes_data['skill_{}'.format(encore)] == skill_to_copy + 1].index
-                self.notes_data.loc[index_mask, 'skill_{}'.format(encore)] = 1
-                np_v[index_mask, :, card.color.value, encore] = v_copy
-                np_b[index_mask, :, :, encore] = b_copy
+                if self.live.unit.get_card(skill_to_copy).skill.is_magic:
+                    mask = self.notes_data['skill_{}'.format(encore)] == skill_to_copy + 1
+                    null_mask = np.logical_and(mask, self.notes_data['skill_{}'.format(skill_to_copy)] == 1)
+                    index_mask = self.notes_data[mask].index
+                    self.notes_data.loc[index_mask, 'skill_{}'.format(encore)] = 1
+                    self.notes_data.loc[null_mask, 'skill_{}'.format(encore)] = 0
+                    np_v[index_mask, :, card.color.value, encore] = v_copy
+                    np_b[index_mask, :, :, encore] = b_copy
+                else:
+                    index_mask = self.notes_data[self.notes_data['skill_{}'.format(encore)] == skill_to_copy + 1].index
+                    self.notes_data.loc[index_mask, 'skill_{}'.format(encore)] = 1
+                    np_v[index_mask, :, card.color.value, encore] = v_copy
+                    np_b[index_mask, :, :, encore] = b_copy
 
         def null_deactivated_skills(unit_idx, card_idx=None):
             if card_idx is not None:
