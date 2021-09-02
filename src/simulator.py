@@ -1084,8 +1084,8 @@ class Simulator:
                         self.notes_data.loc[tap_mask, 'ref_score_bonus_per_note'], axis=0)
                     clone_for_taps[tap_mask] = self.notes_data.loc[tap_mask, 'ref_score_bonus_per_note']
                     clone_for_taps = np.maximum.accumulate(clone_for_taps)
-                    self.notes_data['ref_score_bonus_per_note'] = np.max(self.notes_data['ref_score_bonus_per_note'],
-                                                                         clone_for_taps)
+                    self.notes_data['ref_score_bonus_per_note'] = np.max(
+                        [self.notes_data['ref_score_bonus_per_note'], clone_for_taps], axis=0)
                     for note_type in NoteType:
                         for mask in [
                             self.notes_data.is_slide,

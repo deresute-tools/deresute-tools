@@ -12,11 +12,12 @@ from exceptions import InvalidUnit
 from logic.grandunit import GrandUnit
 from logic.live import fetch_chart, Live
 from logic.unit import Unit
-from settings import RHYTHM_ICONS_PATH
+from settings import RHYTHM_ICONS_PATH, CHART_PICS_PATH
 from simulator import Simulator, MaxSimulationResult
 from static.note_type import NoteType
 from static.skill import SKILL_BASE
 from static.song_difficulty import Difficulty
+from utils import storage
 
 SEC_HEIGHT = 500
 X_MARGIN = 100
@@ -273,7 +274,6 @@ class BaseChartPicGenerator(ABC):
                 group.append(note_object)
             self.note_groups.append(group)
 
-
     def draw(self):
         self.draw_grid_and_secs()
         self.draw_sync_lines()
@@ -462,7 +462,9 @@ class BaseChartPicGenerator(ABC):
         self.p.drawPath(path)
 
     def save_image(self):
-        self.label.pixmap().save("{}-{}.png".format(self.song_id, self.difficulty))
+        path = CHART_PICS_PATH / "{}-{}.png".format(self.song_id, self.difficulty)
+        storage.exists(path)
+        self.label.pixmap().save(path)
 
 
 class BasicChartPicGenerator(BaseChartPicGenerator):
