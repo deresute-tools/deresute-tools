@@ -1067,7 +1067,7 @@ class Simulator:
                     continue
                 non_refrain = list()
                 for _ in range(unit_idx * 5, unit_idx * 5 + 5):
-                    if _ in refrains or _ in self.magic_set:
+                    if _ in refrains or _ in self.magic_set or self.live.unit.get_card(unit_idx * 5 + _).skill.is_alternate:
                         continue
                     non_refrain.append(_)
                 ref_score_value = np.ceil(np.clip(np_v[:, 0:1, :, non_refrain] - 100, a_min=0, a_max=9000))
