@@ -45,24 +45,36 @@ class Skill:
         self.max_requirements = max_requirements
 
     @property
-    def is_alternate(self):
-        return self.skill_type == 39
-
-    @property
     def is_support(self):
         return self.skill_type in SUPPORT_TYPES
-
-    @property
-    def is_tuning(self):
-        return self.skill_type == 31
 
     @property
     def is_encore(self):
         return self.skill_type == 16
 
     @property
+    def is_sparkle(self):
+        return self.skill_type == 25
+
+    @property
+    def is_tuning(self):
+        return self.skill_type == 31
+
+    @property
+    def is_alternate(self):
+        return self.skill_type == 39
+
+    @property
+    def is_refrain(self):
+        return self.skill_type == 40
+
+    @property
     def is_magic(self):
         return self.skill_type == 41
+
+    @property
+    def is_mutual(self):
+        return self.skill_type == 42
 
     @property
     def values(self):
@@ -124,6 +136,9 @@ class Skill:
         elif skill_type == 39:
             values[0] = 1
             values[1] = skill_values[0]
+        elif skill_type == 42:
+            values[0] = skill_values[0]
+            values[1] = 1
         else:
             values = [skill_values[0], skill_values[1], skill_values[2], 0]
         return values

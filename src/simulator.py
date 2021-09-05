@@ -557,13 +557,14 @@ class Simulator:
         results = self._helper_initialize_skill_activations(times=times, grand=grand,
                                                             time_offset=time_offset,
                                                             fail_simulate=fail_simulate)
-        self.has_sparkle, self.has_support, self.has_alternate, self.has_refrain, self.has_magic = results
+        self.has_sparkle, self.has_support, self.has_alternate, self.has_mutual, self.has_refrain, self.has_magic = results
 
         # In case of Alternate and LS, to save one redundant Alternate evaluation, only evaluate together with LS
         np_v, np_b = self._helper_initialize_skill_bonuses(grand=grand,
                                                            sparkle=False,
                                                            alternate=self.has_alternate and not self.has_sparkle,
                                                            refrain=self.has_refrain and not self.has_sparkle,
+                                                           mutual=self.has_mutual and not self.has_sparkle,
                                                            is_magic=self.has_magic,
                                                            abuse_check=abuse_check)
         self._helper_evaluate_skill_bonuses(np_v, np_b, grand=grand, doublelife=doublelife, abuse_check=abuse_check)
@@ -574,6 +575,7 @@ class Simulator:
                                                                sparkle=self.has_sparkle,
                                                                alternate=self.has_alternate,
                                                                refrain=self.has_refrain,
+                                                               mutual=self.has_mutual,
                                                                is_magic=self.has_magic,
                                                                abuse_check=abuse_check)
             self._helper_evaluate_skill_bonuses(np_v, np_b, grand=grand, doublelife=doublelife, abuse_check=abuse_check)
@@ -582,13 +584,14 @@ class Simulator:
         results = self._helper_initialize_skill_activations(times=times, grand=grand,
                                                             time_offset=time_offset,
                                                             fail_simulate=False)
-        self.has_sparkle, self.has_support, self.has_alternate, self.has_refrain, self.has_magic = results
+        self.has_sparkle, self.has_support, self.has_alternate, self.has_mutual, self.has_refrain, self.has_magic = results
 
         # In case of Alternate and LS, to save one redundant Alternate evaluation, only evaluate together with LS
         np_v, np_b = self._helper_initialize_skill_bonuses(grand=grand,
                                                            sparkle=False,
                                                            alternate=self.has_alternate and not self.has_sparkle,
                                                            refrain=self.has_refrain and not self.has_sparkle,
+                                                           mutual=self.has_mutual and not self.has_sparkle,
                                                            is_magic=self.has_magic)
         self._helper_evaluate_skill_bonuses(np_v, np_b, grand=grand, auto=False, doublelife=doublelife)
         self._helper_miss_notes_in_auto(time_offset)
@@ -598,6 +601,7 @@ class Simulator:
                                                            sparkle=False,
                                                            alternate=self.has_alternate and not self.has_sparkle,
                                                            refrain=self.has_refrain and not self.has_sparkle,
+                                                           mutual=self.has_mutual and not self.has_sparkle,
                                                            is_magic=self.has_magic)
         self._helper_evaluate_skill_bonuses(np_v, np_b, grand=grand, auto=True, doublelife=doublelife)
 
@@ -607,6 +611,7 @@ class Simulator:
                                                                sparkle=self.has_sparkle,
                                                                alternate=self.has_alternate,
                                                                refrain=self.has_refrain,
+                                                               mutual=self.has_mutual,
                                                                is_magic=self.has_magic)
             self._helper_miss_notes_in_auto(time_offset)
             self._helper_evaluate_skill_bonuses(np_v, np_b, grand=grand, auto=True, doublelife=doublelife)
@@ -833,6 +838,7 @@ class Simulator:
 
             # Cache first, reset combo bonus to negative using mask later
             alt_original_values = dict()
+            mut_original_values = dict()
             # Only run values 0,1,2 on non support, only run value 3 on support.
             # Support builds are not the main focus so no optimization for support.
             non_support_list = list()
@@ -841,8 +847,12 @@ class Simulator:
                 skill = unit.get_card(card_idx % 5).skill
                 if skill.is_alternate:
                     alternate_mask = np_v[:, 1, :, card_idx] < 0
-                    original_value = np_v[:, 1, :, card_idx][alternate_mask]
-                    alt_original_values[card_idx] = alternate_mask, original_value
+                    original_alt_value = np_v[:, 1, :, card_idx][alternate_mask]
+                    alt_original_values[card_idx] = alternate_mask, original_alt_value
+                if skill.is_mutual:
+                    mutual_mask = np_v[:, 0, :, card_idx] < 0
+                    original_mut_value = np_v[:, 0, :, card_idx][mutual_mask]
+                    mut_original_values[card_idx] = mutual_mask, original_mut_value
                 if skill.is_support or skill.is_tuning or card_idx in self.magic_set and self.has_support:
                     mask = np_v[:, 3, :, card_idx] == 0
                     np_v[:, 3, :, card_idx] += boost_array[:, 3]
@@ -854,6 +864,8 @@ class Simulator:
                 np_v[:, :stop_idx, :, non_support_list] * (1 + boost_array[:, :stop_idx] / 1000)[:, :, :, None])
             for card_idx, (alternate_mask, original_value) in alt_original_values.items():
                 np_v[:, 1, :, card_idx][alternate_mask] = original_value
+            for card_idx, (mutual_mask, original_value) in mut_original_values.items():
+                np_v[:, 0, :, card_idx][mutual_mask] = original_value
 
             magics = self.magic_lists[unit_idx]
             if unit.resonance and len(magics) > 1:
@@ -868,7 +880,7 @@ class Simulator:
                 np_v[stacking_mask, :, unit.get_card(magics[0]).color.value, offset_magics[0]] = stacked_magic_values
             np_vu[:, :, :, unit_idx] = agg_func(np_v[:, :, :, unit_idx * 5: (unit_idx + 1) * 5], axis=3)
 
-            if self.has_alternate:
+            if self.has_alternate or self.has_mutual:
                 min_tensor = np_v[:, :, :, unit_idx * 5: (unit_idx + 1) * 5].min(axis=3)
                 mask = np.logical_and(np_vu[:, :, :, unit_idx] == 0, min_tensor < 0)
                 np_vu[:, :, :, unit_idx][mask] = min_tensor[mask]
@@ -881,13 +893,13 @@ class Simulator:
             else:
                 # Final skill values are maxed over colors
                 skill_bonuses[:, :, unit_idx] = np_vu[:, :, :, unit_idx].max(axis=2)
-                if self.has_alternate:
+                if self.has_alternate or self.has_mutual:
                     min_tensor = np_vu[:, :, :, unit_idx].min(axis=2)
                     mask = np.logical_and(skill_bonuses[:, :, unit_idx] == 0, min_tensor < 0)
                     skill_bonuses[:, :, unit_idx][mask] = min_tensor[mask]
         # Unify effects across units
         skill_bonuses_final = skill_bonuses.max(axis=2)
-        if self.has_alternate:
+        if self.has_alternate or self.has_mutual:
             min_tensor = skill_bonuses.min(axis=2)
             mask = np.logical_and(skill_bonuses_final == 0, min_tensor < 0)
             skill_bonuses_final[mask] = min_tensor[mask]
@@ -939,7 +951,7 @@ class Simulator:
         return skill_bonuses_final
 
     def _helper_initialize_skill_bonuses(self, grand, np_v=None, np_b=None, sparkle=False, alternate=False,
-                                         refrain=False, is_magic=False, abuse_check=False):
+                                         mutual=False, refrain=False, is_magic=False, abuse_check=False):
         """
         Initializes skill values in DataFrame.
         :param grand: True if GRAND LIVE, else False.
@@ -981,7 +993,7 @@ class Simulator:
             np_v[:, 1, color, unit_idx * 5 + card_idx] = trimmed_life.map(
                 get_sparkle_bonus(rarity=card.rarity, grand=grand))
 
-        def handle_alternate(all_alternates, all_refrains, alt_magics):
+        def handle_alternate(all_alternates, all_mutuals, all_refrains, alt_magics):
             alternate_groups = list()
             for i in range(3):
                 temp = list()
@@ -994,7 +1006,7 @@ class Simulator:
                     continue
                 non_alternate = list()
                 for _ in range(unit_idx * 5, unit_idx * 5 + 5):
-                    if _ in alternates or _ in all_refrains:
+                    if _ in alternates or _ in all_refrains or _ in all_mutuals:
                         continue
                     non_alternate.append(_)
                 alternate_value = np.ceil(np.clip(np_v[:, 0:1, :, non_alternate] - 100, a_min=0, a_max=9000) * 1.7)
@@ -1054,6 +1066,72 @@ class Simulator:
                         local_np_v[:, 0, skill.color.value, skill_idx] = local_np_v[:, 0, skill.color.value,
                                                                          skill_idx] * local_alternate_value
 
+        def handle_mutual(all_mutuals, all_refrains, all_alternates, mutual_magics):
+            mutual_groups = list()
+            for i in range(3):
+                temp = list()
+                for alt in all_mutuals + mutual_magics:
+                    if i * 5 <= alt < (i + 1) * 5:
+                        temp.append(alt)
+                mutual_groups.append(temp)
+            for unit_idx, mutuals in enumerate(mutual_groups):
+                if len(mutuals) == 0:
+                    continue
+                non_mutual = list()
+                for _ in range(unit_idx * 5, unit_idx * 5 + 5):
+                    if _ in mutuals or _ in all_refrains or _ in all_alternates:
+                        continue
+                    non_mutual.append(_)
+                mutual_value = np.ceil(np.clip(np_v[:, 1:2, :, non_mutual] - 100, a_min=0, a_max=9000) * 1.7)
+                mutual_value[mutual_value != 0] += 100
+                self.notes_data['mutual_bonus_per_note'] = mutual_value.max(axis=2).max(axis=2)
+                self.notes_data['mutual_bonus_per_note'] = np.maximum.accumulate(
+                    self.notes_data['mutual_bonus_per_note'], axis=0)
+                mutual_value = np.array(self.notes_data['mutual_bonus_per_note'])
+
+                for skill_idx in mutuals:
+                    if skill_idx not in mutual_magics:
+                        continue
+                    # Remove values for magic alts
+                    skill = self.live.unit.get_card(skill_idx).skill
+                    s_arr = np_v[:, 0, skill.color.value, skill_idx]
+                    c_arr = np_v[:, 1, skill.color.value, skill_idx]
+                    s_arr[np.logical_and(c_arr > 0, s_arr == 0)] = 80
+                    c_arr[c_arr > 0] = 1
+
+                if abuse_check:
+                    note_count = len(self.notes_data)
+                else:
+                    note_count = len(self.live.notes)
+                if "rep" not in self.notes_data:
+                    rep = 1
+                else:
+                    rep = self.notes_data['rep'].max() + 1
+                for rep_idx in range(rep):
+                    local_mutual_value = mutual_value[rep_idx * note_count: (rep_idx + 1) * note_count]
+                    local_notes_data = self.notes_data[rep_idx * note_count: (rep_idx + 1) * note_count]
+                    local_np_v = np_v[rep_idx * note_count: (rep_idx + 1) * note_count]
+                    try:
+                        first_combo_note = np.argwhere(local_mutual_value > 0)[0][0]
+                    except IndexError:
+                        # No combo skills
+                        for skill_idx in mutuals:
+                            skill = self.live.unit.get_card(skill_idx).skill
+                            local_np_v[:, 0:2, skill.color.value, skill_idx] = 0
+                        continue
+                    first_combo_note = local_notes_data.iloc[first_combo_note].sec
+                    for skill_idx in mutuals:
+                        skill = self.live.unit.get_card(skill_idx).skill
+                        fail_mutual_notes = local_notes_data[local_notes_data.sec < first_combo_note][
+                            "skill_{}_l".format(skill_idx)].max()
+                        if not np.isnan(fail_mutual_notes):
+                            remove_index = local_notes_data[
+                                local_notes_data["skill_{}_l".format(skill_idx)] <= fail_mutual_notes].index.max()
+                            # Negate where skill not activated
+                            local_np_v[:remove_index + 1, 0:2, skill.color.value, skill_idx] = 0
+                        local_np_v[:, 1, skill.color.value, skill_idx] = local_np_v[:, 1, skill.color.value,
+                                                                         skill_idx] * local_mutual_value
+
         def handle_refrain(all_refrains):
             refrain_groups = list()
             for i in range(3):
@@ -1067,7 +1145,11 @@ class Simulator:
                     continue
                 non_refrain = list()
                 for _ in range(unit_idx * 5, unit_idx * 5 + 5):
-                    if _ in refrains or _ in self.magic_set or self.live.unit.get_card(unit_idx * 5 + _).skill.is_alternate:
+                    # Ref do not copy other ref, magic, alt, mutual
+                    if _ in refrains \
+                            or _ in self.magic_set \
+                            or self.live.unit.get_card(unit_idx * 5 + _).skill.is_alternate \
+                            or self.live.unit.get_card(unit_idx * 5 + _).skill.is_mutual:
                         continue
                     non_refrain.append(_)
                 ref_score_value = np.ceil(np.clip(np_v[:, 0:1, :, non_refrain] - 100, a_min=0, a_max=9000))
@@ -1254,6 +1336,7 @@ class Simulator:
             np_v = np.zeros((len(self.notes_data), 4, 3, 5 * units))  # Notes x Values x Colors x Cards
             np_b = np.zeros((len(self.notes_data), 4, 3, 5 * units))  # Notes x Values x Colors x Cards
         alternates = list()
+        mutuals = list()
         refrains = list()
         encores = list()
         for unit_idx, unit in enumerate(self.live.unit.all_units):
@@ -1267,12 +1350,14 @@ class Simulator:
                     if skill.act and first_pass:
                         handle_act(skill, unit_idx, card_idx, card.skill.color.value)
                         continue
-                    if skill.skill_type == 25 and sparkle:
+                    if skill.is_sparkle and sparkle:
                         handle_sparkle(unit_idx, card_idx, card.skill.color.value)
                         continue
-                    elif skill.skill_type == 39 and alternate:
+                    elif skill.is_alternate and alternate:
                         alternates.append(unit_idx * 5 + card_idx)
-                    elif skill.skill_type == 40 and refrain:
+                    elif skill.is_mutual and mutual:
+                        mutuals.append(unit_idx * 5 + card_idx)
+                    elif skill.is_refrain and refrain:
                         refrains.append(unit_idx * 5 + card_idx)
                     elif skill.is_encore:
                         encores.append(unit_idx * 5 + card_idx)
@@ -1294,7 +1379,17 @@ class Simulator:
                 cached_magic_to_check = dict()
                 for _ in magic_to_check:
                     cached_magic_to_check[_] = np_v[:, :, self.live.unit.get_card(_).color.value, _].copy()
-            handle_alternate(alternates, refrains, magic_to_check)
+            handle_alternate(alternates, refrains, mutuals, magic_to_check)
+        if mutual:
+            magic_to_check = list()
+            if is_magic:
+                for _ in self.magic_set:
+                    if int(_ // 5) in self.mutual_magic_copy:
+                        magic_to_check.append(_)
+                cached_magic_to_check = dict()
+                for _ in magic_to_check:
+                    cached_magic_to_check[_] = np_v[:, :, self.live.unit.get_card(_).color.value, _].copy()
+            handle_mutual(mutuals, refrains, alternates, magic_to_check)
         if refrain:
             handle_refrain(refrains)
         if is_magic and not first_pass:
@@ -1319,6 +1414,7 @@ class Simulator:
         unit_offset = 3 if grand else 1
         has_sparkle = False
         has_alternate = False
+        has_mutual = False
         has_support = False
         has_refrain = False
         has_magic = False
@@ -1326,6 +1422,7 @@ class Simulator:
         self.magic_copies = defaultdict(set)
         self.ls_magic_copies = defaultdict(set)
         self.alt_magic_copy = set()
+        self.mutual_magic_copy = set()
         self.magic_lists = defaultdict(list)
         self.magic_set = set()
         self.all_100 = True
@@ -1355,13 +1452,15 @@ class Simulator:
         for unit_idx, unit in enumerate(self.live.unit.all_units):
             for card_idx, card in enumerate(unit.all_cards()):
                 skill = card.skill
-                if skill.skill_type == 25:
+                if skill.is_sparkle:
                     has_sparkle = True
-                elif skill.skill_type == 39:
+                elif skill.is_alternate:
                     has_alternate = True
-                elif skill.skill_type == 40:
+                elif skill.is_mutual:
+                    has_mutual = True
+                elif skill.is_refrain:
                     has_refrain = True
-                elif skill.skill_type == 41:
+                elif skill.is_magic:
                     has_magic = True
                 if skill.v3 > 0 and not skill.boost:
                     # Use for early termination
@@ -1379,9 +1478,9 @@ class Simulator:
             else:
                 return note_times_to_compare < right_to_compare
 
-        def helper_fill_lr_time_alt_ref(card_idx, has_alternate, has_refrain, left, note_times, right,
-                                        unit_idx, rep_rolls=None):
-            if has_alternate or has_refrain:
+        def helper_fill_lr_time_alt_mut_ref(card_idx, has_alternate, has_mutual, has_refrain, left, note_times, right,
+                                            unit_idx, rep_rolls=None):
+            if has_alternate or has_mutual or has_refrain:
                 mask = np.logical_and(left_compare(note_times, left), right_compare(note_times, right))
                 if rep_rolls is not None:
                     mask = np.logical_and(mask, self.notes_data.rep.isin(rep_rolls))
@@ -1439,11 +1538,13 @@ class Simulator:
                     if probability > 0 and skill.values[2] > 0:
                         has_healing = True
 
-                    if probability > 0 and skill.skill_type != 41 and skill.skill_type != 40:
-                        if skill.skill_type == 25:
+                    if probability > 0 and not skill.is_refrain and not skill.is_magic:
+                        if skill.is_sparkle:
                             self.ls_magic_copies[unit_idx].add(card_idx)
-                        elif skill.skill_type == 39:
+                        elif skill.is_alternate:
                             self.alt_magic_copy.add(unit_idx)
+                        elif skill.is_mutual:
+                            self.mutual_magic_copy.add(unit_idx)
                         else:
                             self.magic_copies[unit_idx].add(card_idx)
                     if probability > 0 and skill.skill_type == 41:
@@ -1477,8 +1578,8 @@ class Simulator:
                             self.notes_data.loc[
                                 left_compare(note_times, left) & right_compare(note_times, right),
                                 'skill_{}'.format(extended_card_idx)] = 1 if probability > 0 else 0
-                            helper_fill_lr_time_alt_ref(card_idx, has_alternate, has_refrain, left, note_times, right,
-                                                        unit_idx)
+                            helper_fill_lr_time_alt_mut_ref(card_idx, has_alternate, has_mutual, has_refrain, left,
+                                                            note_times, right, unit_idx)
                             helper_fill_encore(unit_idx, card_idx, skill, left, right, note_times, None)
                         continue
                     note_times = self.notes_data.sec + np.random.random(len(self.notes_data)) * 0.06 - 0.03
@@ -1493,16 +1594,16 @@ class Simulator:
                                 left_compare(note_times, left) & right_compare(note_times, right)
                                 & (self.notes_data.rep.isin(rep_rolls)),
                                 'skill_{}'.format(extended_card_idx)] = 1
-                            helper_fill_lr_time_alt_ref(card_idx, has_alternate, has_refrain, left, note_times,
-                                                        right, unit_idx, rep_rolls=rep_rolls)
+                            helper_fill_lr_time_alt_mut_ref(card_idx, has_alternate, has_mutual, has_refrain, left,
+                                                            note_times, right, unit_idx, rep_rolls=rep_rolls)
                             helper_fill_encore(unit_idx, card_idx, skill, left, right, note_times, rep_rolls)
                         else:
                             # Save a bit more time
                             self.notes_data.loc[
                                 left_compare(note_times, left) & right_compare(note_times, right),
                                 'skill_{}'.format(extended_card_idx)] = 1
-                            helper_fill_lr_time_alt_ref(card_idx, has_alternate, has_refrain, left, note_times,
-                                                        right, unit_idx)
+                            helper_fill_lr_time_alt_mut_ref(card_idx, has_alternate, has_mutual, has_refrain, left,
+                                                            note_times, right, unit_idx)
                             helper_fill_encore(unit_idx, card_idx, skill, left, right, note_times, range(times))
 
                 self.has_healing.append(has_healing)
@@ -1522,4 +1623,4 @@ class Simulator:
                         'skill_{}'.format(unit_idx * 5 + magic)]
                     if unit_idx in units_with_cc:
                         self.cc_set.add(unit_idx * 5 + magic)
-        return has_sparkle, has_support, has_alternate, has_refrain, has_magic
+        return has_sparkle, has_support, has_alternate, has_mutual, has_refrain, has_magic
