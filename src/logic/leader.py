@@ -5,7 +5,7 @@ from db import db
 
 class Leader:
     def __init__(self, bonuses=np.zeros((5, 3)), song_bonuses=None, min_requirements=None, max_requirements=None,
-                 resonance=False, unison=False, bless=False, fan=0):
+                 resonance=False, unison=False, bless=False, duet=False, fan=0):
         assert isinstance(bonuses, np.ndarray)
         assert bonuses.shape == (5, 3)
         if min_requirements is not None:
@@ -25,6 +25,7 @@ class Leader:
         self.min_requirements = min_requirements
         self.max_requirements = max_requirements
         self.unison = unison
+        self.duet = duet
         self.fan = fan
 
     @classmethod
@@ -78,6 +79,8 @@ class Leader:
         else:
             song_bonuses = None
 
+        is_duet = leader_data["type"] == 110
+
         is_bless = leader_data['type'] == 100
 
         is_reso = leader_data['type'] == 70
@@ -104,5 +107,6 @@ class Leader:
             max_requirements=max_requirements,
             unison=is_unison,
             bless=is_bless,
+            duet=is_duet,
             fan=fan,
         )
