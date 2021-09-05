@@ -999,7 +999,7 @@ class Simulator:
             np_v[:, 1, color, unit_idx * 5 + card_idx] = trimmed_life.map(
                 get_sparkle_bonus(rarity=card.rarity, grand=grand))
 
-        def handle_alternate(all_alternates, all_mutuals, all_refrains, alt_magics):
+        def handle_alternate(all_alternates, all_mutuals, all_refrains, all_encores, alt_magics):
             alternate_groups = list()
             for i in range(3):
                 temp = list()
@@ -1012,7 +1012,7 @@ class Simulator:
                     continue
                 non_alternate = list()
                 for _ in range(unit_idx * 5, unit_idx * 5 + 5):
-                    if _ in alternates or _ in all_refrains or _ in all_mutuals:
+                    if _ in alternates or _ in all_refrains or _ in all_mutuals or _ in all_encores:
                         continue
                     non_alternate.append(_)
                 alternate_value = np.ceil(np.clip(np_v[:, 0:1, :, non_alternate] - 100, a_min=0, a_max=9000) * 1.7)
@@ -1072,7 +1072,7 @@ class Simulator:
                         local_np_v[:, 0, skill.color.value, skill_idx] = local_np_v[:, 0, skill.color.value,
                                                                          skill_idx] * local_alternate_value
 
-        def handle_mutual(all_mutuals, all_refrains, all_alternates, mutual_magics):
+        def handle_mutual(all_mutuals, all_refrains, all_alternates, all_encores, mutual_magics):
             mutual_groups = list()
             for i in range(3):
                 temp = list()
@@ -1085,7 +1085,7 @@ class Simulator:
                     continue
                 non_mutual = list()
                 for _ in range(unit_idx * 5, unit_idx * 5 + 5):
-                    if _ in mutuals or _ in all_refrains or _ in all_alternates:
+                    if _ in mutuals or _ in all_refrains or _ in all_alternates or _ in all_encores:
                         continue
                     non_mutual.append(_)
                 mutual_value = np.ceil(np.clip(np_v[:, 1:2, :, non_mutual] - 100, a_min=0, a_max=9000) * 1.7)
@@ -1304,7 +1304,8 @@ class Simulator:
                 uniques = copy_array.unique()
             uniques = uniques[uniques != 0] - 1
             for skill_to_copy in uniques:
-                v_copy = np_v[:, :, :, skill_to_copy].max(axis=2).max(axis=0)
+                v_copy = np.maximum.accumulate(
+                    np_v[:, :, :, skill_to_copy].max(axis=2), axis=0)
                 b_copy = np_b[:, :, :, skill_to_copy].max(axis=0)
                 if self.live.unit.get_card(skill_to_copy).skill.is_magic:
                     mask = self.notes_data['skill_{}'.format(encore)] == skill_to_copy + 1
@@ -1312,17 +1313,19 @@ class Simulator:
                     index_mask = self.notes_data[mask].index
                     self.notes_data.loc[index_mask, 'skill_{}'.format(encore)] = 1
                     self.notes_data.loc[null_mask, 'skill_{}'.format(encore)] = 0
-                    np_v[index_mask, :, card.color.value, encore] = v_copy
+                    np_v[index_mask, :, card.color.value, encore] = v_copy[index_mask, :]
                     np_b[index_mask, :, :, encore] = b_copy
                 else:
                     if copy_array is None:
-                        index_mask = self.notes_data[self.notes_data['skill_{}'.format(encore)] == skill_to_copy + 1].index
+                        index_mask = self.notes_data[
+                            self.notes_data['skill_{}'.format(encore)] == skill_to_copy + 1].index
                         self.notes_data.loc[index_mask, 'skill_{}'.format(encore)] = 1
-                        np_v[index_mask, :, card.color.value, encore] = v_copy
+                        np_v[index_mask, :, card.color.value, encore] = v_copy[index_mask, :]
                         np_b[index_mask, :, :, encore] = b_copy
                     else:
                         index_mask = copy_array == skill_to_copy + 1
-                        np_v[index_mask, :, card.color.value, encore] = np.maximum(np_v[index_mask, :, card.color.value, encore], v_copy)
+                        np_v[index_mask, :, card.color.value, encore] = np.maximum(
+                            np_v[index_mask, :, card.color.value, encore], v_copy[index_mask, :])
                         np_b[index_mask, :, :, encore] = np.maximum(np_b[index_mask, :, :, encore], b_copy)
 
         def null_deactivated_skills(unit_idx, card_idx=None):
@@ -1393,7 +1396,7 @@ class Simulator:
                 cached_magic_to_check = dict()
                 for _ in magic_to_check:
                     cached_magic_to_check[_] = np_v[:, :, self.live.unit.get_card(_).color.value, _].copy()
-            handle_alternate(alternates, refrains, mutuals, magic_to_check)
+            handle_alternate(alternates, refrains, mutuals, encores, magic_to_check)
         if mutual:
             magic_to_check = list()
             if is_magic:
@@ -1403,7 +1406,7 @@ class Simulator:
                 cached_magic_to_check = dict()
                 for _ in magic_to_check:
                     cached_magic_to_check[_] = np_v[:, :, self.live.unit.get_card(_).color.value, _].copy()
-            handle_mutual(mutuals, refrains, alternates, magic_to_check)
+            handle_mutual(mutuals, refrains, alternates, encores, magic_to_check)
         if refrain:
             handle_refrain(refrains)
         if is_magic and not first_pass:
