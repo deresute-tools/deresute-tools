@@ -845,14 +845,20 @@ class Simulator:
             # Ignore healing boost and cut tensor product size if false
             for card_idx in range(unit_idx * 5, (unit_idx + 1) * 5):
                 skill = unit.get_card(card_idx % 5).skill
-                if skill.is_alternate:
+                if skill.is_alternate \
+                        or (skill.is_magic and unit_idx in self.alt_magic_copy) \
+                        or skill.is_encore:
                     alternate_mask = np_v[:, 1, :, card_idx] < 0
-                    original_alt_value = np_v[:, 1, :, card_idx][alternate_mask]
-                    alt_original_values[card_idx] = alternate_mask, original_alt_value
-                if skill.is_mutual:
+                    if skill.is_encore and np.any(alternate_mask) or not skill.is_encore:
+                        original_alt_value = np_v[:, 1, :, card_idx][alternate_mask]
+                        alt_original_values[card_idx] = alternate_mask, original_alt_value
+                if skill.is_mutual \
+                        or (skill.is_magic and unit_idx in self.mutual_magic_copy) \
+                        or skill.is_encore:
                     mutual_mask = np_v[:, 0, :, card_idx] < 0
-                    original_mut_value = np_v[:, 0, :, card_idx][mutual_mask]
-                    mut_original_values[card_idx] = mutual_mask, original_mut_value
+                    if skill.is_encore and np.any(mutual_mask) or not skill.is_encore:
+                        original_mut_value = np_v[:, 0, :, card_idx][mutual_mask]
+                        mut_original_values[card_idx] = mutual_mask, original_mut_value
                 if skill.is_support or skill.is_tuning or card_idx in self.magic_set and self.has_support:
                     mask = np_v[:, 3, :, card_idx] == 0
                     np_v[:, 3, :, card_idx] += boost_array[:, 3]
@@ -1290,9 +1296,12 @@ class Simulator:
                         np_v[:, 1, unit.get_card(magic).color.value, unit_idx * 5 + magic] = np.maximum(
                             np_v[:, 1, unit.get_card(magic).color.value, unit_idx * 5 + magic], ls_value)
 
-        def handle_encore(encore):
+        def handle_encore(encore, copy_array=None):
             card = self.live.unit.get_card(encore)
-            uniques = self.notes_data['skill_{}'.format(encore)].unique()
+            if copy_array is None:
+                uniques = self.notes_data['skill_{}'.format(encore)].unique()
+            else:
+                uniques = copy_array.unique()
             uniques = uniques[uniques != 0] - 1
             for skill_to_copy in uniques:
                 v_copy = np_v[:, :, :, skill_to_copy].max(axis=2).max(axis=0)
@@ -1306,10 +1315,15 @@ class Simulator:
                     np_v[index_mask, :, card.color.value, encore] = v_copy
                     np_b[index_mask, :, :, encore] = b_copy
                 else:
-                    index_mask = self.notes_data[self.notes_data['skill_{}'.format(encore)] == skill_to_copy + 1].index
-                    self.notes_data.loc[index_mask, 'skill_{}'.format(encore)] = 1
-                    np_v[index_mask, :, card.color.value, encore] = v_copy
-                    np_b[index_mask, :, :, encore] = b_copy
+                    if copy_array is None:
+                        index_mask = self.notes_data[self.notes_data['skill_{}'.format(encore)] == skill_to_copy + 1].index
+                        self.notes_data.loc[index_mask, 'skill_{}'.format(encore)] = 1
+                        np_v[index_mask, :, card.color.value, encore] = v_copy
+                        np_b[index_mask, :, :, encore] = b_copy
+                    else:
+                        index_mask = copy_array == skill_to_copy + 1
+                        np_v[index_mask, :, card.color.value, encore] = np.maximum(np_v[index_mask, :, card.color.value, encore], v_copy)
+                        np_b[index_mask, :, :, encore] = np.maximum(np_b[index_mask, :, :, encore], b_copy)
 
         def null_deactivated_skills(unit_idx, card_idx=None):
             if card_idx is not None:
@@ -1399,8 +1413,13 @@ class Simulator:
                     null_deactivated_skills(unit_idx, magic)
         if not self.has_sparkle or self.has_sparkle and sparkle:
             for encore in encores:
-                handle_encore(encore)
+                handle_encore(encore, None)
                 null_deactivated_skills(encore // 5, encore % 5)
+            if self.live.is_grand:
+                # Only needs to handle encore-magic in grand
+                for encore_magic, copy_array in self.encore_magic_values.items():
+                    handle_encore(encore_magic, copy_array)
+                    null_deactivated_skills(encore_magic // 5, encore_magic % 5)
         return np_v, np_b
 
     def _helper_initialize_skill_activations(self, grand, times, time_offset=0.0, fail_simulate=False,
@@ -1423,7 +1442,9 @@ class Simulator:
         self.ls_magic_copies = defaultdict(set)
         self.alt_magic_copy = set()
         self.mutual_magic_copy = set()
-        self.magic_lists = defaultdict(list)
+        self.encore_magic_copy = set()
+        self.magic_lists = defaultdict(set)
+        self.encore_magic_values = dict()
         self.magic_set = set()
         self.all_100 = True
         self.cc_set = set()
@@ -1494,7 +1515,7 @@ class Simulator:
                 padded_rep_rolls = rep_rolls
             for rep in padded_rep_rolls:
                 # Fill up the activation time dict first
-                if not skill.is_encore:
+                if not skill.is_encore and not (skill.is_magic and unit_idx in self.encore_magic_copy):
                     if left not in self.activation_time_cache[rep]:
                         self.activation_time_cache[rep][left] = extended_card_idx
                     else:
@@ -1523,10 +1544,16 @@ class Simulator:
                 for card_idx, card in enumerate(unit.all_cards()):
                     skill = card.skill
 
+                    # During first phase where we don't evaluate encores yet, if encore, skip
                     if skill.is_encore and not evaluate_encore:
+                        self.encore_magic_copy.add(unit_idx)
                         continue
 
-                    if not skill.is_encore and evaluate_encore:
+                    # During second phase where we are evaluating encores, if not encore or not magic-encore, skip
+                    if evaluate_encore and not (
+                            skill.is_encore
+                            or skill.is_magic and unit_idx in self.encore_magic_copy
+                    ):
                         continue
 
                     extended_card_idx = unit_idx * 5 + card_idx
@@ -1548,7 +1575,7 @@ class Simulator:
                         else:
                             self.magic_copies[unit_idx].add(card_idx)
                     if probability > 0 and skill.skill_type == 41:
-                        self.magic_lists[unit_idx].append(card_idx)
+                        self.magic_lists[unit_idx].add(card_idx)
                     if probability > 0 and skill.act is not None:
                         self.unit_has_act[unit_idx] = True
 
@@ -1623,4 +1650,9 @@ class Simulator:
                         'skill_{}'.format(unit_idx * 5 + magic)]
                     if unit_idx in units_with_cc:
                         self.cc_set.add(unit_idx * 5 + magic)
+                if unit_idx in self.encore_magic_copy:
+                    self.encore_magic_values[unit_idx * 5 + magic] = self.notes_data[
+                        'skill_{}'.format(unit_idx * 5 + magic)].copy()
+                    self.notes_data['skill_{}'.format(unit_idx * 5 + magic)] = np.clip(
+                        self.notes_data['skill_{}'.format(unit_idx * 5 + magic)], a_min=0, a_max=1)
         return has_sparkle, has_support, has_alternate, has_mutual, has_refrain, has_magic

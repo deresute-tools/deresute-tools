@@ -321,6 +321,9 @@ class BaseChartPicGenerator(ABC):
                     continue
                 if skill_time > skill_times:
                     break
+                if skill.skill_type is None:
+                    skill_time += 1
+                    continue
                 skill_brush = QBrush(QColor(*SKILL_BASE[skill.skill_type]['color'], 100))
                 self.p.setPen(QPen())
                 self.p.setBrush(skill_brush)
@@ -464,7 +467,7 @@ class BaseChartPicGenerator(ABC):
     def save_image(self):
         path = CHART_PICS_PATH / "{}-{}.png".format(self.song_id, self.difficulty)
         storage.exists(path)
-        self.label.pixmap().save(path)
+        self.label.pixmap().save(str(path))
 
 
 class BasicChartPicGenerator(BaseChartPicGenerator):
