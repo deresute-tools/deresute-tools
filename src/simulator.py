@@ -1154,8 +1154,8 @@ class Simulator:
                     # Ref do not copy other ref, magic, alt, mutual
                     if _ in refrains \
                             or _ in self.magic_set \
-                            or self.live.unit.get_card(unit_idx * 5 + _).skill.is_alternate \
-                            or self.live.unit.get_card(unit_idx * 5 + _).skill.is_mutual:
+                            or self.live.unit.get_card(_).skill.is_alternate \
+                            or self.live.unit.get_card(_).skill.is_mutual:
                         continue
                     non_refrain.append(_)
                 ref_score_value = np.ceil(np.clip(np_v[:, 0:1, :, non_refrain] - 100, a_min=0, a_max=9000))
@@ -1653,9 +1653,9 @@ class Simulator:
                         'skill_{}'.format(unit_idx * 5 + magic)]
                     if unit_idx in units_with_cc:
                         self.cc_set.add(unit_idx * 5 + magic)
-                if unit_idx in self.encore_magic_copy:
-                    self.encore_magic_values[unit_idx * 5 + magic] = self.notes_data[
-                        'skill_{}'.format(unit_idx * 5 + magic)].copy()
-                    self.notes_data['skill_{}'.format(unit_idx * 5 + magic)] = np.clip(
-                        self.notes_data['skill_{}'.format(unit_idx * 5 + magic)], a_min=0, a_max=1)
+                    if unit_idx in self.encore_magic_copy:
+                        self.encore_magic_values[unit_idx * 5 + magic] = self.notes_data[
+                            'skill_{}'.format(unit_idx * 5 + magic)].copy()
+                        self.notes_data['skill_{}'.format(unit_idx * 5 + magic)] = np.clip(
+                            self.notes_data['skill_{}'.format(unit_idx * 5 + magic)], a_min=0, a_max=1)
         return has_sparkle, has_support, has_alternate, has_mutual, has_refrain, has_magic
