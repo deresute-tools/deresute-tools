@@ -221,9 +221,6 @@ def setup_gui(*args):
     icon = QIcon(str(ROOT_DIR / 'icon.png'))
     app.setWindowIcon(icon)
     app.lastWindowClosed.connect(lambda: cleanup())
-    import ctypes
-    myappid = 'mycompany.myproduct.subproduct.version'  # arbitrary string
-    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
     MainWindow = CustomMainWindow()
     ui = UiMainWindow(MainWindow)
     MainWindow.setui(ui)

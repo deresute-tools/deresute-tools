@@ -283,7 +283,7 @@ class DroppableCalculatorWidget(QTableWidget):
         self.calculator_view = calculator_view
 
     def keyPressEvent(self, event):
-        if event.key() == Qt.Key_Delete:
+        if event.key() == Qt.Key_Delete or event.key() == Qt.Key_Backspace:
             self.calculator_view.delete_unit()
         if QApplication.keyboardModifiers() == (Qt.ShiftModifier | Qt.ControlModifier) and event.key() == Qt.Key_D:
             self.calculator_view.duplicate_unit(True)
