@@ -50,8 +50,16 @@ class Skill:
         return self.skill_type in SUPPORT_TYPES
 
     @property
+    def is_overload(self):
+        return self.skill_type == 14
+
+    @property
     def is_encore(self):
         return self.skill_type == 16
+
+    @property
+    def is_focus(self):
+        return 21 <= self.skill_type <= 23
 
     @property
     def is_sparkle(self):
