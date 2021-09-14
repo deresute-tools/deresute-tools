@@ -3,9 +3,8 @@ import time
 from enum import Enum
 from math import ceil
 from typing import List, Dict, Union
-import numpy as np
 
-from line_profiler_pycharm import profile
+import numpy as np
 
 import customlogger as logger
 from logic.skill import Skill
@@ -290,20 +289,20 @@ class UnitCacheBonus:
     def update_AMR(self, skill: Skill):
         # Do not update on skills that are not alternate, mutual, refrain
         if skill.is_alternate:
-            self.alt_tap = ceil(self.tap * skill.v1 / 1000)
-            self.alt_flick = ceil(self.flick * skill.v1 / 1000)
-            self.alt_long = ceil(self.long * skill.v1 / 1000)
-            self.alt_slide = ceil(self.slide * skill.v1 / 1000)
+            self.alt_tap = ceil((self.tap - 100) * skill.values[1] / 1000)
+            self.alt_flick = ceil((self.flick - 100) * skill.values[1] / 1000)
+            self.alt_long = ceil((self.long - 100) * skill.values[1] / 1000)
+            self.alt_slide = ceil((self.slide - 100) * skill.values[1] / 1000)
             return
         if skill.is_mutual:
-            self.alt_combo = ceil(self.combo * skill.v1 / 1000)
+            self.alt_combo = ceil((self.combo - 100) * skill.values[1] / 1000)
             return
         if skill.is_refrain:
-            self.ref_tap = max(self.ref_tap, self.tap)
-            self.ref_flick = max(self.ref_flick, self.flick)
-            self.ref_long = max(self.ref_long, self.long)
-            self.ref_slide = max(self.ref_slide, self.slide)
-            self.ref_combo = max(self.ref_combo, self.combo)
+            self.ref_tap = max(self.ref_tap, self.tap - 100)
+            self.ref_flick = max(self.ref_flick, self.flick - 100)
+            self.ref_long = max(self.ref_long, self.long - 100)
+            self.ref_slide = max(self.ref_slide, self.slide - 100)
+            self.ref_combo = max(self.ref_combo, self.combo - 100)
             return
 
 
@@ -360,6 +359,8 @@ class StateMachine:
 
         # List of all skill objects. Should not mutate. Original sets.
         self.reference_skills = [None]
+        for _ in range(len(self.live.unit.all_cards())):
+            self.reference_skills.append(None)
 
         # These 2 lists have the same length and should be mutated together.
         # List of all skill timestamps, contains activations and deactivations.
@@ -377,8 +378,8 @@ class StateMachine:
         self.score = 0
 
         # Encore stuff
-        self.last_activated_skill = None
-        self.last_activated_time = -1
+        self.last_activated_skill = list()
+        self.last_activated_time = list()
 
         # Hacky cache stuff
         self.has_skill_change = True
@@ -391,6 +392,10 @@ class StateMachine:
         self.cache_magics = dict()
         self.cache_non_magics = dict()
         self.cache_ls = dict()
+        self.cache_act = dict()
+        self.cache_alt = dict()
+        self.cache_mut = dict()
+        self.cache_ref = dict()
 
         # Cache for AMR
         self.unit_caches = list()
@@ -406,21 +411,21 @@ class StateMachine:
         skill_indices = list()
         for unit_idx, unit in enumerate(self.live.unit.all_units):
             iterating_order = list()
-            _cache_alts = list()
+            _cache_cached_classes = list()
             _cache_magic = list()
             for card_idx, card in enumerate(unit.all_cards()):
                 if card.skill.is_magic:
                     _cache_magic.append((card_idx, card))
                     continue
-                if card.skill.is_alternate or card.skill.is_mutual:
-                    _cache_alts.append((card_idx, card))
+                if card.skill.is_alternate or card.skill.is_mutual or card.skill.is_refrain:
+                    _cache_cached_classes.append((card_idx, card))
                     continue
                 iterating_order.append((card_idx, card))
-            iterating_order = _cache_magic + iterating_order + _cache_alts
+            iterating_order = _cache_magic + iterating_order + _cache_cached_classes
             for card_idx, card in iterating_order:
                 skill = card.skill
-                self.reference_skills.append(skill)
                 idx = unit_idx * 5 + card_idx
+                self.reference_skills[idx + 1] = skill
                 if self.probabilities[idx] == 0:
                     continue
                 times = int((self.notes_data.iloc[-1].sec - 3) // skill.interval)
@@ -433,10 +438,11 @@ class StateMachine:
                     skill_indices.append(unit_idx * 5 + card_idx + 1)
                     skill_indices.append(-unit_idx * 5 - card_idx - 1)
                 self.full_roll_chance *= self.probabilities[idx] ** len(skill_range)
-        zipped = zip(skill_times, skill_indices)
-        for (a, b) in sorted(zipped):
-            self.skill_times.append(a)
-            self.skill_indices.append(b)
+        np_skill_times = np.array(skill_times)
+        np_skill_indices = np.array(skill_indices)
+        sorted_indices = np.argsort(np_skill_times, kind='stable')
+        self.skill_times = np_skill_times[sorted_indices].tolist()
+        self.skill_indices = np_skill_indices[sorted_indices].tolist()
 
     def simulate_impl(self):
         self.initialize_activation_arrays()
@@ -469,6 +475,7 @@ class StateMachine:
             self._handle_skill_activation()
             # By this point, all skills that can be activated should be in self.skill_queue
             self._evaluate_motif()
+            self._evaluate_ls()
             self._cache_skill_data()
             self._cache_AMR()
             self.skill_indices.pop(0)
@@ -499,6 +506,8 @@ class StateMachine:
                     magics[skill_idx] = skills
                 else:
                     non_magics[skill_idx] = skills
+            self.cache_magics = magics
+            self.cache_non_magics = non_magics
         else:
             magics = self.cache_magics
             non_magics = self.cache_non_magics
@@ -519,15 +528,13 @@ class StateMachine:
         for idx, skills in self.skill_queue.items():
             for skill in skills:
                 if skill.is_sparkle:
-                    if skill.v0 == 1:
+                    if skill.values[0] == 1:
                         skill.v1 = self._sparkle_bonus_ssr[trimmed_life] - 100
                     else:
                         skill.v1 = self._sparkle_bonus_sr[trimmed_life] - 100
-                    if idx not in self.cache_ls:
-                        self.cache_ls[idx] = skill.v1
+                    if idx not in self.cache_ls or self.cache_ls[idx] != skill.v1:
                         self.has_skill_change = True
-                    elif self.cache_ls[idx] == skill.v1:
-                        self.has_skill_change = False
+                    self.cache_act[idx] = skill.v1
                     skill.v0 = 0
                     skill.normalized = True
 
@@ -536,10 +543,14 @@ class StateMachine:
             for skill in skills:
                 if skill.act is not None:
                     if skill.act in special_note_types:
-                        skill.v0 = skill.v1
+                        skill.v0 = skill.values[1]
                         skill.v1 = 0
                     else:
+                        skill.v0 = skill.values[0]
                         skill.v1 = 0
+                    if idx not in self.cache_act or self.cache_act[idx] != skill.v0:
+                        self.has_skill_change = True
+                    self.cache_act[idx] = skill.v0
                     skill.normalized = False
 
     def _helper_normalize_score_combo_bonuses(self):
@@ -558,7 +569,7 @@ class StateMachine:
             unit_idx = (idx - 1) // 5
             for skill in skills:
                 if skill.is_alternate:
-                    skill.v1 = skill.v0
+                    skill.v1 = skill.values[0] - 100
                     skill.v0 = self.unit_caches[unit_idx].alt_tap
                     if NoteType.FLICK in special_note_types:
                         skill.v0 = max(skill.v0, self.unit_caches[unit_idx].alt_tap)
@@ -566,9 +577,18 @@ class StateMachine:
                         skill.v0 = max(skill.v0, self.unit_caches[unit_idx].alt_long)
                     if NoteType.SLIDE in special_note_types:
                         skill.v0 = max(skill.v0, self.unit_caches[unit_idx].alt_slide)
+                    if idx not in self.cache_alt or self.cache_alt[idx] != skill.v0:
+                        self.has_skill_change = True
+                    self.cache_alt[idx] = skill.v0
+                    skill.normalized = True
                     continue
                 if skill.is_mutual:
+                    skill.v0 -= 100
                     skill.v1 = self.unit_caches[unit_idx].alt_combo
+                    if idx not in self.cache_mut or self.cache_mut[idx] != skill.v1:
+                        self.has_skill_change = True
+                    self.cache_mut[idx] = skill.v1
+                    skill.normalized = True
                     continue
                 if skill.is_refrain:
                     skill.v0 = self.unit_caches[unit_idx].ref_tap
@@ -579,6 +599,11 @@ class StateMachine:
                     if NoteType.SLIDE in special_note_types:
                         skill.v0 = max(skill.v0, self.unit_caches[unit_idx].ref_slide)
                     skill.v1 = self.unit_caches[unit_idx].ref_combo
+                    if idx not in self.cache_ref \
+                            or self.cache_ref[idx][0] != skill.v0 or self.cache_ref[idx][1] != skill.v1:
+                        self.has_skill_change = True
+                    self.cache_ref[idx] = (skill.v0, skill.v1)
+                    skill.normalized = True
                     continue
 
     def _evaluate_bonuses_phase_boost(self, magics: Dict[int, List[Skill]], non_magics: Dict[int, List[Skill]]):
@@ -805,8 +830,12 @@ class StateMachine:
                 unified_non_magic_combo = 0
             unit_score_bonuses.append(agg_func((unified_magic_score, unified_non_magic_score)))
             unit_combo_bonuses.append(agg_func((unified_magic_combo, unified_non_magic_combo)))
-        self.cache_score_bonus = max(unit_score_bonuses)
-        self.cache_combo_bonus = max(unit_combo_bonuses)
+        min_score_bonus = min(unit_score_bonuses)
+        max_score_bonus = max(unit_score_bonuses)
+        min_combo_bonus = min(unit_combo_bonuses)
+        max_combo_bonus = max(unit_combo_bonuses)
+        self.cache_score_bonus = max_score_bonus if max_score_bonus > 0 else min_score_bonus
+        self.cache_combo_bonus = max_combo_bonus if max_combo_bonus > 0 else min_combo_bonus
         return self.cache_score_bonus, self.cache_combo_bonus
 
     def _expand_magic(self):
@@ -816,8 +845,9 @@ class StateMachine:
             unit_idx = (self.skill_indices[0] - 1) // 5
             self.skill_queue[self.skill_indices[0]] = list()
             iterating_order = list()
-            _cache_alts = list()
+            _cache_cached_classes = list()
             for idx in range(unit_idx * 5, unit_idx * 5 + 5):
+                idx = idx + 1
                 copied_skill = copy.copy(self.reference_skills[idx])
                 # Skip skills that cannot activate
                 if self.reference_skills[idx].probability == 0:
@@ -827,19 +857,21 @@ class StateMachine:
                     continue
                 # Expand encore
                 if self.reference_skills[idx].is_encore:
+                    copied_skill = self._get_last_encoreable_skill()
                     # But there's nothing for encore to copy yet, skip
-                    if self.last_activated_skill is None:
+                    if copied_skill is None:
                         continue
                     # Or the skill for encore to copy is magic as well, skip
-                    if self.reference_skills[self.last_activated_skill].is_magic:
+                    # Do not allow magic-encore-magic
+                    copied_skill = self.reference_skills[copied_skill]
+                    if copied_skill.is_magic:
                         continue
                     # Else let magic copy the encored skill instead
-                    copied_skill = self.reference_skills[self.last_activated_skill]
-                if copied_skill.is_alternate or copied_skill.is_mutual:
-                    _cache_alts.append(copied_skill)
+                if copied_skill.is_alternate or copied_skill.is_mutual or copied_skill.is_refrain:
+                    _cache_cached_classes.append(copied_skill)
                     continue
                 iterating_order.append(copied_skill)
-            iterating_order = iterating_order + _cache_alts
+            iterating_order = iterating_order + _cache_cached_classes
             for _ in iterating_order:
                 self.skill_queue[self.skill_indices[0]].append(_)
 
@@ -848,18 +880,39 @@ class StateMachine:
         if self.last_activated_skill is None:
             return
         if skill.is_encore:
-            encore_copy: Skill = copy.deepcopy(self.reference_skills[self.last_activated_skill])
+            encore_copy: Skill = copy.deepcopy(self.reference_skills[self._get_last_encoreable_skill()])
             encore_copy.interval = skill.interval
             encore_copy.duration = skill.duration
             self.skill_queue[self.skill_indices[0]] = encore_copy
+
+    def _get_last_encoreable_skill(self):
+        if len(self.last_activated_skill) == 0:
+            return None
+        if self.skill_times[0] > self.last_activated_time[-1]:
+            return self.last_activated_skill[-1]
+        elif len(self.last_activated_time) == 1:
+            return None
+        else:
+            return self.last_activated_skill[-2]
 
     def _evaluate_motif(self):
         skills_to_check = self._helper_get_current_skills()
         unit_idx = (self.skill_indices[0] - 1) // 5
         for skill in skills_to_check:
             if skill.is_motif:
-                skill.v0 = self.live.unit.all_units[unit_idx].convert_motif(skill.skill_type)
+                skill.v0 = self.live.unit.all_units[unit_idx].convert_motif(skill.skill_type, self.grand)
                 skill.normalized = False
+
+    def _evaluate_ls(self):
+        skills_to_check = self._helper_get_current_skills()
+        for skill in skills_to_check:
+            if skill.is_sparkle:
+                trimmed_life = self.life // 10
+                if skill.values[0] == 1:
+                    skill.v1 = self._sparkle_bonus_ssr[trimmed_life]
+                else:
+                    skill.v1 = self._sparkle_bonus_sr[trimmed_life]
+                skill.v0 = 0
 
     def _cache_AMR(self):
         skills_to_check = self._helper_get_current_skills()
@@ -883,7 +936,7 @@ class StateMachine:
             self.unit_caches[unit_idx].update(skill)
 
     def _handle_skill_activation(self):
-        def update_last_activated_skill(replace):
+        def update_last_activated_skill(replace, skill_time):
             """
             Update last activated skill for encore
             :type replace: True if new skill activates after the cached skill, False if same time
@@ -891,9 +944,10 @@ class StateMachine:
             if self.reference_skills[self.skill_indices[0]].is_encore:
                 return
             if replace:
-                self.last_activated_skill = self.skill_indices[0]
+                self.last_activated_skill.append(self.skill_indices[0])
+                self.last_activated_time.append(skill_time)
             else:
-                self.last_activated_skill = min(self.last_activated_skill, self.skill_indices[0])
+                self.last_activated_skill[-1] = min(self.last_activated_skill[-1], self.skill_indices[0])
 
         # If skill is still not queued after self._expand_magic and self._expand_encore
         if self.skill_indices[0] not in self.skill_queue:
@@ -901,24 +955,23 @@ class StateMachine:
 
         # Pop deactivation out if skill cannot activate
         if not self._can_activate():
-            skill_id = self.skill_queue.pop(self.skill_indices[0])
+            skill_id = self.skill_indices[0]
+            self.skill_queue.pop(self.skill_indices[0])
             # First index of -skill_id should be the correct value because a skill cannot activate twice before deactivating once
             pop_skill_index = self.skill_indices.index(-skill_id)
-            for list_to_pop in [self.skill_times, self.skill_indices]:
-                # Pop the deactivation first to avoid messing up the index
-                list_to_pop.pop(pop_skill_index)
-                # Then pop the activation
-                list_to_pop.pop(0)
+            # Pop the deactivation first to avoid messing up the index
+            self.skill_times.pop(pop_skill_index)
+            self.skill_indices.pop(pop_skill_index)
+            # Don't need to pop the activation because it will be pop in the outer sub
             return
 
         # Update last activated skill for encore
         # If new skill is strictly after cached last skill, just replace it
-        if self.last_activated_time < self.skill_times[0]:
-            self.last_activated_time = self.skill_times[0]
-            update_last_activated_skill(replace=True)
+        if len(self.last_activated_time) == 0 or self.last_activated_time[-1] < self.skill_times[0]:
+            update_last_activated_skill(replace=True, skill_time=self.skill_times[0])
         elif self.last_activated_time == self.skill_times[0]:
             # Else update taking skill index order into consideration
-            update_last_activated_skill(replace=False)
+            update_last_activated_skill(replace=False, skill_time=self.skill_times[0])
 
     def _handle_ol_drain(self, life_requirement):
         if self.life <= life_requirement:

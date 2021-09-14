@@ -3,6 +3,7 @@ import numpy as np
 from db import db
 from static.color import Color
 from static.note_type import NoteType
+from static.skill import SKILL_BASE
 
 BOOST_TYPES = {20, 32, 33, 34, 38}
 COLOR_TARGETS = {21, 22, 23, 32, 33, 34}
@@ -154,12 +155,6 @@ class Skill:
             values[2] = skill_values[1]
         elif skill_type == 17:  # Healer
             values[2] = skill_values[0]
-        elif skill_type == 39:
-            values[0] = skill_values[1]
-            values[1] = skill_values[0]
-        elif skill_type == 42:
-            values[0] = skill_values[0]
-            values[1] = skill_values[1]
         else:
             values = [skill_values[0], skill_values[1], skill_values[2], 0]
         return values
@@ -207,3 +202,10 @@ class Skill:
         if other is None or not isinstance(other, Skill):
             return False
         return self.skill_type == other.skill_type and self.duration == other.duration and self.interval == other.interval
+
+    def __str__(self):
+        try:
+            return "{} {}/{}: {} {} {} {}".format(SKILL_BASE[self.skill_type]["name"], self.duration, self.interval,
+                                                  self.v0, self.v1, self.v2, self.v3)
+        except:
+            return None

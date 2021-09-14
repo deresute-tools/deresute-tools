@@ -26,24 +26,24 @@ logger.print_debug()
 # live.set_unit(unit)
 # sim = Simulator(live)
 # sim.simulate(times=100, appeals=400000).perfect_score
-
-unitA = Unit.from_query("kaede2 chieri4 kyoko4 rika4 rika4u")
-unitB = Unit.from_query("sae4 kozue2 momoka3 frederica3 sachiko4")
-unitC = Unit.from_query("atsumi2 anzu3 anzu3u miku4 miku3")
-gu = GrandUnit(unitA, unitB, unitC)
-live = GrandLive()
-live.set_music(music_name="Starry-Go-Round", difficulty=Difficulty.PIANO)
-live.set_unit(gu)
-sim = Simulator(live)
-assert sim.simulate(perfect_play=True, appeals=490781).perfect_score == 3424303
-
+#
+# unitA = Unit.from_query("kaede2 chieri4 kyoko4 rika4 rika4u")
+# unitB = Unit.from_query("sae4 kozue2 momoka3 frederica3 sachiko4")
+# unitC = Unit.from_query("atsumi2 anzu3 anzu3u miku4 miku3")
+# gu = GrandUnit(unitA, unitB, unitC)
+# live = GrandLive()
+# live.set_music(music_name="Starry-Go-Round", difficulty=Difficulty.PIANO)
+# live.set_unit(gu)
+# sim = Simulator(live)
+# assert sim.simulate(perfect_play=True, appeals=490781).perfect_score == 3424303
+#
 # unit = Unit.from_query("nao4 yukimi2 haru2 mizuki4 rin2 ranko3", custom_pots=(0, 0, 0, 0, 10))
 # live = Live()
 # live.set_music(music_name="in fact", difficulty=Difficulty.MPLUS)
 # live.set_unit(unit)
 # sim = Simulator(live)
 # assert sim.simulate(perfect_play=True, appeals=302495).perfect_score == 1366223
-#
+
 # unit = Unit.from_query("kaede5 syoko4 yui5 shin3 makino2 frederica5", custom_pots=(0, 0, 0, 0, 10))
 # live = Live()
 # live.set_music(music_name="Absolute Nine", difficulty=Difficulty.REGULAR)
@@ -51,6 +51,13 @@ assert sim.simulate(perfect_play=True, appeals=490781).perfect_score == 3424303
 # sim = Simulator(live)
 # assert sim.simulate(perfect_play=True, appeals=208617).perfect_score == 776777
 #
+# unit = Unit.from_list([201002, 100990, 201004, 100989, 300762, 100256], custom_pots=(5, 10, 10, 0, 10))
+# live = Live()
+# live.set_music(score_id=409, difficulty=Difficulty.MPLUS)
+# live.set_unit(unit)
+# sim = Simulator(live)
+# assert sim.simulate(perfect_play=True, support=113290).perfect_score == 2537631
+
 # unit = Unit.from_query("kaede5 rin5 riina5 yasuha1 nono4 karen4", custom_pots=(0, 0, 0, 0, 10))
 # unit.get_card(5).li = 50
 # live = Live()
@@ -58,7 +65,7 @@ assert sim.simulate(perfect_play=True, appeals=490781).perfect_score == 3424303
 # live.set_unit(unit)
 # sim = Simulator(live)
 # assert sim.simulate(perfect_play=True, appeals=217911).perfect_score == 1412638
-#
+
 # unit = Unit.from_list([200946, 200058, 100076, 100396, 300530, 200294], custom_pots=(0, 0, 0, 0, 10))
 # live = Live()
 # live.set_music(music_name="Trust me", difficulty=Difficulty.MASTER)
@@ -158,13 +165,23 @@ assert sim.simulate(perfect_play=True, appeals=490781).perfect_score == 3424303
 # live.set_unit(unit)
 # sim = Simulator(live)
 # assert sim.simulate_theoretical_max(appeals=243551).abuse_df['delta'].sum() == 47441
-#
+
 # unitA = Unit.from_list([201002, 100990, 100612, 100918, 300152], custom_pots=(10,10,10,10,10))
-# unitB = Unit.from_list([200720, 200980, 100944, 100882, 300896])
-# unitC = Unit.from_list([200906, 201044, 200930, 100916, 300882])
+# unitB = Unit.from_list([200720, 200980, 100944, 100882, 300896], custom_pots=(10,10,10,10,10))
+# unitC = Unit.from_list([200906, 201044, 200930, 100916, 300882], custom_pots=(10,10,10,10,10))
 # gu = GrandUnit(unitA, unitB, unitC)
 # live = GrandLive()
-# live.set_music(music_name="%世界", difficulty=Difficulty.FORTE)
+# live.set_music(score_id=443, difficulty=Difficulty.FORTE)
 # live.set_unit(gu)
 # sim = Simulator(live)
-# assert sim.simulate(perfect_play=True, appeals=402866).perfect_score == 4286560
+# assert sim.simulate(perfect_play=True, appeals=402866).perfect_score == 4270963
+
+unitA = Unit.from_list([200844, 200740, 200620, 200843, 200730], custom_pots=(10,10,10,10,10))
+unitB = Unit.from_list([200986, 200916, 201002, 201022, 200992], custom_pots=(10,10,10,10,10))
+unitC = Unit.from_list([201030, 200978, 200810, 300896, 100882], custom_pots=(10,10,10,10,10))
+gu = GrandUnit(unitA, unitB, unitC)
+live = GrandLive()
+live.set_music(score_id=443, difficulty=Difficulty.FORTE)
+live.set_unit(gu)
+sim = Simulator(live)
+assert sim.simulate(perfect_play=True).perfect_score == 4270963
