@@ -70,6 +70,10 @@ class Skill:
         return self.skill_type == 31
 
     @property
+    def is_motif(self):
+        return 35 <= self.skill_type <= 37
+
+    @property
     def is_alternate(self):
         return self.skill_type == 39
 

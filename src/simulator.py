@@ -240,6 +240,42 @@ class Simulator:
             result.append(impl.simulate_impl())
 
 
+class UnitCacheBonus:
+    def __init__(self):
+        self.tap = 0
+        self.flick = 0
+        self.long = 0
+        self.slide = 0
+        self.combo = 0
+
+    def update(self, skill: Skill):
+        # Do not update on alternate, mutual, refrain, boosters
+        if skill.is_alternate or skill.is_mutual or skill.is_refrain or skill.boost:
+            return
+        if skill.act is not None:
+            self.tap = max(self.tap, skill.v0)
+            if skill.act is NoteType.LONG:
+                self.long = max(self.long, skill.v1)
+                self.flick = max(self.flick, skill.v0)
+                self.slide = max(self.slide, skill.v0)
+            elif skill.act is NoteType.FLICK:
+                self.long = max(self.long, skill.v0)
+                self.flick = max(self.flick, skill.v1)
+                self.slide = max(self.slide, skill.v0)
+            elif skill.act is NoteType.SLIDE:
+                self.long = max(self.long, skill.v0)
+                self.flick = max(self.flick, skill.v0)
+                self.slide = max(self.slide, skill.v1)
+            return
+        if skill.v0 is not None and skill.v0 > 100:
+            self.tap = max(self.tap, skill.v0)
+            self.flick = max(self.flick, skill.v0)
+            self.long = max(self.long, skill.v0)
+            self.slide = max(self.slide, skill.v0)
+        if skill.v1 is not None and skill.v1 > 100:
+            self.combo = max(self.combo, skill.v1)
+
+
 class StateMachine:
     skill_queue: Dict[int, Union[Skill, List[Skill]]]
     # TODO: Tuple self.skills
@@ -263,14 +299,14 @@ class StateMachine:
         self.weights = weights
 
         # List of all skill objects. Should not mutate. Original sets.
-        self.reference_skills = list()
+        self.reference_skills = [None]
 
         # These 2 lists have the same length and should be mutated together.
         # List of all skill timestamps, contains activations and deactivations.
         self.skill_times = list()
         # List of all skill indices, indicating which skill is activating/deactivating.
         # Positive = activation, negative = deactivation.
-        # E.g. 4 means the skill in slot 4 (counting from 0) activation, -4 means its deactivation
+        # E.g. 4 means the skill in slot 4 (counting from 1) activation, -4 means its deactivation
         self.skill_indices = list()
 
         # Transient values of a state
@@ -290,6 +326,10 @@ class StateMachine:
         self._sparkle_bonus_ssr = get_sparkle_bonus(8, self.grand)
         self._sparkle_bonus_sr = get_sparkle_bonus(6, self.grand)
 
+        self.unit_caches = list()
+        for _ in range(len(self.live.unit.all_units)):
+            self.unit_caches.append(UnitCacheBonus())
+
     def initialize_activation_arrays(self):
         skill_times = list()
         skill_indices = list()
@@ -306,8 +346,8 @@ class StateMachine:
                     deact = act_idx * skill.interval + skill.duration
                     skill_times.append(int(act * 1E6))
                     skill_times.append(int(deact * 1E6))
-                    skill_indices.append(unit_idx * 5 + card_idx)
-                    skill_indices.append(-unit_idx * 5 - card_idx)
+                    skill_indices.append(unit_idx * 5 + card_idx + 1)
+                    skill_indices.append(-unit_idx * 5 - card_idx - 1)
         zipped = zip(skill_times, skill_indices)
         for (a, b) in sorted(zipped):
             self.skill_times.append(a)
@@ -320,9 +360,9 @@ class StateMachine:
             if len(self.skill_times) == 0 and len(self.note_time_stack) == 0:
                 break
 
-            if self.note_time_stack[0] < self.skill_times[0]:
+            if len(self.skill_times) == 0 or self.note_time_stack[0] < self.skill_times[0]:
                 self.handle_note()
-            elif self.skill_times[0] > self.note_time_stack[0]:
+            elif len(self.note_time_stack) == 0 or self.skill_times[0] < self.note_time_stack[0]:
                 self.handle_skill()
             else:
                 if (self.skill_indices[0] > 0 and self.left_inclusive) or \
@@ -334,27 +374,35 @@ class StateMachine:
                     self.handle_skill()
 
     def handle_skill(self):
-        if self.skill_indices[0]:
+        if self.skill_indices[0] > 0:
             self._expand_encore()
             self._expand_magic()
             self._handle_skill_activation()
+            # By this point, all skills that can be activated should be in self.skill_queue
+            self._evaluate_motif()
+            self._cache_skill_data()
+            self.skill_indices.pop(0)
+            self.skill_times.pop(0)
         else:
-            self._handle_skill_deactivation()
+            self.skill_queue.pop(-self.skill_indices[0])
+            self.skill_indices.pop(0)
+            self.skill_times.pop(0)
 
     def handle_note(self):
         note_time = self.note_time_stack.pop(0)
         note_type = self.note_type_stack.pop(0)
-        weight = self.weights.pop(0)
-        score_bonus, combo_bonus, life_bonus, support_bonus = self.evaluate_bonuses(note_type)
-        note_score = round(self.base_score * weight * (1 + combo_bonus / 100) * (1 + score_bonus / 100))
-        self.life += life_bonus
-        self.score += note_score
+        weight = self.weights[self.combo]
+        self.combo += 1
+        # score_bonus, combo_bonus, life_bonus, support_bonus = self.evaluate_bonuses(note_type)
+        # note_score = round(self.base_score * weight * (1 + combo_bonus / 100) * (1 + score_bonus / 100))
+        # self.life += life_bonus
+        # self.score += note_score
 
     def _expand_magic(self):
         skill = self.reference_skills[self.skill_indices[0]]
         if skill.is_magic or \
                 (skill.is_encore and self.skill_queue[self.skill_indices[0]].is_magic):
-            unit_idx = self.skill_indices[0] // 5
+            unit_idx = (self.skill_indices[0] - 1) // 5
             self.skill_queue[self.skill_indices[0]] = list()
             for idx in range(unit_idx * 5, unit_idx * 5 + 5):
                 copied_skill = copy.copy(self.reference_skills[idx])
@@ -385,6 +433,27 @@ class StateMachine:
             encore_copy.interval = skill.interval
             encore_copy.duration = skill.duration
             self.skill_queue[self.skill_indices[0]] = encore_copy
+
+    def _evaluate_motif(self):
+        if self.skill_indices[0] not in self.skill_queue:
+            return
+        skills_to_check = self.skill_queue[self.skill_indices[0]]
+        if isinstance(skills_to_check, Skill):
+            skills_to_check = [skills_to_check]
+        unit_idx = (self.skill_indices[0] - 1) // 5
+        for skill in skills_to_check:
+            if skill.is_motif:
+                skill.v0 = self.live.unit.all_units[unit_idx].convert_motif(skill.skill_type)
+
+    def _cache_skill_data(self):
+        if self.skill_indices[0] not in self.skill_queue:
+            return
+        skills_to_check = self.skill_queue[self.skill_indices[0]]
+        if isinstance(skills_to_check, Skill):
+            skills_to_check = [skills_to_check]
+        unit_idx = (self.skill_indices[0] - 1) // 5
+        for skill in skills_to_check:
+            self.unit_caches[unit_idx].update(skill)
 
     def _handle_skill_activation(self):
         def update_last_activated_skill(replace):
@@ -423,9 +492,6 @@ class StateMachine:
         elif self.last_activated_time == self.skill_times[0]:
             # Else update taking skill index order into consideration
             update_last_activated_skill(replace=False)
-
-    def _handle_skill_deactivation(self):
-        self.skill_queue.pop(-self.skill_indices[0])
 
     def _handle_ol_drain(self, life_requirement):
         if self.life <= life_requirement:
