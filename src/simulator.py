@@ -1,6 +1,7 @@
 import copy
 import time
 from enum import Enum
+from math import ceil
 from typing import List, Dict, Union
 
 import numpy as np
@@ -247,6 +248,16 @@ class UnitCacheBonus:
         self.long = 0
         self.slide = 0
         self.combo = 0
+        self.ref_tap = 0
+        self.ref_flick = 0
+        self.ref_long = 0
+        self.ref_slide = 0
+        self.ref_combo = 0
+        self.alt_tap = 0
+        self.alt_flick = 0
+        self.alt_long = 0
+        self.alt_slide = 0
+        self.alt_combo = 0
 
     def update(self, skill: Skill):
         # Do not update on alternate, mutual, refrain, boosters
@@ -274,6 +285,25 @@ class UnitCacheBonus:
             self.slide = max(self.slide, skill.v0)
         if skill.v1 is not None and skill.v1 > 100:
             self.combo = max(self.combo, skill.v1)
+
+    def update_AMR(self, skill: Skill):
+        # Do not update on skills that are not alternate, mutual, refrain
+        if skill.is_alternate:
+            self.alt_tap = ceil(self.tap * skill.v1 / 1000)
+            self.alt_flick = ceil(self.flick * skill.v1 / 1000)
+            self.alt_long = ceil(self.long * skill.v1 / 1000)
+            self.alt_slide = ceil(self.slide * skill.v1 / 1000)
+            return
+        if skill.is_mutual:
+            self.alt_combo = ceil(self.combo * skill.v1 / 1000)
+            return
+        if skill.is_refrain:
+            self.ref_tap = max(self.ref_tap, self.tap)
+            self.ref_flick = max(self.ref_flick, self.flick)
+            self.ref_long = max(self.ref_long, self.long)
+            self.ref_slide = max(self.ref_slide, self.slide)
+            self.ref_combo = max(self.ref_combo, self.combo)
+            return
 
 
 class StateMachine:
@@ -334,7 +364,19 @@ class StateMachine:
         skill_times = list()
         skill_indices = list()
         for unit_idx, unit in enumerate(self.live.unit.all_units):
+            iterating_order = list()
+            _cache_alts = list()
+            _cache_magic = list()
             for card_idx, card in enumerate(unit.all_cards()):
+                if card.skill.is_magic:
+                    _cache_magic.append((card_idx, card))
+                    continue
+                if card.skill.is_alternate or card.skill.is_mutual:
+                    _cache_alts.append((card_idx, card))
+                    continue
+                iterating_order.append((card_idx, card))
+            iterating_order = _cache_magic + iterating_order + _cache_alts
+            for card_idx, card in iterating_order:
                 skill = card.skill
                 self.reference_skills.append(skill)
                 idx = unit_idx * 5 + card_idx
@@ -381,6 +423,7 @@ class StateMachine:
             # By this point, all skills that can be activated should be in self.skill_queue
             self._evaluate_motif()
             self._cache_skill_data()
+            self._cache_AMR()
             self.skill_indices.pop(0)
             self.skill_times.pop(0)
         else:
@@ -393,10 +436,78 @@ class StateMachine:
         note_type = self.note_type_stack.pop(0)
         weight = self.weights[self.combo]
         self.combo += 1
-        # score_bonus, combo_bonus, life_bonus, support_bonus = self.evaluate_bonuses(note_type)
-        # note_score = round(self.base_score * weight * (1 + combo_bonus / 100) * (1 + score_bonus / 100))
-        # self.life += life_bonus
-        # self.score += note_score
+        score_bonus, combo_bonus, life_bonus, support_bonus = self.evaluate_bonuses(note_type)
+        note_score = round(self.base_score * weight * (1 + combo_bonus / 100) * (1 + score_bonus / 100))
+        self.life += life_bonus
+        self.score += note_score
+
+    def evaluate_bonuses(self, note_type):
+        magics = dict()
+        non_magics = dict()
+        for skill_idx, skills in self.skill_queue.items():
+            if self.live.unit.get_card(skill_idx - 1).skill.is_magic:
+                magics[skill_idx] = skills
+            else:
+                non_magics[skill_idx] = skills
+        grouped_skills = list()
+        for unit_idx in range(len(self.live.unit.all_units)):
+            grouped_skills.append(dict())
+            for skill_idx, skills in self.skill_queue.items():
+                if (skill_idx - 1) // 5 == unit_idx:
+                    grouped_skills[unit_idx][skill_idx] = skills
+
+        max_boosts, sum_boosts = self._evaluate_bonuses_phase_boost(magics, non_magics)
+        return 0, 0, 0, 0
+
+    def _evaluate_bonuses_phase_boost(self, magics: Dict[int, List[Skill]], non_magics: Dict[int, List[Skill]]):
+
+        magic_boosts = [
+            # Score, Combo, Life, Support
+            [1000, 1000, 1000, 0],  # Cute
+            [1000, 1000, 1000, 0],  # Cool
+            [1000, 1000, 1000, 0]  # Passion
+        ]
+        for magic_idx, skills in magics.items():
+            for skill in skills:
+                if not skill.boost:
+                    continue
+                for target in skill.targets:
+                    for _ in range(4):
+                        magic_boosts[target][_] = max(magic_boosts[target][_], skill.values[_])
+
+        max_boosts = [
+            [1000, 1000, 1000, 0],
+            [1000, 1000, 1000, 0],
+            [1000, 1000, 1000, 0]
+        ]
+        sum_boosts = [
+            [1000, 1000, 1000, 0],
+            [1000, 1000, 1000, 0],
+            [1000, 1000, 1000, 0]
+        ]
+
+        for non_magic_idx, skills in non_magics.items():
+            assert len(skills) == 1
+            skill = skills[0]
+            if not skill.boost:
+                continue
+            for target in skill.targets:
+                for _ in range(4):
+                    if skill.values[_] == 0:
+                        continue
+                    max_boosts[target][_] = max(max_boosts[target][_], skill.values[_])
+                    if _ == 3:
+                        sum_boosts[target][_] = sum_boosts[target][_] + skill.values[_]
+                    else:
+                        sum_boosts[target][_] = sum_boosts[target][_] + skill.values[_] - 1000
+        for i in range(3):
+            for j in range(4):
+                max_boosts[i][j] = max(max_boosts[i][j], magic_boosts[i][j])
+                sum_boosts[i][j] = sum_boosts[i][j] + magic_boosts[i][j]
+                if j < 3:
+                    sum_boosts[i][j] -= 1000
+
+        return max_boosts, sum_boosts
 
     def _expand_magic(self):
         skill = self.reference_skills[self.skill_indices[0]]
@@ -404,6 +515,8 @@ class StateMachine:
                 (skill.is_encore and self.skill_queue[self.skill_indices[0]].is_magic):
             unit_idx = (self.skill_indices[0] - 1) // 5
             self.skill_queue[self.skill_indices[0]] = list()
+            iterating_order = list()
+            _cache_alts = list()
             for idx in range(unit_idx * 5, unit_idx * 5 + 5):
                 copied_skill = copy.copy(self.reference_skills[idx])
                 # Skip skills that cannot activate
@@ -422,7 +535,13 @@ class StateMachine:
                         continue
                     # Else let magic copy the encored skill instead
                     copied_skill = self.reference_skills[self.last_activated_skill]
-                self.skill_queue[self.skill_indices[0]].append(copied_skill)
+                if copied_skill.is_alternate or copied_skill.is_mutual:
+                    _cache_alts.append(copied_skill)
+                    continue
+                iterating_order.append(copied_skill)
+            iterating_order = iterating_order + _cache_alts
+            for _ in iterating_order:
+                self.skill_queue[self.skill_indices[0]].append(_)
 
     def _expand_encore(self):
         skill = self.reference_skills[self.skill_indices[0]]
@@ -435,22 +554,29 @@ class StateMachine:
             self.skill_queue[self.skill_indices[0]] = encore_copy
 
     def _evaluate_motif(self):
-        if self.skill_indices[0] not in self.skill_queue:
-            return
-        skills_to_check = self.skill_queue[self.skill_indices[0]]
-        if isinstance(skills_to_check, Skill):
-            skills_to_check = [skills_to_check]
+        skills_to_check = self._helper_get_current_skills()
         unit_idx = (self.skill_indices[0] - 1) // 5
         for skill in skills_to_check:
             if skill.is_motif:
                 skill.v0 = self.live.unit.all_units[unit_idx].convert_motif(skill.skill_type)
 
-    def _cache_skill_data(self):
+    def _cache_AMR(self):
+        skills_to_check = self._helper_get_current_skills()
+        unit_idx = (self.skill_indices[0] - 1) // 5
+        for skill in skills_to_check:
+            if skill.is_alternate or skill.is_mutual or skill.is_refrain:
+                self.unit_caches[unit_idx].update_AMR(skill)
+
+    def _helper_get_current_skills(self):
         if self.skill_indices[0] not in self.skill_queue:
-            return
+            return []
         skills_to_check = self.skill_queue[self.skill_indices[0]]
         if isinstance(skills_to_check, Skill):
             skills_to_check = [skills_to_check]
+        return skills_to_check
+
+    def _cache_skill_data(self):
+        skills_to_check = self._helper_get_current_skills()
         unit_idx = (self.skill_indices[0] - 1) // 5
         for skill in skills_to_check:
             self.unit_caches[unit_idx].update(skill)

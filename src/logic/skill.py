@@ -36,6 +36,7 @@ class Skill:
         self.max_probability = probability
         self.interval = interval
         self.v0, self.v1, self.v2, self.v3 = tuple(values)
+        self.values = [self.v0, self.v1, self.v2, self.v3]
         self.offset = offset
         self.boost = boost
         self.color_target = color_target
@@ -44,6 +45,16 @@ class Skill:
         self.min_requirements = min_requirements
         self.max_requirements = max_requirements
         self.life_requirement = life_requirement
+        self.targets = self._generate_targets()
+
+    def _generate_targets(self):
+        if self.skill_type == 21 or self.skill_type == 32:
+            return [0]
+        if self.skill_type == 22 or self.skill_type == 33:
+            return [1]
+        if self.skill_type == 23 or self.skill_type == 34:
+            return [2]
+        return [0, 1, 2]
 
     @property
     def is_support(self):
@@ -88,10 +99,6 @@ class Skill:
     @property
     def is_mutual(self):
         return self.skill_type == 42
-
-    @property
-    def values(self):
-        return [self.v0, self.v1, self.v2, self.v3]
 
     @classmethod
     def _fetch_skill_data_from_db(cls, skill_id):
@@ -147,11 +154,11 @@ class Skill:
         elif skill_type == 17:  # Healer
             values[2] = skill_values[0]
         elif skill_type == 39:
-            values[0] = skill_values[1] / 1000
+            values[0] = skill_values[1]
             values[1] = skill_values[0]
         elif skill_type == 42:
             values[0] = skill_values[0]
-            values[1] = 1
+            values[1] = skill_values[1]
         else:
             values = [skill_values[0], skill_values[1], skill_values[2], 0]
         return values
