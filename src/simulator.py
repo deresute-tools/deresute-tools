@@ -264,19 +264,19 @@ class UnitCacheBonus:
         if skill.is_alternate or skill.is_mutual or skill.is_refrain or skill.boost:
             return
         if skill.act is not None:
-            self.tap = max(self.tap, skill.v0)
+            self.tap = max(self.tap, skill.values[0])
             if skill.act is NoteType.LONG:
-                self.long = max(self.long, skill.v1)
-                self.flick = max(self.flick, skill.v0)
-                self.slide = max(self.slide, skill.v0)
+                self.long = max(self.long, skill.values[1])
+                self.flick = max(self.flick, skill.values[0])
+                self.slide = max(self.slide, skill.values[0])
             elif skill.act is NoteType.FLICK:
-                self.long = max(self.long, skill.v0)
-                self.flick = max(self.flick, skill.v1)
-                self.slide = max(self.slide, skill.v0)
+                self.long = max(self.long, skill.values[0])
+                self.flick = max(self.flick, skill.values[1])
+                self.slide = max(self.slide, skill.values[0])
             elif skill.act is NoteType.SLIDE:
-                self.long = max(self.long, skill.v0)
-                self.flick = max(self.flick, skill.v0)
-                self.slide = max(self.slide, skill.v1)
+                self.long = max(self.long, skill.values[0])
+                self.flick = max(self.flick, skill.values[0])
+                self.slide = max(self.slide, skill.values[1])
             return
         if skill.v0 is not None and skill.v0 > 100:
             self.tap = max(self.tap, skill.v0)
@@ -396,6 +396,7 @@ class StateMachine:
         self.cache_alt = dict()
         self.cache_mut = dict()
         self.cache_ref = dict()
+        self.cache_enc = dict()
 
         # Cache for AMR
         self.unit_caches = list()
@@ -423,7 +424,7 @@ class StateMachine:
                 iterating_order.append((card_idx, card))
             iterating_order = _cache_magic + iterating_order + _cache_cached_classes
             for card_idx, card in iterating_order:
-                skill = card.skill
+                skill = copy.copy(card.skill)
                 idx = unit_idx * 5 + card_idx
                 self.reference_skills[idx + 1] = skill
                 if self.probabilities[idx] == 0:
@@ -470,7 +471,8 @@ class StateMachine:
     def handle_skill(self):
         self.has_skill_change = True
         if self.skill_indices[0] > 0:
-            self._expand_encore()
+            if not self._expand_encore():
+                return
             self._expand_magic()
             self._handle_skill_activation()
             # By this point, all skills that can be activated should be in self.skill_queue
@@ -636,19 +638,21 @@ class StateMachine:
         ]
 
         for non_magic_idx, skills in non_magics.items():
-            assert len(skills) == 1
-            skill = skills[0]
-            if not skill.boost:
-                continue
-            for target in skill.targets:
-                for _ in range(4):
-                    if skill.values[_] == 0:
-                        continue
-                    max_boosts[target][_] = max(max_boosts[target][_], skill.values[_])
-                    if _ == 3:
-                        sum_boosts[target][_] = sum_boosts[target][_] + skill.values[_]
-                    else:
-                        sum_boosts[target][_] = sum_boosts[target][_] + skill.values[_] - 1000
+            assert len(skills) == 1 \
+                   or self.reference_skills[non_magic_idx].is_encore \
+                   and self.reference_skills[self.cache_enc[non_magic_idx]].is_magic
+            for skill in skills:
+                if not skill.boost:
+                    continue
+                for target in skill.targets:
+                    for _ in range(4):
+                        if skill.values[_] == 0:
+                            continue
+                        max_boosts[target][_] = max(max_boosts[target][_], skill.values[_])
+                        if _ == 3:
+                            sum_boosts[target][_] = sum_boosts[target][_] + skill.values[_]
+                        else:
+                            sum_boosts[target][_] = sum_boosts[target][_] + skill.values[_] - 1000
         for i in range(3):
             for j in range(4):
                 max_boosts[i][j] = max(max_boosts[i][j], magic_boosts[i][j])
@@ -689,20 +693,22 @@ class StateMachine:
                     temp_support_results[magic_idx] = max(temp_support_results[magic_idx],
                                                           ceil(skill.v3 + boost_dict[color][3]))
         for non_magic_idx, skills in non_magics.items():
-            assert len(skills) == 1
-            skill = skills[0]
-            if skill.boost:
-                continue
-            non_magic_idx = non_magic_idx - 1
-            color = int(self.live.unit.get_card(non_magic_idx).color.value)
-            unit_idx = non_magic_idx // 5
-            boost_dict = sum_boosts if self.live.unit.all_units[unit_idx].resonance else max_boosts
-            if skill.v2 == 0 and skill.v3 == 0:
-                continue
-            if skill.v2 > 0:
-                temp_life_results[non_magic_idx] = ceil(skill.v2 * boost_dict[color][2])
-            if skill.v3 > 0:
-                temp_support_results[non_magic_idx] = ceil(skill.v3 + boost_dict[color][3])
+            assert len(skills) == 1 \
+                   or self.reference_skills[non_magic_idx].is_encore \
+                   and self.reference_skills[self.cache_enc[non_magic_idx]].is_magic
+            for skill in skills:
+                if skill.boost:
+                    continue
+                non_magic_idx = non_magic_idx - 1
+                color = int(self.live.unit.get_card(non_magic_idx).color.value)
+                unit_idx = non_magic_idx // 5
+                boost_dict = sum_boosts if self.live.unit.all_units[unit_idx].resonance else max_boosts
+                if skill.v2 == 0 and skill.v3 == 0:
+                    continue
+                if skill.v2 > 0:
+                    temp_life_results[non_magic_idx] = ceil(skill.v2 * boost_dict[color][2])
+                if skill.v3 > 0:
+                    temp_support_results[non_magic_idx] = ceil(skill.v3 + boost_dict[color][3])
 
         unit_life_bonuses = list()
         unit_support_bonuses = list()
@@ -766,24 +772,26 @@ class StateMachine:
             if temp_combo_results[magic_idx] is None:
                 temp_combo_results[magic_idx] = 0
         for non_magic_idx, skills in non_magics.items():
-            assert len(skills) == 1
-            skill = skills[0]
-            if skill.boost:
-                continue
-            non_magic_idx = non_magic_idx - 1
-            color = int(self.live.unit.get_card(non_magic_idx).color.value)
-            unit_idx = non_magic_idx // 5
-            boost_dict = sum_boosts if self.live.unit.all_units[unit_idx].resonance else max_boosts
-            if skill.v0 == 0 and skill.v1 == 0:
-                continue
-            if skill.v0 > 0:
-                temp_score_results[non_magic_idx] = ceil(skill.v0 * boost_dict[color][0])
-            elif skill.v0 < 0:
-                temp_score_results[non_magic_idx] = skill.v0
-            if skill.v1 > 0:
-                temp_combo_results[non_magic_idx] = ceil(skill.v1 * boost_dict[color][1])
-            elif skill.v1 < 0:
-                temp_combo_results[non_magic_idx] = skill.v1
+            assert len(skills) == 1 \
+                   or self.reference_skills[non_magic_idx].is_encore \
+                   and self.reference_skills[self.cache_enc[non_magic_idx]].is_magic
+            for skill in skills:
+                if skill.boost:
+                    continue
+                non_magic_idx = non_magic_idx - 1
+                color = int(self.live.unit.get_card(non_magic_idx).color.value)
+                unit_idx = non_magic_idx // 5
+                boost_dict = sum_boosts if self.live.unit.all_units[unit_idx].resonance else max_boosts
+                if skill.v0 == 0 and skill.v1 == 0:
+                    continue
+                if skill.v0 > 0:
+                    temp_score_results[non_magic_idx] = ceil(skill.v0 * boost_dict[color][0])
+                elif skill.v0 < 0:
+                    temp_score_results[non_magic_idx] = skill.v0
+                if skill.v1 > 0:
+                    temp_combo_results[non_magic_idx] = ceil(skill.v1 * boost_dict[color][1])
+                elif skill.v1 < 0:
+                    temp_combo_results[non_magic_idx] = skill.v1
 
         unit_score_bonuses = list()
         unit_combo_bonuses = list()
@@ -842,13 +850,16 @@ class StateMachine:
         skill = self.reference_skills[self.skill_indices[0]]
         if skill.is_magic or \
                 (skill.is_encore and self.skill_queue[self.skill_indices[0]].is_magic):
-            unit_idx = (self.skill_indices[0] - 1) // 5
+            if skill.is_magic:
+                unit_idx = (self.skill_indices[0] - 1) // 5
+            else:
+                unit_idx = (self.cache_enc[self.skill_indices[0]] - 1) // 5
             self.skill_queue[self.skill_indices[0]] = list()
             iterating_order = list()
             _cache_cached_classes = list()
             for idx in range(unit_idx * 5, unit_idx * 5 + 5):
                 idx = idx + 1
-                copied_skill = copy.copy(self.reference_skills[idx])
+                copied_skill = copy.deepcopy(self.reference_skills[idx])
                 # Skip skills that cannot activate
                 if self.reference_skills[idx].probability == 0:
                     continue
@@ -877,13 +888,21 @@ class StateMachine:
 
     def _expand_encore(self):
         skill = self.reference_skills[self.skill_indices[0]]
-        if self.last_activated_skill is None:
-            return
         if skill.is_encore:
-            encore_copy: Skill = copy.deepcopy(self.reference_skills[self._get_last_encoreable_skill()])
+            last_encoreable_skill = self._get_last_encoreable_skill()
+            if last_encoreable_skill is None:
+                pop_skill_index = self.skill_indices.index(-self.skill_indices[0])
+                self.skill_times.pop(pop_skill_index)
+                self.skill_indices.pop(pop_skill_index)
+                self.skill_indices.pop(0)
+                self.skill_times.pop(0)
+                return False
+            encore_copy: Skill = copy.deepcopy(self.reference_skills[last_encoreable_skill])
             encore_copy.interval = skill.interval
             encore_copy.duration = skill.duration
             self.skill_queue[self.skill_indices[0]] = encore_copy
+            self.cache_enc[self.skill_indices[0]] = last_encoreable_skill
+        return True
 
     def _get_last_encoreable_skill(self):
         if len(self.last_activated_skill) == 0:
@@ -1005,7 +1024,6 @@ class StateMachine:
         has_failed = False
         to_be_removed = list()
         for skill in skills_to_check:
-            # Handle OL
             if has_failed and skill.is_overload:
                 to_be_removed.append(skill)
                 continue
@@ -1013,6 +1031,10 @@ class StateMachine:
                 has_failed = self._handle_ol_drain(skill.life_requirement)
                 if has_failed:
                     to_be_removed.append(skill)
+                continue
+            if skill.is_encore:
+                # Encore should not be here, all encores should have already been replaced
+                to_be_removed.append(skill)
                 continue
             if skill.is_alternate and self.unit_caches[unit_idx].tap == 0:
                 to_be_removed.append(skill)

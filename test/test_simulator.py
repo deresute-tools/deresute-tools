@@ -1,17 +1,17 @@
 import os
 
+from logic.card import Card
+from logic.live import Live
+
 os.environ["DEBUG_MODE"] = "1"
 import customlogger as logger
-from logic.card import Card
 from logic.grandlive import GrandLive
 from logic.grandunit import GrandUnit
-from logic.live import Live
 from logic.unit import Unit
 from simulator import Simulator
 from static.song_difficulty import Difficulty
 
 logger.print_debug()
-
 
 # sae4 = Card.from_query("sae4", custom_pots=(2, 10, 0, 0, 10))
 # chieri4 = Card.from_query("chieri4", custom_pots=(0, 10, 9, 0, 10))
@@ -43,7 +43,7 @@ logger.print_debug()
 # live.set_unit(unit)
 # sim = Simulator(live)
 # assert sim.simulate(perfect_play=True, appeals=302495).perfect_score == 1366223
-
+#
 # unit = Unit.from_query("kaede5 syoko4 yui5 shin3 makino2 frederica5", custom_pots=(0, 0, 0, 0, 10))
 # live = Live()
 # live.set_music(music_name="Absolute Nine", difficulty=Difficulty.REGULAR)
@@ -57,7 +57,7 @@ logger.print_debug()
 # live.set_unit(unit)
 # sim = Simulator(live)
 # assert sim.simulate(perfect_play=True, support=113290).perfect_score == 2537631
-
+#
 # unit = Unit.from_query("kaede5 rin5 riina5 yasuha1 nono4 karen4", custom_pots=(0, 0, 0, 0, 10))
 # unit.get_card(5).li = 50
 # live = Live()
@@ -175,13 +175,23 @@ logger.print_debug()
 # live.set_unit(gu)
 # sim = Simulator(live)
 # assert sim.simulate(perfect_play=True, appeals=402866).perfect_score == 4270963
+#
+# unitA = Unit.from_list([200844, 200740, 200620, 200843, 200730], custom_pots=(0, 10, 5, 10, 10))
+# unitB = Unit.from_list([200986, 200916, 201002, 201022, 200992], custom_pots=(0, 10, 5, 10, 10))
+# unitC = Unit.from_list([201030, 200978, 200810, 300896, 100882], custom_pots=(0, 10, 5, 10, 10))
+# gu = GrandUnit(unitA, unitB, unitC)
+# live = GrandLive()
+# live.set_music(score_id=443, difficulty=Difficulty.FORTE)
+# live.set_unit(gu)
+# sim = Simulator(live)
+# assert sim.simulate(perfect_play=True).perfect_score == 7015156
 
-unitA = Unit.from_list([200844, 200740, 200620, 200843, 200730], custom_pots=(10,10,10,10,10))
-unitB = Unit.from_list([200986, 200916, 201002, 201022, 200992], custom_pots=(10,10,10,10,10))
-unitC = Unit.from_list([201030, 200978, 200810, 300896, 100882], custom_pots=(10,10,10,10,10))
+unitA = Unit.from_list([100944, 200980, 300922, 200979, 300921], custom_pots=(5, 10, 10, 0, 10))
+unitB = Unit.from_list([300856, 201040, 300572, 100978, 100578], custom_pots=(5, 10, 10, 0, 10))
+unitC = Unit.from_list([300940, 300830, 200894, 300829, 100798], custom_pots=(5, 10, 10, 0, 10))
 gu = GrandUnit(unitA, unitB, unitC)
 live = GrandLive()
-live.set_music(score_id=443, difficulty=Difficulty.FORTE)
+live.set_music(score_id=419, difficulty=Difficulty.FORTE)
 live.set_unit(gu)
 sim = Simulator(live)
-assert sim.simulate(perfect_play=True).perfect_score == 4270963
+assert sim.simulate(times=10).perfect_score == 8939389
