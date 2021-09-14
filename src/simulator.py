@@ -585,7 +585,7 @@ class StateMachine:
                     skill.normalized = True
                     continue
                 if skill.is_mutual:
-                    skill.v0 -= 100
+                    skill.v0 = skill.values[0] - 100
                     skill.v1 = self.unit_caches[unit_idx].alt_combo
                     if idx not in self.cache_mut or self.cache_mut[idx] != skill.v1:
                         self.has_skill_change = True
