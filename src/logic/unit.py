@@ -198,27 +198,37 @@ class Unit(BaseUnit):
 
     def get_base_motif_appeals(self):
         self.motif_vocal = self._get_motif_vocal()
+        self.motif_vocal_trimmed = self.motif_vocal // 1000
         self.motif_dance = self._get_motif_dance()
+        self.motif_dance_trimmed = self.motif_dance // 1000
         self.motif_visual = self._get_motif_visual()
+        self.motif_visual_trimmed = self.motif_visual // 1000
+
+        self._motif_values_wide = [_[0] for _ in
+                  db.masterdb.execute_and_fetchall("SELECT type_01_value FROM skill_motif_value_grand")]
+        self._motif_values_grand = [_[0] for _ in db.masterdb.execute_and_fetchall("SELECT type_01_value FROM skill_motif_value")]
+
+        if self.motif_vocal_trimmed >= len(self._motif_values_wide):
+            self.motif_vocal_trimmed = len(self._motif_values_wide) - 1
+        if self.motif_dance_trimmed >= len(self._motif_values_wide):
+            self.motif_dance_trimmed = len(self._motif_values_wide) - 1
+        if self.motif_visual_trimmed >= len(self._motif_values_wide):
+            self.motif_visual_trimmed = len(self._motif_values_wide) - 1
 
     def convert_motif(self, skill_type, grand=False):
         if grand:
-            values = [_[0] for _ in
-                      db.masterdb.execute_and_fetchall("SELECT type_01_value FROM skill_motif_value_grand")]
+            values = self._motif_values_wide
         else:
-            values = [_[0] for _ in db.masterdb.execute_and_fetchall("SELECT type_01_value FROM skill_motif_value")]
+            values = self._motif_values_grand
         if skill_type == 35:
-            total = self.motif_vocal
+            total = self.motif_vocal_trimmed
         elif skill_type == 36:
-            total = self.motif_dance
+            total = self.motif_dance_trimmed
         elif skill_type == 37:
-            total = self.motif_visual
+            total = self.motif_visual_trimmed
         else:
             return
-        total = total // 1000
-        if total >= len(values):
-            total = len(values) - 1
-        return values[int(total)]
+        return values[total]
 
     def update_card(self, idx, card):
         self._cards[idx] = card

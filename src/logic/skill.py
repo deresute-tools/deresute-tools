@@ -46,6 +46,7 @@ class Skill:
         self.max_requirements = max_requirements
         self.life_requirement = life_requirement
         self.targets = self._generate_targets()
+        self.normalized = False
 
     def _generate_targets(self):
         if self.skill_type == 21 or self.skill_type == 32:
