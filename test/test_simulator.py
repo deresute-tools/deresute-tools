@@ -194,4 +194,4 @@ live = GrandLive()
 live.set_music(score_id=419, difficulty=Difficulty.FORTE)
 live.set_unit(gu)
 sim = Simulator(live)
-assert sim.simulate(times=10).perfect_score == 8939389
+assert sim.simulate(times=300).perfect_score == 8939389
