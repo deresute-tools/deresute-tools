@@ -1,16 +1,37 @@
 import copy
 from math import ceil
-from typing import Dict, Union, List
+from typing import Dict, Union, List, Tuple
 
+import cython
 import numpy as np
+import pandas as pd
 
+from logic.live import BaseLive
 from logic.skill import Skill
 from static.color import Color
 from static.note_type import NoteType
 from static.skill import get_sparkle_bonus
+from static.song_difficulty import PERFECT_TAP_RANGE, GREAT_TAP_RANGE, Difficulty
 
 
+@cython.cclass
 class UnitCacheBonus:
+
+    tap: int
+    flick: int
+    longg: int
+    slide: int
+    combo: int
+    ref_tap: int
+    ref_flick: int
+    ref_long: int
+    ref_slide: int
+    ref_combo: int
+    alt_tap: int
+    alt_flick: int
+    alt_long: int
+    alt_slide: int
+    alt_combo: int
 
     def __init__(self):
         self.tap = 0
@@ -76,17 +97,84 @@ class UnitCacheBonus:
             return
 
 
+@cython.cclass
 class StateMachine:
+    left_inclusive: int
+    right_inclusive: int
+    fail_simulate: bool
+    perfect_only: bool
+
+    grand: bool
+    difficulty: Difficulty
+    doublelife: bool
+    live: BaseLive
+    notes_data: pd.DataFrame
+    base_score: float
+    helen_base_score: float
+
+    unit_offset: int
+    weights: List[int]
+
+    _note_type_stack: List[NoteType]
+    _note_idx_stack: List[int]
+    _special_note_types: List[List[NoteType]]
+
+    probabilities: List[float]
+
+    _sparkle_bonus_ssr: List[int]
+    _sparkle_bonus_sr: List[int]
+
+    note_time_stack: List[int]
+    note_type_stack: List[NoteType]
+    special_note_types: List[List[NoteType]]
+    note_idx_stack: List[int]
+
+    skill_times: List[int]
+    skill_indices: List[int]
     skill_queue: Dict[int, Union[Skill, List[Skill]]]
-    # TODO: Tuple self.skills
     reference_skills: List[Skill]
 
-    def __init__(self, grand, doublelife, live, notes_data, left_inclusive, right_inclusive, base_score,
-                 helen_base_score, weights):
+    life: int
+    max_life: int
+    combo: int
+    combos: List[int]
+    score_bonuses: List[int]
+    combo_bonuses: List[int]
+    note_scores: np.ndarray
+    np_score_bonuses: np.ndarray
+    np_combo_bonuses: np.ndarray
+
+    last_activated_skill: List[int]
+    last_activated_time: List[int]
+
+    has_skill_change: bool
+    cache_max_boosts: List[List[int]]
+    cache_sum_boosts: List[List[int]]
+    cache_life_bonus: int
+    cache_support_bonus: int
+    cache_score_bonus: int
+    cache_combo_bonus: int
+    cache_magics: Dict[int, Union[Skill, List[Skill]]]
+    cache_non_magics: Dict[int, Union[Skill, List[Skill]]]
+    cache_ls: Dict[int, int]
+    cache_act: Dict[int, int]
+    cache_alt: Dict[int, int]
+    cache_mut: Dict[int, int]
+    cache_ref: Dict[int, Tuple[int, int]]
+    cache_enc: Dict[int, int]
+
+    unit_caches: List[UnitCacheBonus]
+    full_roll_chance: float
+
+    def __init__(self, grand, difficulty, doublelife, live, notes_data, left_inclusive, right_inclusive, base_score,
+                 helen_base_score, weights, fail_simulate, perfect_only):
         self.left_inclusive = left_inclusive
         self.right_inclusive = right_inclusive
+        self.fail_simulate = fail_simulate
+        self.perfect_only = perfect_only
 
         self.grand = grand
+        self.difficulty = difficulty
         self.doublelife = doublelife
         self.live = live
         self.notes_data = notes_data
@@ -98,7 +186,7 @@ class StateMachine:
 
         self._note_type_stack = self.notes_data.note_type.to_list()
         self._note_idx_stack = self.notes_data.index.to_list()
-        self.special_note_types = list()
+        self._special_note_types = list()
         for _, note in self.notes_data.iterrows():
             temp = list()
             if note.is_flick:
@@ -107,7 +195,7 @@ class StateMachine:
                 temp.append(NoteType.LONG)
             if note.is_slide:
                 temp.append(NoteType.SLIDE)
-            self.special_note_types.append(temp)
+            self._special_note_types.append(temp)
 
         self.probabilities = [
             self.live.get_probability(_)
@@ -117,15 +205,35 @@ class StateMachine:
         self._sparkle_bonus_ssr = get_sparkle_bonus(8, self.grand)
         self._sparkle_bonus_sr = get_sparkle_bonus(6, self.grand)
 
-    def reset_machine(self, perfect=False):
-        if perfect:
-            self.note_time_stack = self.notes_data.sec.map(lambda x: int(x * 1E6)).to_list()
-        else:
-            self.note_time_stack = (self.notes_data.sec + np.random.random(len(self.notes_data)) * 0.06 - 0.03).map(
-                lambda x: int(x * 1E6)).to_list()
+    def get_note_scores(self):
+        return self.note_scores
 
-        self.note_type_stack = self._note_type_stack.copy()
-        self.note_idx_stack = self._note_idx_stack.copy()
+    def get_full_roll_chance(self):
+        return self.full_roll_chance
+
+    def reset_machine(self, perfect_play=False, perfect_only=True):
+        if not perfect_only:
+            assert not perfect_play
+
+        if perfect_play:
+            self.note_time_stack = self.notes_data.sec.map(lambda x: int(x * 1E6)).to_list()
+            self.note_type_stack = self._note_type_stack.copy()
+            self.note_idx_stack = self._note_idx_stack.copy()
+            self.special_note_types = self._special_note_types.copy()
+        else:
+            random_range = PERFECT_TAP_RANGE[self.difficulty] / 2E6 \
+                if perfect_only else GREAT_TAP_RANGE[self.difficulty] / 2E6
+
+            temp = self.notes_data.sec + np.random.random(len(self.notes_data)) * 2 * random_range - random_range
+            temp[self.notes_data["checkpoints"]] = np.maximum(
+                temp[self.notes_data["checkpoints"]],
+                self.notes_data.loc[self.notes_data["checkpoints"], "sec"])
+            temp_note_time_stack = temp.map(lambda x: int(x * 1E6))
+            sorted_indices = np.argsort(temp_note_time_stack)
+            self.note_time_stack = temp_note_time_stack[sorted_indices].tolist()
+            self.note_type_stack = [self._note_type_stack[_] for _ in sorted_indices]
+            self.note_idx_stack = [self._note_idx_stack[_] for _ in sorted_indices]
+            self.special_note_types = [self._special_note_types[_] for _ in sorted_indices]
 
         # List of all skill objects. Should not mutate. Original sets.
         self.reference_skills = [None]
@@ -147,9 +255,12 @@ class StateMachine:
 
         self.combo = 0
         self.combos = list()
-        self.note_scores = list()
         self.score_bonuses = list()
         self.combo_bonuses = list()
+
+        self.note_scores = None
+        self.np_score_bonuses = None
+        self.np_combo_bonuses = None
 
         # Encore stuff
         self.last_activated_skill = list()
@@ -218,7 +329,7 @@ class StateMachine:
         self.skill_times = np_skill_times[sorted_indices].tolist()
         self.skill_indices = np_skill_indices[sorted_indices].tolist()
 
-    def simulate_impl(self):
+    def simulate_impl(self) -> int:
         self.initialize_activation_arrays()
         while True:
             # Terminal condition: No more skills and no more notes
@@ -241,15 +352,15 @@ class StateMachine:
                     self.handle_note()
 
         # note_score = round(self.base_score * weight * (1 + combo_bonus / 100) * (1 + score_bonus / 100))
-        self.score_bonuses = np.array(self.score_bonuses)
-        self.combo_bonuses = np.array(self.combo_bonuses)
+        self.np_score_bonuses = np.array(self.score_bonuses)
+        self.np_combo_bonuses = np.array(self.combo_bonuses)
         self.note_scores = np.round(
             self.base_score
             * np.array(self.weights)
-            * (1 + self.score_bonuses / 100)
-            * (1 + self.combo_bonuses / 100)
+            * (1 + self.np_score_bonuses / 100)
+            * (1 + self.np_combo_bonuses / 100)
         )
-        return self.note_scores.sum(), self.life, self.combo
+        return int(self.note_scores.sum())
 
     def handle_skill(self):
         self.has_skill_change = True
@@ -743,6 +854,7 @@ class StateMachine:
             """
             Update last activated skill for encore
             :type replace: True if new skill activates after the cached skill, False if same time
+            :type skill_time: encore time to check for skills before that
             """
             if self.reference_skills[self.skill_indices[0]].is_encore:
                 return

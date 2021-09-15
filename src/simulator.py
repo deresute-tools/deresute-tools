@@ -118,6 +118,7 @@ class Simulator:
         self.notes_data['is_long'] = is_long
         self.notes_data['is_slide'] = is_slide
         check_long(self.notes_data, np.logical_or(is_long, is_flick))
+        self._helper_mark_slide_checkpoints()
 
         weight_range = np.array(WEIGHT_RANGE)
         weight_range[:, 0] = np.trunc(WEIGHT_RANGE[:, 0] / 100 * len(self.notes_data) - 1)
@@ -135,6 +136,15 @@ class Simulator:
             self.total_appeal = self.live.get_appeals() + self.support
         self.base_score = DIFF_MULTIPLIERS[self.live.level] * self.total_appeal / len(self.notes_data)
         self.helen_base_score = DIFF_MULTIPLIERS[self.live.level] * self.total_appeal / len(self.notes_data)
+
+    def _helper_mark_slide_checkpoints(self):
+        self.notes_data['checkpoints'] = False
+        self.notes_data.loc[self.notes_data['note_type'] == NoteType.SLIDE, 'checkpoints'] = True
+        for group_id in self.notes_data[self.notes_data['note_type'] == NoteType.SLIDE].groupId.unique():
+            group = self.notes_data[
+                (self.notes_data['groupId'] != 0) & (self.notes_data['groupId'] == group_id)]
+            self.notes_data.loc[group.iloc[-1].name, 'checkpoints'] = False
+            self.notes_data.loc[group.iloc[0].name, 'checkpoints'] = False
 
     def simulate(self, times=100, appeals=None, extra_bonus=None, support=None, perfect_play=False,
                  chara_bonus_set=None, chara_bonus_value=0, special_option=None, special_value=None,
@@ -163,7 +173,8 @@ class Simulator:
                   chara_bonus_value=0,
                   special_option=None,
                   special_value=None,
-                  doublelife=False
+                  doublelife=False,
+                  perfect_only=True
                   ):
 
         self._setup_simulator(appeals=appeals, support=support, extra_bonus=extra_bonus,
@@ -171,17 +182,17 @@ class Simulator:
                               special_option=special_option, special_value=special_value)
         grand = self.live.is_grand
 
-        perfect_result, results, full_roll_chance = self._simulate_internal(times=times, grand=grand, time_offset=0,
-                                                                            fail_simulate=False,
-                                                                            doublelife=doublelife)
-        perfect_score = perfect_result[0]
+        perfect_score, scores, full_roll_chance = self._simulate_internal(times=times, grand=grand,
+                                                                          fail_simulate=not perfect_play,
+                                                                          doublelife=doublelife,
+                                                                          perfect_only=perfect_only)
 
         if perfect_play:
             base = perfect_score
             deltas = np.zeros(1)
         else:
-            score_array = np.array([result[0] for result in results])
-            base = score_array.mean()
+            score_array = np.array(scores)
+            base = int(score_array.mean())
             deltas = score_array - base
 
         total_fans = 0
@@ -211,10 +222,13 @@ class Simulator:
             fans=total_fans
         )
 
-    def _simulate_internal(self, grand, times, fail_simulate=False, time_offset=0.0, doublelife=False,
-                           abuse_check=False):
+    def _simulate_internal(self, grand, times, fail_simulate=False, doublelife=False, perfect_only=True):
+        if not perfect_only:
+            assert fail_simulate
+
         impl = StateMachine(
             grand=grand,
+            difficulty=self.live.difficulty,
             doublelife=doublelife,
             live=self.live,
             notes_data=self.notes_data,
@@ -222,15 +236,18 @@ class Simulator:
             right_inclusive=self.right_inclusive,
             base_score=self.base_score,
             helen_base_score=self.helen_base_score,
-            weights=self.weight_range
+            weights=self.weight_range,
+            fail_simulate=fail_simulate,
+            perfect_only=perfect_only
         )
-        impl.reset_machine(perfect=True)
+        impl.reset_machine(perfect_play=True)
         perfect = impl.simulate_impl()
-        logger.debug("Scores: " + str(impl.note_scores))
-        full_roll_chance = impl.full_roll_chance
+        logger.debug("Scores: " + str(impl.get_note_scores()))
+        full_roll_chance = impl.get_full_roll_chance()
 
-        result = list()
-        for _ in range(times):
-            impl.reset_machine(perfect=False)
-            result.append(impl.simulate_impl())
-        return perfect, result, full_roll_chance
+        scores = list()
+        if fail_simulate:
+            for _ in range(times):
+                impl.reset_machine(perfect_play=False)
+                scores.append(impl.simulate_impl())
+        return perfect, scores, full_roll_chance

@@ -1,7 +1,7 @@
 import os
+import pyximport
 
-from logic.card import Card
-from logic.live import Live
+pyximport.install(language_level=3)
 
 os.environ["DEBUG_MODE"] = "1"
 import customlogger as logger
