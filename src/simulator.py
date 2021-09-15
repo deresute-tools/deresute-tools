@@ -1,5 +1,4 @@
 import time
-from enum import Enum
 
 import numpy as np
 
@@ -9,14 +8,6 @@ from static.live_values import WEIGHT_RANGE, DIFF_MULTIPLIERS
 from static.note_type import NoteType
 
 SPECIAL_OFFSET = 0.075
-
-
-def has_skill(timestamp, upskills):
-    # Faster than np.any due to early termination. Faster than iterating through elements because numpy implementation.
-    for value in np.multiply(timestamp - upskills[:, 0] - 0.0001, upskills[:, 1] - timestamp):
-        if value >= 0:
-            return True
-    return False
 
 
 def check_long(notes_data, mask):
@@ -30,12 +21,6 @@ def check_long(notes_data, mask):
         elif lane in stack:
             stack.pop(lane)
             notes_data.loc[idx, 'is_long'] = True
-
-
-class Judgement(Enum):
-    PERFECT = 0
-    GREAT = 1
-    MISS = 2
 
 
 class BaseSimulationResult:
@@ -148,7 +133,7 @@ class Simulator:
 
     def simulate(self, times=100, appeals=None, extra_bonus=None, support=None, perfect_play=False,
                  chara_bonus_set=None, chara_bonus_value=0, special_option=None, special_value=None,
-                 doublelife=False):
+                 doublelife=False, perfect_only=True):
         start = time.time()
         logger.debug("Unit: {}".format(self.live.unit))
         logger.debug("Song: {} - {} - Lv {}".format(self.live.music_name, self.live.difficulty, self.live.level))
@@ -159,7 +144,7 @@ class Simulator:
                              perfect_play=perfect_play,
                              chara_bonus_set=chara_bonus_set, chara_bonus_value=chara_bonus_value,
                              special_option=special_option, special_value=special_value,
-                             doublelife=doublelife)
+                             doublelife=doublelife, perfect_only=perfect_only)
         logger.debug("Total run time for {} trials: {:04.2f}s".format(times, time.time() - start))
         return res
 
@@ -207,8 +192,9 @@ class Simulator:
         logger.debug("Appeal: {}".format(int(self.total_appeal)))
         logger.debug("Support: {}".format(int(self.live.get_support())))
         logger.debug("Support team: {}".format(self.live.print_support_team()))
-        logger.debug("Mean: {}".format(int(base + np.round(deltas.mean()))))
         logger.debug("Perfect: {}".format(int(perfect_score)))
+        logger.debug("Mean: {}".format(int(base + np.round(deltas.mean()))))
+        logger.debug("Median: {}".format(int(base + np.round(np.median(deltas)))))
         logger.debug("Max: {}".format(int(base + deltas.max())))
         logger.debug("Min: {}".format(int(base + deltas.min())))
         logger.debug("Deviation: {}".format(int(np.round(np.std(deltas)))))
@@ -236,9 +222,7 @@ class Simulator:
             right_inclusive=self.right_inclusive,
             base_score=self.base_score,
             helen_base_score=self.helen_base_score,
-            weights=self.weight_range,
-            fail_simulate=fail_simulate,
-            perfect_only=perfect_only
+            weights=self.weight_range
         )
         impl.reset_machine(perfect_play=True)
         perfect = impl.simulate_impl()
@@ -248,6 +232,6 @@ class Simulator:
         scores = list()
         if fail_simulate:
             for _ in range(times):
-                impl.reset_machine(perfect_play=False)
+                impl.reset_machine(perfect_play=False, perfect_only=perfect_only)
                 scores.append(impl.simulate_impl())
         return perfect, scores, full_roll_chance

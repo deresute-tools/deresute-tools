@@ -67,6 +67,10 @@ class Skill:
         return self.skill_type == 14
 
     @property
+    def is_cc(self):
+        return self.skill_type == 15
+
+    @property
     def is_encore(self):
         return self.skill_type == 16
 
