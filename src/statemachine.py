@@ -130,6 +130,7 @@ class StateMachine:
     note_type_stack: List[NoteType]
     special_note_types: List[List[NoteType]]
     note_idx_stack: List[int]
+    checkpoints: List[bool]
 
     skill_times: List[int]
     skill_indices: List[int]
@@ -146,6 +147,7 @@ class StateMachine:
     note_scores: np.ndarray
     np_score_bonuses: np.ndarray
     np_combo_bonuses: np.ndarray
+    cache_perfect_score_array: np.ndarray
 
     last_activated_skill: List[int]
     last_activated_time: List[int]
@@ -166,8 +168,15 @@ class StateMachine:
     cache_ref: Dict[int, Tuple[int, int]]
     cache_enc: Dict[int, int]
 
+    abuse: bool
+    is_abuse: List[bool]
+    note_time_deltas_backup: List[int]
+    note_idx_stack_backup: List[int]
+    is_abuse_backup: List[bool]
+
     unit_caches: List[UnitCacheBonus]
     full_roll_chance: float
+    has_cc: bool
 
     def __init__(self, grand, difficulty, doublelife, live, notes_data, left_inclusive, right_inclusive, base_score,
                  helen_base_score, weights):
@@ -197,6 +206,7 @@ class StateMachine:
             if note.is_slide:
                 temp.append(NoteType.SLIDE)
             self._special_note_types.append(temp)
+        self.checkpoints = self.notes_data["checkpoints"].to_list()
 
         self.probabilities = [
             self.live.get_probability(_)
@@ -206,41 +216,29 @@ class StateMachine:
         self._sparkle_bonus_ssr = get_sparkle_bonus(8, self.grand)
         self._sparkle_bonus_sr = get_sparkle_bonus(6, self.grand)
 
+        self.has_cc = any([
+            card.skill.is_cc
+            for card in self.live.unit.all_cards()
+        ])
+
+        # Abuse stuff
+        self.abuse = False
+        self.is_abuse = [False] * len(self.notes_data)
+        self.cache_perfect_score_array = None
+
     def get_note_scores(self):
         return self.note_scores
 
     def get_full_roll_chance(self):
         return self.full_roll_chance
 
-    def reset_machine(self, perfect_play=False, perfect_only=True):
+    def reset_machine(self, perfect_play=False, perfect_only=True, abuse=False):
         if not perfect_only:
             assert not perfect_play
 
         self.fail_simulate = not perfect_play
         self.perfect_only = perfect_only
-
-        if perfect_play:
-            self.note_time_stack = self.notes_data.sec.map(lambda x: int(x * 1E6)).to_list()
-            self.note_time_deltas = [0] * len(self.note_time_stack)
-            self.note_type_stack = self._note_type_stack.copy()
-            self.note_idx_stack = self._note_idx_stack.copy()
-            self.special_note_types = self._special_note_types.copy()
-        else:
-            random_range = PERFECT_TAP_RANGE[self.difficulty] / 2E6 \
-                if perfect_only else GREAT_TAP_RANGE[self.difficulty] / 2E6
-
-            temp = self.notes_data.sec + np.random.random(len(self.notes_data)) * 2 * random_range - random_range
-            temp[self.notes_data["checkpoints"]] = np.maximum(
-                temp[self.notes_data["checkpoints"]],
-                self.notes_data.loc[self.notes_data["checkpoints"], "sec"])
-            temp_note_time_deltas = (temp - self.notes_data.sec).map(lambda x: int(x * 1E6))
-            temp_note_time_stack = temp.map(lambda x: int(x * 1E6))
-            sorted_indices = np.argsort(temp_note_time_stack)
-            self.note_time_stack = temp_note_time_stack[sorted_indices].tolist()
-            self.note_time_deltas = temp_note_time_deltas[sorted_indices].tolist()
-            self.note_type_stack = [self._note_type_stack[_] for _ in sorted_indices]
-            self.note_idx_stack = [self._note_idx_stack[_] for _ in sorted_indices]
-            self.special_note_types = [self._special_note_types[_] for _ in sorted_indices]
+        self.abuse = abuse
 
         # List of all skill objects. Should not mutate. Original sets.
         self.reference_skills = [None]
@@ -299,6 +297,117 @@ class StateMachine:
         # Metrics
         self.full_roll_chance = 1
 
+        # Initializing note data
+        if abuse or perfect_play:
+            self.note_time_stack = self.notes_data.sec.map(lambda x: int(x * 1E6)).to_list()
+            self.note_time_deltas = [0] * len(self.note_time_stack)
+            self.note_type_stack = self._note_type_stack.copy()
+            self.note_idx_stack = self._note_idx_stack.copy()
+            self.special_note_types = self._special_note_types.copy()
+            if abuse:
+                self.initialize_activation_arrays()
+                self._helper_fill_abuse_dummies()
+        else:
+            random_range = PERFECT_TAP_RANGE[self.difficulty] / 2E6 \
+                if perfect_only else GREAT_TAP_RANGE[self.difficulty] / 2E6
+
+            temp = self.notes_data.sec + np.random.random(len(self.notes_data)) * 2 * random_range - random_range
+            temp[self.notes_data["checkpoints"]] = np.maximum(
+                temp[self.notes_data["checkpoints"]],
+                self.notes_data.loc[self.notes_data["checkpoints"], "sec"])
+            temp_note_time_deltas = (temp - self.notes_data.sec).map(lambda x: int(x * 1E6))
+            temp_note_time_stack = temp.map(lambda x: int(x * 1E6))
+            sorted_indices = np.argsort(temp_note_time_stack)
+            self.note_time_stack = temp_note_time_stack[sorted_indices].tolist()
+            self.note_time_deltas = temp_note_time_deltas[sorted_indices].tolist()
+            self.note_type_stack = [self._note_type_stack[_] for _ in sorted_indices]
+            self.note_idx_stack = [self._note_idx_stack[_] for _ in sorted_indices]
+            self.special_note_types = [self._special_note_types[_] for _ in sorted_indices]
+
+    def _helper_fill_abuse_dummies(self):
+        # Abuse should be the last stage of a simulation pipeline
+        assert len(self.checkpoints) == len(self.notes_data)
+
+        def get_range(note_type_internal, checkpoint_internal):
+            if note_type_internal == NoteType.TAP:
+                l_g = -GREAT_TAP_RANGE[self.live.difficulty]
+                l_p = -PERFECT_TAP_RANGE[self.live.difficulty]
+                r_g = GREAT_TAP_RANGE[self.live.difficulty]
+                r_p = PERFECT_TAP_RANGE[self.live.difficulty]
+                return (l_g, r_g), (l_g, l_p, r_p, r_g)
+            elif note_type_internal == NoteType.FLICK or note_type_internal == NoteType.LONG:
+                l_g = -180000
+                l_p = -150000
+                r_g = 180000
+                r_p = 150000
+                return (l_g, r_g), (l_g, l_p, r_p, r_g)
+            elif not checkpoint_internal:
+                l_p = -200000
+                r_p = 200000
+                return (l_p, r_p), (l_p, r_p)
+            else:
+                r_p = 200000
+                return (0, r_p), (r_p,)
+
+        for note_time, note_time_delta, note_type, note_idx, special_note_types, checkpoint, weight in zip(
+                self.note_time_stack[:],
+                self.note_time_deltas[:],
+                self.note_type_stack[:],
+                self.note_idx_stack[:],
+                self.special_note_types[:],
+                self.checkpoints[:],
+                self.weights[:]
+        ):
+            boundaries, deltas = get_range(note_type, checkpoint)
+            for delta in deltas:
+                dummy_range = [delta]
+                if self.has_cc and delta != 0:
+                    dummy_range.append(delta // 2)
+                for _ in dummy_range:
+                    self.note_time_stack.append(note_time + _)
+                    self.note_time_deltas.append(_)
+                    self.note_type_stack.append(note_type)
+                    self.note_idx_stack.append(note_idx)
+                    self.special_note_types.append(special_note_types)
+                    self.checkpoints.append(checkpoint)
+                    self.is_abuse.append(True)
+                    self.weights.append(weight)
+            left, right = boundaries
+            left = note_time + left
+            right = note_time + right
+            for skill_time in self.skill_times:
+                for d in [-1, 0, 1]:
+                    test_skill_time = skill_time + d
+                    if test_skill_time > right:
+                        break
+                    if test_skill_time < left:
+                        continue
+                    if test_skill_time == note_time:
+                        continue
+                    delta = test_skill_time - note_time
+                    self.note_time_stack.append(test_skill_time)
+                    self.note_time_deltas.append(delta)
+                    self.note_type_stack.append(note_type)
+                    self.note_idx_stack.append(note_idx)
+                    self.special_note_types.append(special_note_types)
+                    self.checkpoints.append(checkpoint)
+                    self.is_abuse.append(True)
+                    self.weights.append(weight)
+
+        sorted_indices = np.argsort(self.note_time_stack)
+        self.note_time_stack = [self.note_time_stack[_] for _ in sorted_indices]
+        self.note_time_deltas = [self.note_time_deltas[_] for _ in sorted_indices]
+        self.note_type_stack = [self.note_type_stack[_] for _ in sorted_indices]
+        self.note_idx_stack = [self.note_idx_stack[_] for _ in sorted_indices]
+        self.special_note_types = [self.special_note_types[_] for _ in sorted_indices]
+        self.checkpoints = [self.checkpoints[_] for _ in sorted_indices]
+        self.is_abuse = [self.is_abuse[_] for _ in sorted_indices]
+        self.weights = [self.weights[_] for _ in sorted_indices]
+
+        self.note_time_deltas_backup = self.note_time_deltas.copy()
+        self.note_idx_stack_backup = self.note_idx_stack.copy()
+        self.is_abuse_backup = self.is_abuse.copy()
+
     def initialize_activation_arrays(self):
         skill_times = list()
         skill_indices = list()
@@ -340,8 +449,9 @@ class StateMachine:
         self.skill_times = np_skill_times[sorted_indices].tolist()
         self.skill_indices = np_skill_indices[sorted_indices].tolist()
 
-    def simulate_impl(self) -> int:
-        self.initialize_activation_arrays()
+    def simulate_impl(self, skip_activation_initialization=False) -> Tuple[int, List[int]]:
+        if not skip_activation_initialization:
+            self.initialize_activation_arrays()
         while True:
             # Terminal condition: No more skills and no more notes
             if len(self.skill_times) == 0 and len(self.note_time_stack) == 0:
@@ -363,20 +473,64 @@ class StateMachine:
                     self.handle_note()
 
         # note_score = round(self.base_score * weight * (1 + combo_bonus / 100) * (1 + score_bonus / 100))
-        if self.fail_simulate and not self.perfect_only:
-            judgement_multipliers = np.array([1 if x is Judgement.PERFECT else 0.7 for x in self.judgements])
+
+        self.np_score_bonuses = 1 + np.array(self.score_bonuses) / 100
+        self.np_combo_bonuses = 1 + np.array(self.combo_bonuses) / 100
+
+        if self.abuse or (self.fail_simulate and not self.perfect_only):
+            judgement_multipliers = np.array([
+                1 if x is Judgement.PERFECT
+                else
+                0.7 if x is Judgement.GREAT
+                else 0
+                for x in self.judgements])
+            final_bonus = judgement_multipliers
+            mask = final_bonus == 1
+            if len(mask) > 0:
+                final_bonus[mask] *= self.np_score_bonuses[mask]
+            final_bonus[1:] *= self.np_combo_bonuses[1:]
         else:
             judgement_multipliers = 1
-        self.np_score_bonuses = np.array(self.score_bonuses)
-        self.np_combo_bonuses = np.array(self.combo_bonuses)
+            final_bonus = judgement_multipliers
+            final_bonus *= self.np_score_bonuses
+            final_bonus[1:] *= self.np_combo_bonuses[1:]
+
         self.note_scores = np.round(
             self.base_score
-            * judgement_multipliers
             * np.array(self.weights)
-            * (1 + self.np_score_bonuses / 100)
-            * (1 + self.np_combo_bonuses / 100)
+            * final_bonus
         )
-        return int(self.note_scores.sum())
+
+        if not self.fail_simulate and not self.abuse:
+            self.cache_perfect_score_array = self.note_scores.copy()
+
+        if self.abuse:
+            assert self.cache_perfect_score_array is not None
+            return self._handle_abuse_results()
+        else:
+            return int(self.note_scores.sum()), self.note_scores.tolist()
+
+    def _handle_abuse_results(self):
+        left_windows = [2E9] * len(self.notes_data)
+        right_windows = [-2E9] * len(self.notes_data)
+        max_score: List[int] = self.cache_perfect_score_array.tolist()
+        is_abuses = [False] * len(self.notes_data)
+        for _, (delta, note_idx, score, is_abuse) in enumerate(zip(
+                self.note_time_deltas_backup,
+                self.note_idx_stack_backup,
+                self.note_scores,
+                self.is_abuse_backup)):
+            if score < max_score[note_idx]:
+                continue
+            if score > max_score[note_idx]:
+                max_score[note_idx] = score
+                is_abuses[note_idx] = is_abuses[note_idx] or is_abuse
+                left_windows[note_idx] = delta
+                right_windows[note_idx] = delta
+            else:
+                left_windows[note_idx] = min(left_windows[note_idx], delta)
+                right_windows[note_idx] = max(right_windows[note_idx], delta)
+        return sum(max_score), max_score
 
     def handle_skill(self):
         self.has_skill_change = True
@@ -398,6 +552,12 @@ class StateMachine:
             self.skill_times.pop(0)
 
     def handle_note(self):
+        if self.abuse:
+            self._handle_note_abuse()
+        else:
+            self._handle_note_no_abuse()
+
+    def _handle_note_no_abuse(self):
         note_time = self.note_time_stack.pop(0)
         note_delta = self.note_time_deltas.pop(0)
         note_type = self.note_type_stack.pop(0)
@@ -413,7 +573,28 @@ class StateMachine:
         self.combo_bonuses.append(combo_bonus)
         self.has_skill_change = False
 
-    def evaluate_judgement(self, note_delta, note_type) -> Judgement:
+    def _handle_note_abuse(self):
+        note_time = self.note_time_stack.pop(0)
+        note_delta = self.note_time_deltas.pop(0)
+        note_type = self.note_type_stack.pop(0)
+        note_idx = self.note_idx_stack.pop(0)
+        special_note_types = self.special_note_types.pop(0)
+        is_checkpoint = self.checkpoints.pop(0)
+        is_abuse = self.is_abuse.pop(0)
+
+        if not is_abuse:
+            self.combo += 1
+        self.combos.append(self.combo)
+
+        # TODO: Sometimes abuse will heal while normal note doesn't
+        score_bonus, combo_bonus = self.evaluate_bonuses(special_note_types, skip_healing=is_abuse)
+        self.judgements.append(
+            self.evaluate_judgement(note_delta, note_type, abuse_check=True, is_checkpoint=is_checkpoint))
+        self.score_bonuses.append(score_bonus)
+        self.combo_bonuses.append(combo_bonus)
+        self.has_skill_change = False
+
+    def evaluate_judgement(self, note_delta, note_type, abuse_check=False, is_checkpoint=False) -> Judgement:
         def check_cc():
             for _, skills in self.skill_queue.items():
                 if isinstance(skills, Skill) and skills.is_cc:
@@ -423,26 +604,58 @@ class StateMachine:
                         return True
             return False
 
-        has_cc = check_cc()
+        has_cc = self.has_cc and check_cc()
+        if abuse_check:
+            if note_type == NoteType.TAP:
+                l_g = GREAT_TAP_RANGE[self.live.difficulty]
+                r_g = GREAT_TAP_RANGE[self.live.difficulty]
+                l_p = PERFECT_TAP_RANGE[self.live.difficulty]
+                r_p = PERFECT_TAP_RANGE[self.live.difficulty]
+            elif note_type == NoteType.FLICK or note_type == NoteType.LONG:
+                l_g = 180000
+                r_g = 180000
+                l_p = 150000
+                r_p = 150000
+            elif not is_checkpoint:
+                l_g = 0
+                r_g = 0
+                l_p = 200000
+                r_p = 200000
+            else:
+                l_g = 0
+                r_g = 0
+                l_p = 0
+                r_p = 200000
 
-        if note_type == NoteType.TAP:
-            l_p = PERFECT_TAP_RANGE[self.live.difficulty]
-            r_p = PERFECT_TAP_RANGE[self.live.difficulty]
-        elif note_type == NoteType.FLICK or note_type == NoteType.LONG:
-            l_p = 150000
-            r_p = 150000
+            inner_l_g = l_g
+            inner_l_p = l_p if not has_cc else l_p // 2
+            inner_r_p = r_p if not has_cc else r_p // 2
+            inner_r_g = r_g
+            if -inner_l_p <= note_delta <= inner_r_p:
+                return Judgement.PERFECT
+            if note_type == NoteType.TAP or note_type == NoteType.FLICK or note_type == NoteType.LONG:
+                if -inner_l_g <= note_delta < -inner_l_p or inner_r_p < note_delta <= inner_r_g:
+                    return Judgement.GREAT
+            return Judgement.MISS
         else:
-            return Judgement.PERFECT
+            if note_type == NoteType.TAP:
+                l_p = PERFECT_TAP_RANGE[self.live.difficulty]
+                r_p = PERFECT_TAP_RANGE[self.live.difficulty]
+            elif note_type == NoteType.FLICK or note_type == NoteType.LONG:
+                l_p = 150000
+                r_p = 150000
+            else:
+                return Judgement.PERFECT
 
-        if has_cc:
-            l_p /= 2
-            r_p /= 2
-        if -l_p <= note_delta <= r_p:
-            return Judgement.PERFECT
-        else:
-            return Judgement.GREAT
+            if has_cc:
+                l_p /= 2
+                r_p /= 2
+            if -l_p <= note_delta <= r_p:
+                return Judgement.PERFECT
+            else:
+                return Judgement.GREAT
 
-    def evaluate_bonuses(self, special_note_types):
+    def evaluate_bonuses(self, special_note_types, skip_healing=False):
         if self.has_skill_change:
             magics = dict()
             non_magics = dict()
@@ -459,8 +672,9 @@ class StateMachine:
         max_boosts, sum_boosts = self._evaluate_bonuses_phase_boost(magics, non_magics)
         life_bonus, support_bonus = self._evaluate_bonuses_phase_life_support(magics, non_magics, max_boosts,
                                                                               sum_boosts)
-        self.life += life_bonus
-        self.life = min(self.max_life, self.life)  # Cap life
+        if not skip_healing:
+            self.life += life_bonus
+            self.life = min(self.max_life, self.life)  # Cap life
         self._helper_evaluate_ls()
         self._helper_evaluate_act(special_note_types)
         self._helper_evaluate_alt_mutual_ref(special_note_types)

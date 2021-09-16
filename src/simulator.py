@@ -42,7 +42,7 @@ class MaxSimulationResult(BaseSimulationResult):
 
 class SimulationResult(BaseSimulationResult):
     def __init__(self, total_appeal, perfect_score, base, deltas, total_life, fans, full_roll_chance,
-                 max_theoretical_result: MaxSimulationResult = None):
+                 abuse_score, abuse_array):
         super().__init__()
         self.total_appeal = total_appeal
         self.perfect_score = perfect_score
@@ -51,7 +51,8 @@ class SimulationResult(BaseSimulationResult):
         self.total_life = total_life
         self.fans = fans
         self.full_roll_chance = full_roll_chance
-        self.max_theoretical_result = max_theoretical_result
+        self.abuse_score = abuse_score
+        self.abuse_array = abuse_array
 
 
 class AutoSimulationResult(BaseSimulationResult):
@@ -133,7 +134,7 @@ class Simulator:
 
     def simulate(self, times=100, appeals=None, extra_bonus=None, support=None, perfect_play=False,
                  chara_bonus_set=None, chara_bonus_value=0, special_option=None, special_value=None,
-                 doublelife=False, perfect_only=True):
+                 doublelife=False, perfect_only=True, abuse=False):
         start = time.time()
         logger.debug("Unit: {}".format(self.live.unit))
         logger.debug("Song: {} - {} - Lv {}".format(self.live.music_name, self.live.difficulty, self.live.level))
@@ -144,7 +145,7 @@ class Simulator:
                              perfect_play=perfect_play,
                              chara_bonus_set=chara_bonus_set, chara_bonus_value=chara_bonus_value,
                              special_option=special_option, special_value=special_value,
-                             doublelife=doublelife, perfect_only=perfect_only)
+                             doublelife=doublelife, perfect_only=perfect_only, abuse=abuse)
         logger.debug("Total run time for {} trials: {:04.2f}s".format(times, time.time() - start))
         return res
 
@@ -159,7 +160,8 @@ class Simulator:
                   special_option=None,
                   special_value=None,
                   doublelife=False,
-                  perfect_only=True
+                  perfect_only=True,
+                  abuse=False
                   ):
 
         self._setup_simulator(appeals=appeals, support=support, extra_bonus=extra_bonus,
@@ -167,16 +169,16 @@ class Simulator:
                               special_option=special_option, special_value=special_value)
         grand = self.live.is_grand
 
-        perfect_score, scores, full_roll_chance = self._simulate_internal(times=times, grand=grand,
-                                                                          fail_simulate=not perfect_play,
-                                                                          doublelife=doublelife,
-                                                                          perfect_only=perfect_only)
+        results = self._simulate_internal(times=times, grand=grand, fail_simulate=not perfect_play,
+                                          doublelife=doublelife, perfect_only=perfect_only, abuse=abuse)
+
+        perfect_score, random_simulation_results, full_roll_chance, abuse_result_score, abuse_score_array = results
 
         if perfect_play:
             base = perfect_score
             deltas = np.zeros(1)
         else:
-            score_array = np.array(scores)
+            score_array = np.array([_[0] for _ in random_simulation_results])
             base = int(score_array.mean())
             deltas = score_array - base
 
@@ -205,10 +207,12 @@ class Simulator:
             deltas=deltas,
             total_life=self.live.get_life(),
             full_roll_chance=full_roll_chance,
-            fans=total_fans
+            fans=total_fans,
+            abuse_score=abuse_result_score,
+            abuse_array=abuse_score_array
         )
 
-    def _simulate_internal(self, grand, times, fail_simulate=False, doublelife=False, perfect_only=True):
+    def _simulate_internal(self, grand, times, fail_simulate=False, doublelife=False, perfect_only=True, abuse=False):
         if not perfect_only:
             assert fail_simulate
 
@@ -225,8 +229,8 @@ class Simulator:
             weights=self.weight_range
         )
         impl.reset_machine(perfect_play=True)
-        perfect = impl.simulate_impl()
-        logger.debug("Scores: " + str(impl.get_note_scores()))
+        perfect_score, perfect_score_array = impl.simulate_impl()
+        logger.debug("Perfect scores: " + " ".join(map(str, impl.get_note_scores())))
         full_roll_chance = impl.get_full_roll_chance()
 
         scores = list()
@@ -234,4 +238,12 @@ class Simulator:
             for _ in range(times):
                 impl.reset_machine(perfect_play=False, perfect_only=perfect_only)
                 scores.append(impl.simulate_impl())
-        return perfect, scores, full_roll_chance
+
+        abuse_result_score = 0
+        abuse_score_array = None
+        if abuse:
+            impl.reset_machine(perfect_play=True, abuse=True)
+            abuse_result_score, abuse_score_array = impl.simulate_impl(skip_activation_initialization=True)
+            logger.debug("Total abuse: {}".format(int(abuse_result_score)))
+            logger.debug("Abuse scores: " + " ".join(map(str, abuse_score_array)))
+        return perfect_score, scores, full_roll_chance, abuse_result_score, abuse_score_array
