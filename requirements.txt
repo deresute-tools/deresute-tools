@@ -5,4 +5,4 @@ Pillow==8.3.2
 PyQt5==5.15.4
 requests==2.23.0
 Whoosh==2.7.4
-Cython=3.0.0a9
+Cython==3.0.0a9
