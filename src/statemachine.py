@@ -177,6 +177,7 @@ class StateMachine:
     cache_enc: Dict[int, int]
 
     abuse: bool
+    cache_hps: List[int]
     is_abuse: List[bool]
     note_time_deltas_backup: List[int]
     note_idx_stack_backup: List[int]
@@ -231,6 +232,7 @@ class StateMachine:
 
         # Abuse stuff
         self.abuse = False
+        self.cache_hps = list()
         self.is_abuse = [False] * len(self.notes_data)
         self.cache_perfect_score_array = None
 
@@ -598,10 +600,14 @@ class StateMachine:
 
         if not is_abuse:
             self.combo += 1
+            cached_life = None
+        else:
+            cached_life = self.cache_hps[note_idx]
         self.combos.append(self.combo)
 
         # TODO: Sometimes abuse will heal while normal note doesn't
-        score_bonus, combo_bonus = self.evaluate_bonuses(special_note_types, skip_healing=is_abuse)
+        score_bonus, combo_bonus = self.evaluate_bonuses(special_note_types, skip_healing=is_abuse,
+                                                         fixed_life=cached_life)
         self.judgements.append(
             self.evaluate_judgement(note_delta, note_type, abuse_check=True, is_checkpoint=is_checkpoint))
         self.score_bonuses.append(score_bonus)
@@ -669,7 +675,7 @@ class StateMachine:
             else:
                 return Judgement.GREAT
 
-    def evaluate_bonuses(self, special_note_types, skip_healing=False):
+    def evaluate_bonuses(self, special_note_types, skip_healing=False, fixed_life=None):
         if self.has_skill_change:
             magics = dict()
             non_magics = dict()
@@ -689,15 +695,20 @@ class StateMachine:
         if not skip_healing:
             self.life += life_bonus
             self.life = min(self.max_life, self.life)  # Cap life
-        self._helper_evaluate_ls()
+        if not self.fail_simulate and not self.abuse:
+            self.cache_hps.append(self.life)
+        self._helper_evaluate_ls(fixed_life)
         self._helper_evaluate_act(special_note_types)
         self._helper_evaluate_alt_mutual_ref(special_note_types)
         self._helper_normalize_score_combo_bonuses()
         score_bonus, combo_bonus = self._evaluate_bonuses_phase_score_combo(magics, non_magics, max_boosts, sum_boosts)
         return score_bonus, combo_bonus
 
-    def _helper_evaluate_ls(self):
-        trimmed_life = self.life // 10
+    def _helper_evaluate_ls(self, fixed_life=None):
+        if fixed_life is not None:
+            trimmed_life = fixed_life // 10
+        else:
+            trimmed_life = self.life // 10
         for idx, skills in self.skill_queue.items():
             for skill in skills:
                 if skill.is_sparkle:
@@ -1165,11 +1176,11 @@ class StateMachine:
             update_last_activated_skill(replace=False, skill_time=self.skill_times[0])
 
     def _handle_ol_drain(self, life_requirement):
-        if self.life <= life_requirement:
+        if self.life > life_requirement:
             self.life -= life_requirement
-            return True
-        else:
             return False
+        else:
+            return True
 
     def _check_focus_activation(self, unit_idx, skill):
         card_colors = [
