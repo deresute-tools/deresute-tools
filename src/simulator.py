@@ -1,11 +1,14 @@
+import csv
 import time
 
 import numpy as np
 
 import customlogger as logger
+from settings import ABUSE_CHARTS_PATH
 from statemachine import StateMachine, AbuseData
 from static.live_values import WEIGHT_RANGE, DIFF_MULTIPLIERS
 from static.note_type import NoteType
+from utils.storage import get_writer
 
 SPECIAL_OFFSET = 0.075
 
@@ -29,11 +32,12 @@ class BaseSimulationResult:
 
 
 class SimulationResult(BaseSimulationResult):
-    def __init__(self, total_appeal, perfect_score, base, deltas, total_life, fans, full_roll_chance,
+    def __init__(self, total_appeal, perfect_score, perfect_score_array, base, deltas, total_life, fans, full_roll_chance,
                  abuse_score, abuse_data: AbuseData):
         super().__init__()
         self.total_appeal = total_appeal
         self.perfect_score = perfect_score
+        self.perfect_score_array = perfect_score_array
         self.base = base
         self.deltas = deltas
         self.total_life = total_life
@@ -122,7 +126,7 @@ class Simulator:
 
     def simulate(self, times=100, appeals=None, extra_bonus=None, support=None, perfect_play=False,
                  chara_bonus_set=None, chara_bonus_value=0, special_option=None, special_value=None,
-                 doublelife=False, perfect_only=True, abuse=False):
+                 doublelife=False, perfect_only=True, abuse=False, output=False):
         start = time.time()
         logger.debug("Unit: {}".format(self.live.unit))
         logger.debug("Song: {} - {} - Lv {}".format(self.live.music_name, self.live.difficulty, self.live.level))
@@ -134,8 +138,40 @@ class Simulator:
                              chara_bonus_set=chara_bonus_set, chara_bonus_value=chara_bonus_value,
                              special_option=special_option, special_value=special_value,
                              doublelife=doublelife, perfect_only=perfect_only, abuse=abuse)
+        if output:
+            self.save_to_file(res.perfect_score_array, res.abuse_data)
         logger.debug("Total run time for {} trials: {:04.2f}s".format(times, time.time() - start))
         return res
+
+    def save_to_file(self, perfect_scores, abuse_data):
+        with get_writer(ABUSE_CHARTS_PATH / "{}.csv".format(self.live.score_id), 'w', newline='') as fw:
+            csv_writer = csv.writer(fw)
+            csv_writer.writerow(["Card Name", "Card ID", "Vo", "Da", "Vi", "Lf", "Sk"])
+            for card in self.live.unit.all_cards():
+                csv_writer.writerow(
+                    [str(card), card.card_id, card.vo_pots, card.da_pots, card.vi_pots, card.li_pots, card.sk_pots])
+            csv_writer.writerow(["Support", self.support])
+            csv_writer.writerow([])
+            csv_writer.writerow(["Note", "Time", "Type", "Lane", "Perfect Score", "Left", "Right", "Delta", "Window",
+                                 "Cumulative Perfect Score", "Cumulative Max Score"])
+            cumsum_pft = 0
+            cumsum_max = 0
+            for idx, row in self.notes_data.iterrows():
+                l = abuse_data.window_l[idx]
+                r = abuse_data.window_r[idx]
+                window = r - l
+                delta = abuse_data.score_delta[idx]
+                cumsum_pft += perfect_scores[idx]
+                cumsum_max += perfect_scores[idx] + delta
+                csv_writer.writerow([idx, row['sec'], row['note_type'],
+                                     row['finishPos'],
+                                     perfect_scores[idx],
+                                     l, r,
+                                     delta,
+                                     window,
+                                     cumsum_pft,
+                                     cumsum_max
+                                     ])
 
     def _simulate(self,
                   times=1000,
@@ -160,7 +196,7 @@ class Simulator:
         results = self._simulate_internal(times=times, grand=grand, fail_simulate=not perfect_play,
                                           doublelife=doublelife, perfect_only=perfect_only, abuse=abuse)
 
-        perfect_score, random_simulation_results, full_roll_chance, abuse_result_score, abuse_data = results
+        perfect_score, perfect_score_array, random_simulation_results, full_roll_chance, abuse_result_score, abuse_data = results
 
         if perfect_play:
             base = perfect_score
@@ -191,6 +227,7 @@ class Simulator:
         return SimulationResult(
             total_appeal=self.total_appeal,
             perfect_score=perfect_score,
+            perfect_score_array=perfect_score_array,
             base=base,
             deltas=deltas,
             total_life=self.live.get_life(),
@@ -234,4 +271,4 @@ class Simulator:
             abuse_result_score, abuse_data = impl.simulate_impl(skip_activation_initialization=True)
             logger.debug("Total abuse: {}".format(int(abuse_result_score)))
             logger.debug("Abuse deltas: " + " ".join(map(str, abuse_data.score_delta)))
-        return perfect_score, scores, full_roll_chance, abuse_result_score, abuse_data
+        return perfect_score, perfect_score_array, scores, full_roll_chance, abuse_result_score, abuse_data

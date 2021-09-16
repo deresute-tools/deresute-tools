@@ -178,7 +178,6 @@ class MainView:
         left_inclusive, right_inclusive = eventbus.eventbus.post_and_get_first(GetSkillBoundaryEvent())
         theoretical_simulation = eventbus.eventbus.post_and_get_first(GetTheoreticalMaxFlagEvent())
 
-
         self.model.simulate_internal(
             perfect_play=perfect_play,
             left_inclusive=left_inclusive, right_inclusive=right_inclusive,
@@ -205,7 +204,8 @@ class MainModel(QObject):
         self.process_simulation_results_signal.connect(lambda payload: self.process_results(payload))
         self.process_yoink_results_signal.connect(lambda payload: self._handle_yoink_done_signal(payload))
 
-    def simulate_internal(self, perfect_play, left_inclusive, right_inclusive, theoretical_simulation, score_id, diff_id, times, all_cards,
+    def simulate_internal(self, perfect_play, left_inclusive, right_inclusive, theoretical_simulation, score_id,
+                          diff_id, times, all_cards,
                           custom_pots, appeals, support, extra_bonus, special_option, special_value, mirror, autoplay,
                           autoplay_offset, doublelife, row=None):
         """
@@ -309,8 +309,10 @@ class MainModel(QObject):
                                   times=event.times, appeals=event.appeals, extra_bonus=event.extra_bonus,
                                   support=event.support,
                                   special_option=event.special_option, special_value=event.special_value,
-                                  doublelife=event.doublelife, abuse=event.theoretical_simulation)
-        self.process_simulation_results_signal.emit(BaseSimulationResultWithUuid(event.uuid, event.unit.all_cards(), result, event.abuse_load))
+                                  doublelife=event.doublelife, abuse=event.theoretical_simulation,
+                                  output=event.theoretical_simulation)
+        self.process_simulation_results_signal.emit(
+            BaseSimulationResultWithUuid(event.uuid, event.unit.all_cards(), result, event.abuse_load))
 
     def handle_yoink_button(self):
         _, _, live_detail_id, song_name, diff_name = eventbus.eventbus.post_and_get_first(GetSongDetailsEvent())
