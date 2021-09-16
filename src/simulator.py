@@ -3,7 +3,7 @@ import time
 import numpy as np
 
 import customlogger as logger
-from statemachine import StateMachine
+from statemachine import StateMachine, AbuseData
 from static.live_values import WEIGHT_RANGE, DIFF_MULTIPLIERS
 from static.note_type import NoteType
 
@@ -28,21 +28,9 @@ class BaseSimulationResult:
         pass
 
 
-class MaxSimulationResult(BaseSimulationResult):
-    def __init__(self, total_appeal, total_perfect, abuse_df, total_life, perfect_score, cards, max_score):
-        super().__init__()
-        self.total_appeal = total_appeal
-        self.total_perfect = total_perfect
-        self.abuse_df = abuse_df
-        self.total_life = total_life
-        self.perfect_score = perfect_score
-        self.cards = cards
-        self.max_score = max_score
-
-
 class SimulationResult(BaseSimulationResult):
     def __init__(self, total_appeal, perfect_score, base, deltas, total_life, fans, full_roll_chance,
-                 abuse_score, abuse_array):
+                 abuse_score, abuse_data: AbuseData):
         super().__init__()
         self.total_appeal = total_appeal
         self.perfect_score = perfect_score
@@ -52,7 +40,7 @@ class SimulationResult(BaseSimulationResult):
         self.fans = fans
         self.full_roll_chance = full_roll_chance
         self.abuse_score = abuse_score
-        self.abuse_array = abuse_array
+        self.abuse_data = abuse_data
 
 
 class AutoSimulationResult(BaseSimulationResult):
@@ -172,7 +160,7 @@ class Simulator:
         results = self._simulate_internal(times=times, grand=grand, fail_simulate=not perfect_play,
                                           doublelife=doublelife, perfect_only=perfect_only, abuse=abuse)
 
-        perfect_score, random_simulation_results, full_roll_chance, abuse_result_score, abuse_score_array = results
+        perfect_score, random_simulation_results, full_roll_chance, abuse_result_score, abuse_data = results
 
         if perfect_play:
             base = perfect_score
@@ -209,7 +197,7 @@ class Simulator:
             full_roll_chance=full_roll_chance,
             fans=total_fans,
             abuse_score=abuse_result_score,
-            abuse_array=abuse_score_array
+            abuse_data=abuse_data
         )
 
     def _simulate_internal(self, grand, times, fail_simulate=False, doublelife=False, perfect_only=True, abuse=False):
@@ -240,10 +228,10 @@ class Simulator:
                 scores.append(impl.simulate_impl())
 
         abuse_result_score = 0
-        abuse_score_array = None
+        abuse_data: AbuseData = None
         if abuse:
             impl.reset_machine(perfect_play=True, abuse=True)
-            abuse_result_score, abuse_score_array = impl.simulate_impl(skip_activation_initialization=True)
+            abuse_result_score, abuse_data = impl.simulate_impl(skip_activation_initialization=True)
             logger.debug("Total abuse: {}".format(int(abuse_result_score)))
-            logger.debug("Abuse scores: " + " ".join(map(str, abuse_score_array)))
-        return perfect_score, scores, full_roll_chance, abuse_result_score, abuse_score_array
+            logger.debug("Abuse deltas: " + " ".join(map(str, abuse_data.score_delta)))
+        return perfect_score, scores, full_roll_chance, abuse_result_score, abuse_data

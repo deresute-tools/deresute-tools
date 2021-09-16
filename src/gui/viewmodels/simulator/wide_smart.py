@@ -285,8 +285,8 @@ class MainModel(QObject):
         if payload.abuse_load:
             if not isinstance(payload.results, SimulationResult):
                 return
-            eventbus.eventbus.post(HookAbuseToChartViewerEvent(payload.results.max_theoretical_result.cards,
-                                                               payload.results.max_theoretical_result.abuse_df),
+            eventbus.eventbus.post(HookAbuseToChartViewerEvent(payload.cards,
+                                                               payload.results.abuse_data),
                                    asynchronous=False)
 
     @subscribe(SimulationEvent)
@@ -309,16 +309,8 @@ class MainModel(QObject):
                                   times=event.times, appeals=event.appeals, extra_bonus=event.extra_bonus,
                                   support=event.support,
                                   special_option=event.special_option, special_value=event.special_value,
-                                  doublelife=event.doublelife)
-            if event.theoretical_simulation:
-                result.max_theoretical_result = sim.simulate_theoretical_max(
-                    appeals=event.appeals,
-                    extra_bonus=event.extra_bonus,
-                    support=event.support,
-                    special_option=event.special_option,
-                    special_value=event.special_value,
-                    doublelife=event.doublelife)
-        self.process_simulation_results_signal.emit(BaseSimulationResultWithUuid(event.uuid, result, event.abuse_load))
+                                  doublelife=event.doublelife, abuse=event.theoretical_simulation)
+        self.process_simulation_results_signal.emit(BaseSimulationResultWithUuid(event.uuid, event.unit.all_cards(), result, event.abuse_load))
 
     def handle_yoink_button(self):
         _, _, live_detail_id, song_name, diff_name = eventbus.eventbus.post_and_get_first(GetSongDetailsEvent())

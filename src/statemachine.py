@@ -16,6 +16,14 @@ from static.skill import get_sparkle_bonus
 from static.song_difficulty import PERFECT_TAP_RANGE, GREAT_TAP_RANGE, Difficulty
 
 
+class AbuseData:
+    def __init__(self, score_delta, window_l, window_r, judgements):
+        self.score_delta = score_delta
+        self.window_l = window_l
+        self.window_r = window_r
+        self.judgements = judgements
+
+
 @cython.cclass
 class UnitCacheBonus:
     tap: int
@@ -513,16 +521,19 @@ class StateMachine:
     def _handle_abuse_results(self):
         left_windows = [2E9] * len(self.notes_data)
         right_windows = [-2E9] * len(self.notes_data)
-        max_score: List[int] = self.cache_perfect_score_array.tolist()
+        max_score = self.cache_perfect_score_array.copy()
         is_abuses = [False] * len(self.notes_data)
-        for _, (delta, note_idx, score, is_abuse) in enumerate(zip(
+        judgements = [Judgement.PERFECT] * len(self.notes_data)
+        for _, (delta, note_idx, score, is_abuse, judgement) in enumerate(zip(
                 self.note_time_deltas_backup,
                 self.note_idx_stack_backup,
                 self.note_scores,
-                self.is_abuse_backup)):
+                self.is_abuse_backup,
+                self.judgements)):
             if score < max_score[note_idx]:
                 continue
             if score > max_score[note_idx]:
+                judgements[note_idx] = judgement
                 max_score[note_idx] = score
                 is_abuses[note_idx] = is_abuses[note_idx] or is_abuse
                 left_windows[note_idx] = delta
@@ -530,7 +541,10 @@ class StateMachine:
             else:
                 left_windows[note_idx] = min(left_windows[note_idx], delta)
                 right_windows[note_idx] = max(right_windows[note_idx], delta)
-        return sum(max_score), max_score
+
+        score_delta = max_score - self.cache_perfect_score_array
+        abuse_data = AbuseData(score_delta, left_windows, right_windows, judgements)
+        return sum(max_score), abuse_data
 
     def handle_skill(self):
         self.has_skill_change = True

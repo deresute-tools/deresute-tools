@@ -631,8 +631,8 @@ class CalculatorModel:
         self.view.fill_column(False, 7, row, int(results.base + np.percentile(results.deltas, 90)))
         self.view.fill_column(False, 8, row, int(results.base + np.percentile(results.deltas, 75)))
         self.view.fill_column(False, 9, row, int(results.base + np.percentile(results.deltas, 50)))
-        if results.max_theoretical_result is not None:
-            self.view.fill_column(False, 10, row, int(results.max_theoretical_result.max_score))
+        if results.abuse_data is not None:
+            self.view.fill_column(False, 10, row, int(results.abuse_score))
         self.view.fill_column(False, 11, row, float(int(results.full_roll_chance * 10000) / 100))
 
     def _process_auto_results(self, results: AutoSimulationResult, row=None):
