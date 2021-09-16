@@ -64,10 +64,16 @@ class AutoSimulationResult(BaseSimulationResult):
 
 
 class Simulator:
-    def __init__(self, live=None, special_offset=None, left_inclusive=False, right_inclusive=True):
+    def __init__(self, live=None, special_offset=None, left_inclusive=False, right_inclusive=True,
+                 force_encore_amr_cache_to_encore_unit=False,
+                 force_encore_magic_to_encore_unit=False,
+                 allow_encore_magic_to_escape_max_agg=True):
         self.live = live
         self.left_inclusive = left_inclusive
         self.right_inclusive = right_inclusive
+        self.force_encore_amr_cache_to_encore_unit = force_encore_amr_cache_to_encore_unit
+        self.force_encore_magic_to_encore_unit = force_encore_magic_to_encore_unit
+        self.allow_encore_magic_to_escape_max_agg = allow_encore_magic_to_escape_max_agg
         if special_offset is None:
             self.special_offset = 0
         else:
@@ -257,7 +263,10 @@ class Simulator:
             right_inclusive=self.right_inclusive,
             base_score=self.base_score,
             helen_base_score=self.helen_base_score,
-            weights=self.weight_range
+            weights=self.weight_range,
+            force_encore_amr_cache_to_encore_unit=self.force_encore_amr_cache_to_encore_unit,
+            force_encore_magic_to_encore_unit=self.force_encore_magic_to_encore_unit,
+            allow_encore_magic_to_escape_max_agg=self.allow_encore_magic_to_escape_max_agg
         )
 
         if auto:

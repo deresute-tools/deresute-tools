@@ -144,6 +144,7 @@ class Card:
         self.li = self.base_li + bonuses[3]
         self.sk.probability = self.sk.max_probability + bonuses[4]
         self.sk.cached_probability = self.sk.probability
+        self.sk.original_unit_idx = None
 
     @property
     def vocal(self):

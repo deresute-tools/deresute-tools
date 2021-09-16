@@ -199,10 +199,20 @@ class StateMachine:
     lowest_life: int
     lowest_life_time: int
 
+    force_encore_amr_cache_to_encore_unit: bool
+    force_encore_magic_to_encore_unit: bool
+    allow_encore_magic_to_escape_max_agg: bool
+
     def __init__(self, grand, difficulty, doublelife, live, notes_data, left_inclusive, right_inclusive, base_score,
-                 helen_base_score, weights):
+                 helen_base_score, weights,
+                 force_encore_amr_cache_to_encore_unit=False,
+                 force_encore_magic_to_encore_unit=False,
+                 allow_encore_magic_to_escape_max_agg=False):
         self.left_inclusive = left_inclusive
         self.right_inclusive = right_inclusive
+        self.force_encore_amr_cache_to_encore_unit = force_encore_amr_cache_to_encore_unit
+        self.force_encore_magic_to_encore_unit = force_encore_magic_to_encore_unit
+        self.allow_encore_magic_to_escape_max_agg = allow_encore_magic_to_escape_max_agg
 
         self.grand = grand
         self.difficulty = difficulty
@@ -229,10 +239,11 @@ class StateMachine:
             self._special_note_types.append(temp)
         self.checkpoints = self.notes_data["checkpoints"].to_list()
 
-        self.probabilities = [
-            self.live.get_probability(_)
-            for _ in range(len(self.live.unit.all_cards()))
-        ]
+        self.probabilities = list()
+        for unit_idx, unit in enumerate(self.live.unit.all_units):
+            for card_idx, card in enumerate(unit.all_cards()):
+                self.probabilities.append(self.live.get_probability(unit_idx * 5 + card_idx))
+                card.skill.set_original_unit_idx(unit_idx)
 
         self._sparkle_bonus_ssr = get_sparkle_bonus(8, self.grand)
         self._sparkle_bonus_sr = get_sparkle_bonus(6, self.grand)
@@ -927,7 +938,10 @@ class StateMachine:
         magics = dict()
         non_magics = dict()
         for skill_idx, skills in self.skill_queue.items():
-            if self.live.unit.get_card(skill_idx - 1).skill.is_magic:
+            if self.live.unit.get_card(skill_idx - 1).skill.is_magic \
+                    or not self.allow_encore_magic_to_escape_max_agg \
+                    and self.live.unit.get_card(skill_idx - 1).skill.is_encore \
+                    and self.reference_skills[self.cache_enc[skill_idx]].is_magic:
                 magics[skill_idx] = skills
             else:
                 non_magics[skill_idx] = skills
@@ -1279,7 +1293,7 @@ class StateMachine:
         skill = self.reference_skills[self.skill_indices[0]]
         if skill.is_magic or \
                 (skill.is_encore and self.skill_queue[self.skill_indices[0]].is_magic):
-            if skill.is_magic:
+            if skill.is_magic or self.force_encore_magic_to_encore_unit:
                 unit_idx = (self.skill_indices[0] - 1) // 5
             else:
                 unit_idx = (self.cache_enc[self.skill_indices[0]] - 1) // 5
@@ -1366,9 +1380,12 @@ class StateMachine:
 
     def _cache_AMR(self):
         skills_to_check = self._helper_get_current_skills()
-        unit_idx = (self.skill_indices[0] - 1) // 5
         for skill in skills_to_check:
             if skill.is_alternate or skill.is_mutual or skill.is_refrain:
+                if self.force_encore_amr_cache_to_encore_unit:
+                    unit_idx = skill.original_unit_idx
+                else:
+                    unit_idx = (self.skill_indices[0] - 1) // 5
                 self.unit_caches[unit_idx].update_AMR(skill)
 
     def _helper_get_current_skills(self):

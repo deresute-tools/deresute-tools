@@ -48,6 +48,10 @@ class Skill:
         self.life_requirement = life_requirement
         self.targets = self._generate_targets()
         self.normalized = False
+        self.original_unit_idx = None
+
+    def set_original_unit_idx(self, idx):
+        self.original_unit_idx = idx
 
     def _generate_targets(self):
         if self.skill_type == 21 or self.skill_type == 32:
