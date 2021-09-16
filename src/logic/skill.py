@@ -63,6 +63,10 @@ class Skill:
         return self.skill_type in SUPPORT_TYPES
 
     @property
+    def is_guard(self):
+        return self.skill_type == 12
+
+    @property
     def is_overload(self):
         return self.skill_type == 14
 

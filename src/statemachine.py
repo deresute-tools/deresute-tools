@@ -1,4 +1,5 @@
 import copy
+from bisect import bisect
 from math import ceil
 from random import random
 from typing import Dict, Union, List, Tuple
@@ -13,7 +14,7 @@ from static.color import Color
 from static.judgement import Judgement
 from static.note_type import NoteType
 from static.skill import get_sparkle_bonus
-from static.song_difficulty import PERFECT_TAP_RANGE, GREAT_TAP_RANGE, Difficulty
+from static.song_difficulty import PERFECT_TAP_RANGE, GREAT_TAP_RANGE, Difficulty, FLICK_DRAIN, NONFLICK_DRAIN
 
 
 class AbuseData:
@@ -187,6 +188,17 @@ class StateMachine:
     full_roll_chance: float
     has_cc: bool
 
+    auto: bool
+    time_offset: int
+    special_offset: int
+    finish_pos: List[int]
+    status: List[int]
+    delayed: List[bool]
+    being_held: Dict[int, bool]
+    group_ids: List[int]
+    lowest_life: int
+    lowest_life_time: int
+
     def __init__(self, grand, difficulty, doublelife, live, notes_data, left_inclusive, right_inclusive, base_score,
                  helen_base_score, weights):
         self.left_inclusive = left_inclusive
@@ -242,13 +254,15 @@ class StateMachine:
     def get_full_roll_chance(self):
         return self.full_roll_chance
 
-    def reset_machine(self, perfect_play=False, perfect_only=True, abuse=False):
+    def reset_machine(self, perfect_play=True, perfect_only=True, abuse=False, time_offset=0, special_offset=0,
+                      auto=False):
         if not perfect_only:
             assert not perfect_play
 
         self.fail_simulate = not perfect_play
         self.perfect_only = perfect_only
         self.abuse = abuse
+        self.auto = auto
 
         # List of all skill objects. Should not mutate. Original sets.
         self.reference_skills = [None]
@@ -306,6 +320,22 @@ class StateMachine:
 
         # Metrics
         self.full_roll_chance = 1
+
+        # Auto stuff
+        if self.auto:
+            self.time_offset = int(time_offset * 1E3)
+            self.special_offset = int(special_offset * 1E6)
+            self.finish_pos = self.notes_data["finishPos"].map(int).to_list()
+            self.status = self.notes_data["status"].map(int).to_list()
+            self.group_ids = self.notes_data["groupId"].map(int).to_list()
+            self.delayed = [False] * len(self.notes_data)
+            self.being_held = dict()
+            self.judgements = [Judgement.PERFECT for _ in range(len(self.notes_data))]
+            self.combos = [0] * len(self.notes_data)
+            self.score_bonuses = [0] * len(self.notes_data)
+            self.combo_bonuses = [0] * len(self.notes_data)
+            self.lowest_life = 9000
+            self.lowest_life_time = -1
 
         # Initializing note data
         if abuse or perfect_play:
@@ -459,7 +489,7 @@ class StateMachine:
         self.skill_times = np_skill_times[sorted_indices].tolist()
         self.skill_indices = np_skill_indices[sorted_indices].tolist()
 
-    def simulate_impl(self, skip_activation_initialization=False) -> Tuple[int, List[int]]:
+    def simulate_impl(self, skip_activation_initialization=False) -> Tuple[int, object]:
         if not skip_activation_initialization:
             self.initialize_activation_arrays()
         while True:
@@ -519,6 +549,204 @@ class StateMachine:
             return self._handle_abuse_results()
         else:
             return int(self.note_scores.sum()), self.note_scores.tolist()
+
+    def simulate_impl_auto(self):
+        self.initialize_activation_arrays()
+        while True:
+            # Terminal condition: No more skills and no more notes
+            if len(self.skill_times) == 0 and len(self.note_time_stack) == 0:
+                break
+
+            if len(self.skill_times) == 0:
+                self.handle_note_auto()
+            elif len(self.note_time_stack) == 0:
+                temp = self.skill_times[0]
+                self.handle_skill()
+                self.break_hold(temp)
+            elif self.note_time_stack[0] < self.skill_times[0]:
+                self.handle_note_auto()
+            elif self.skill_times[0] < self.note_time_stack[0]:
+                temp = self.skill_times[0]
+                self.handle_skill()
+                self.break_hold(temp)
+            else:
+                if (self.skill_indices[0] > 0 and self.left_inclusive) or \
+                        (self.skill_indices[0] < 0 and not self.right_inclusive):
+                    temp = self.skill_times[0]
+                    self.handle_skill()
+                    self.break_hold(temp)
+                else:
+                    self.handle_note_auto()
+
+        # note_score = round(self.base_score * weight * (1 + combo_bonus / 100) * (1 + score_bonus / 100))
+
+        self.np_score_bonuses = 1 + np.array(self.score_bonuses) / 100
+        self.np_combo_bonuses = 1 + np.array(self.combo_bonuses) / 100
+
+        judgement_multipliers = np.array([1 if x is Judgement.PERFECT else 0 for x in self.judgements])
+        final_bonus = judgement_multipliers.astype("float")
+        mask = [_ > 1 for _ in self.combos]
+        if any(mask):
+            final_bonus[mask] *= self.np_combo_bonuses[mask]
+        final_bonus *= self.np_score_bonuses
+        self.weights = [
+            0 if combo == 0 else self.weights[combo - 1] for combo in self.combos
+        ]
+
+        self.note_scores = np.round(
+            self.base_score
+            * np.array(self.weights)
+            * final_bonus
+        )
+
+        return self.note_scores, len(list(filter(lambda x: x is Judgement.PERFECT, self.judgements))), max(
+            self.combos), self.lowest_life, self.lowest_life_time, self.full_roll_chance == 1
+
+    def break_hold(self, skill_time):
+        self.separate_magics_non_magics()
+        magics = self.cache_magics
+        non_magics = self.cache_non_magics
+        max_boosts, sum_boosts = self._evaluate_bonuses_phase_boost(magics, non_magics)
+        life_bonus, support_bonus = self._evaluate_bonuses_phase_life_support(magics, non_magics, max_boosts,
+                                                                              sum_boosts)
+        if support_bonus < 4:
+            to_be_removed = list()
+            for held_group, bug in self.being_held.items():
+                self.combo = 0
+                if held_group < 0:
+                    self._handle_long_break(held_group)
+                    to_be_removed.append(held_group)
+                else:
+                    self._handle_slide_break(held_group)
+                    if held_group in self.being_held and not self.being_held[held_group]:
+                        to_be_removed.append(held_group)
+            for _ in to_be_removed:
+                self.being_held.pop(_)
+                if not self._check_guard():
+                    self.life -= NONFLICK_DRAIN[self.difficulty]
+        if self.life < self.lowest_life:
+            self.lowest_life = self.life
+            self.lowest_life_time = skill_time
+
+    def _handle_slide_break(self, group_id):
+        if group_id not in self.being_held or not self.being_held[group_id]:
+            remove_indices = list()
+            last_was_slide = True
+            for idx, (check_note_idx, check_group_id) in enumerate(zip(self.note_idx_stack, self.group_ids)):
+                check_note_type = self.note_type_stack[check_note_idx]
+                if check_group_id == group_id:
+                    if check_note_type is NoteType.SLIDE or last_was_slide:
+                        self.judgements[check_note_idx] = Judgement.MISS
+                        remove_indices.append(idx)
+                    if last_was_slide and check_note_type is not NoteType.SLIDE:
+                        last_was_slide = False
+            for idx in reversed(remove_indices):
+                self.note_idx_stack.pop(idx)
+                self.note_time_stack.pop(idx)
+                self.delayed.pop(idx)
+                self.group_ids.pop(idx)
+
+    def _handle_long_break(self, neg_finish_pos):
+        if neg_finish_pos in self.being_held:
+            for idx, check_note_idx in enumerate(self.note_idx_stack):
+                if self.finish_pos[check_note_idx] == -neg_finish_pos:
+                    break
+            self.note_idx_stack.pop(idx)
+            self.note_time_stack.pop(idx)
+            self.delayed.pop(idx)
+            self.group_ids.pop(idx)
+            self.judgements[check_note_idx] = Judgement.MISS
+
+    def handle_note_auto(self):
+        note_idx = self.note_idx_stack.pop(0)
+        note_time = self.note_time_stack.pop(0)
+        delayed = self.delayed.pop(0)
+        group_id = self.group_ids.pop(0)
+        note_type = self.note_type_stack[note_idx]
+        is_checkpoint = self.checkpoints[note_idx]
+        finish_pos = self.finish_pos[note_idx]
+        status = self.status[note_idx]
+
+        checkpoint_bug = \
+            (not self.grand and finish_pos == 3 and is_checkpoint) \
+            or (self.grand and finish_pos < 10 and finish_pos + status > 6 and is_checkpoint)
+
+        # If not checkpoint bug, delay note for evaluation later
+        if not checkpoint_bug and not delayed:
+            new_note_time = note_time + self.time_offset
+            if note_type != NoteType.TAP:
+                new_note_time += self.special_offset
+            insert_idx = bisect(self.note_time_stack, new_note_time)
+            self.note_time_stack.insert(insert_idx, new_note_time)
+            self.note_idx_stack.insert(insert_idx, note_idx)
+            self.delayed.insert(insert_idx, True)
+            self.group_ids.insert(insert_idx, group_id)
+            return
+
+        if self.has_skill_change:
+            self.separate_magics_non_magics()
+        magics = self.cache_magics
+        non_magics = self.cache_non_magics
+        max_boosts, sum_boosts = self._evaluate_bonuses_phase_boost(magics, non_magics)
+
+        life_bonus, support_bonus = self._evaluate_bonuses_phase_life_support(magics, non_magics, max_boosts,
+                                                                              sum_boosts)
+
+        covered = self._auto_covered(support_bonus=support_bonus,
+                                     is_flick=NoteType.FLICK in self.special_note_types[note_idx])
+
+        # If covered or in buggy unit C grand group and checkpoint bug
+        if covered or (group_id in self.being_held and self.being_held[group_id] and checkpoint_bug):
+            self.life += life_bonus
+            self.life = min(self.max_life, self.life)  # Cap life
+            self._helper_evaluate_ls(fixed_life=False)
+            self._helper_evaluate_act(self.special_note_types[note_idx])
+            self._helper_evaluate_alt_mutual_ref(self.special_note_types[note_idx])
+            self._helper_normalize_score_combo_bonuses()
+            score_bonus, combo_bonus = self._evaluate_bonuses_phase_score_combo(magics, non_magics, max_boosts,
+                                                                                sum_boosts)
+
+            self.combo += 1
+
+            is_long_start = note_type is NoteType.LONG and -finish_pos not in self.being_held
+            if is_long_start:
+                self.being_held[-finish_pos] = False
+            # Long end
+            elif -finish_pos in self.being_held:
+                self.being_held.pop(-finish_pos)
+
+            if note_type is NoteType.SLIDE:
+                grand_support_retain_bug = self.grand and finish_pos + status > 10
+                self.being_held[group_id] = grand_support_retain_bug
+
+        # If not covered but checkpoint bug and not yet delayed, queue to try again later
+        elif checkpoint_bug and not delayed:
+            new_note_time = note_time + self.time_offset
+            if note_type != NoteType.TAP:
+                new_note_time += self.special_offset
+            insert_idx = bisect(self.note_time_stack, new_note_time)
+            self.note_time_stack.insert(insert_idx, new_note_time)
+            self.note_idx_stack.insert(insert_idx, note_idx)
+            self.delayed.insert(insert_idx, True)
+            self.group_ids.insert(insert_idx, group_id)
+            return
+        else:
+            score_bonus = 0
+            combo_bonus = 0
+            self.judgements[note_idx] = Judgement.MISS
+            if note_type is NoteType.LONG:
+                self._handle_long_break(-finish_pos)
+            if note_type is NoteType.SLIDE:
+                self._handle_slide_break(group_id)
+            self.combo = 0
+
+        self.combos[note_idx] = self.combo
+        self.score_bonuses[note_idx] = score_bonus
+        self.combo_bonuses[note_idx] = combo_bonus if self.combo > 1 else 0
+        self.has_skill_change = False
+        if self.life < self.lowest_life:
+            self.lowest_life = self.life
+            self.lowest_life_time = note_time
 
     def _handle_abuse_results(self):
         left_windows = [2E9] * len(self.notes_data)
@@ -677,18 +905,9 @@ class StateMachine:
 
     def evaluate_bonuses(self, special_note_types, skip_healing=False, fixed_life=None):
         if self.has_skill_change:
-            magics = dict()
-            non_magics = dict()
-            for skill_idx, skills in self.skill_queue.items():
-                if self.live.unit.get_card(skill_idx - 1).skill.is_magic:
-                    magics[skill_idx] = skills
-                else:
-                    non_magics[skill_idx] = skills
-            self.cache_magics = magics
-            self.cache_non_magics = non_magics
-        else:
-            magics = self.cache_magics
-            non_magics = self.cache_non_magics
+            self.separate_magics_non_magics()
+        magics = self.cache_magics
+        non_magics = self.cache_non_magics
         max_boosts, sum_boosts = self._evaluate_bonuses_phase_boost(magics, non_magics)
         life_bonus, support_bonus = self._evaluate_bonuses_phase_life_support(magics, non_magics, max_boosts,
                                                                               sum_boosts)
@@ -703,6 +922,34 @@ class StateMachine:
         self._helper_normalize_score_combo_bonuses()
         score_bonus, combo_bonus = self._evaluate_bonuses_phase_score_combo(magics, non_magics, max_boosts, sum_boosts)
         return score_bonus, combo_bonus
+
+    def separate_magics_non_magics(self):
+        magics = dict()
+        non_magics = dict()
+        for skill_idx, skills in self.skill_queue.items():
+            if self.live.unit.get_card(skill_idx - 1).skill.is_magic:
+                magics[skill_idx] = skills
+            else:
+                non_magics[skill_idx] = skills
+        self.cache_magics = magics
+        self.cache_non_magics = non_magics
+
+    def _check_guard(self):
+        for _, skills in self.skill_queue.items():
+            if isinstance(skills, Skill) and skills.is_guard:
+                return True
+            for skill in skills:
+                if skill.is_guard:
+                    return True
+        return False
+
+    def _auto_covered(self, support_bonus, is_flick):
+        # MISS covered
+        if support_bonus >= 4:
+            return True
+        if not self._check_guard():
+            self.life -= FLICK_DRAIN[self.difficulty] if is_flick else NONFLICK_DRAIN[self.difficulty]
+        return False
 
     def _helper_evaluate_ls(self, fixed_life=None):
         if fixed_life is not None:

@@ -32,7 +32,8 @@ class BaseSimulationResult:
 
 
 class SimulationResult(BaseSimulationResult):
-    def __init__(self, total_appeal, perfect_score, perfect_score_array, base, deltas, total_life, fans, full_roll_chance,
+    def __init__(self, total_appeal, perfect_score, perfect_score_array, base, deltas, total_life, fans,
+                 full_roll_chance,
                  abuse_score, abuse_data: AbuseData):
         super().__init__()
         self.total_appeal = total_appeal
@@ -73,7 +74,7 @@ class Simulator:
             self.special_offset = special_offset
 
     def _setup_simulator(self, appeals=None, support=None, extra_bonus=None, chara_bonus_set=None, chara_bonus_value=0,
-                         special_option=None, special_value=None, auto=False, mirror=False):
+                         special_option=None, special_value=None, mirror=False):
         self.live.set_chara_bonus(chara_bonus_set, chara_bonus_value)
         if extra_bonus is not None or special_option is not None:
             if extra_bonus is not None:
@@ -126,20 +127,27 @@ class Simulator:
 
     def simulate(self, times=100, appeals=None, extra_bonus=None, support=None, perfect_play=False,
                  chara_bonus_set=None, chara_bonus_value=0, special_option=None, special_value=None,
-                 doublelife=False, perfect_only=True, abuse=False, output=False):
+                 doublelife=False, perfect_only=True, abuse=False, output=False, auto=False, mirror=False,
+                 time_offset=0):
         start = time.time()
         logger.debug("Unit: {}".format(self.live.unit))
         logger.debug("Song: {} - {} - Lv {}".format(self.live.music_name, self.live.difficulty, self.live.level))
-        if perfect_play:
+        if perfect_play or auto:
             times = 1
-            logger.debug("Only need 1 simulation for perfect play.")
-        res = self._simulate(times, appeals=appeals, extra_bonus=extra_bonus, support=support,
-                             perfect_play=perfect_play,
-                             chara_bonus_set=chara_bonus_set, chara_bonus_value=chara_bonus_value,
-                             special_option=special_option, special_value=special_value,
-                             doublelife=doublelife, perfect_only=perfect_only, abuse=abuse)
-        if output:
-            self.save_to_file(res.perfect_score_array, res.abuse_data)
+            logger.debug("Only need 1 simulation for perfect play or auto.")
+        if not auto:
+            res = self._simulate(times, appeals=appeals, extra_bonus=extra_bonus, support=support,
+                                 perfect_play=perfect_play,
+                                 chara_bonus_set=chara_bonus_set, chara_bonus_value=chara_bonus_value,
+                                 special_option=special_option, special_value=special_value,
+                                 doublelife=doublelife, perfect_only=perfect_only, abuse=abuse)
+            if output:
+                self.save_to_file(res.perfect_score_array, res.abuse_data)
+        else:
+            res = self._simulate_auto(appeals=appeals, extra_bonus=extra_bonus, support=support,
+                                      chara_bonus_set=chara_bonus_set, chara_bonus_value=chara_bonus_value,
+                                      special_option=special_option, special_value=special_value,
+                                      time_offset=time_offset, mirror=mirror, doublelife=doublelife)
         logger.debug("Total run time for {} trials: {:04.2f}s".format(times, time.time() - start))
         return res
 
@@ -196,7 +204,7 @@ class Simulator:
         results = self._simulate_internal(times=times, grand=grand, fail_simulate=not perfect_play,
                                           doublelife=doublelife, perfect_only=perfect_only, abuse=abuse)
 
-        perfect_score, perfect_score_array, random_simulation_results, full_roll_chance, abuse_result_score, abuse_data = results
+        perfect_score, perfect_score_array, random_simulation_results, full_roll_chance, abuse_score, abuse_data = results
 
         if perfect_play:
             base = perfect_score
@@ -233,14 +241,12 @@ class Simulator:
             total_life=self.live.get_life(),
             full_roll_chance=full_roll_chance,
             fans=total_fans,
-            abuse_score=abuse_result_score,
+            abuse_score=int(abuse_score),
             abuse_data=abuse_data
         )
 
-    def _simulate_internal(self, grand, times, fail_simulate=False, doublelife=False, perfect_only=True, abuse=False):
-        if not perfect_only:
-            assert fail_simulate
-
+    def _simulate_internal(self, grand, times, fail_simulate=False, doublelife=False, perfect_only=True, abuse=False,
+                           auto=False, time_offset=0):
         impl = StateMachine(
             grand=grand,
             difficulty=self.live.difficulty,
@@ -253,6 +259,14 @@ class Simulator:
             helen_base_score=self.helen_base_score,
             weights=self.weight_range
         )
+
+        if auto:
+            impl.reset_machine(time_offset=time_offset, special_offset=self.special_offset, auto=True)
+            return impl.simulate_impl_auto()
+
+        if not perfect_only:
+            assert fail_simulate
+
         impl.reset_machine(perfect_play=True)
         perfect_score, perfect_score_array = impl.simulate_impl()
         logger.debug("Perfect scores: " + " ".join(map(str, impl.get_note_scores())))
@@ -272,3 +286,58 @@ class Simulator:
             logger.debug("Total abuse: {}".format(int(abuse_result_score)))
             logger.debug("Abuse deltas: " + " ".join(map(str, abuse_data.score_delta)))
         return perfect_score, perfect_score_array, scores, full_roll_chance, abuse_result_score, abuse_data
+
+    def _simulate_auto(self,
+                       appeals=None,
+                       extra_bonus=None,
+                       support=None,
+                       chara_bonus_set=None,
+                       chara_bonus_value=0,
+                       special_option=None,
+                       special_value=None,
+                       time_offset=0,
+                       mirror=False,
+                       doublelife=False
+                       ):
+
+        if time_offset >= 200:
+            self.special_offset = 0
+        elif 125 >= time_offset > 100:
+            self.special_offset = 0.075
+        elif time_offset > 125:
+            self.special_offset = 0.2 - time_offset / 1000
+
+        # Pump dummy notes to check for intervals where notes fail
+        self._setup_simulator(appeals=appeals, support=support, extra_bonus=extra_bonus,
+                              chara_bonus_set=chara_bonus_set, chara_bonus_value=chara_bonus_value,
+                              special_option=special_option, special_value=special_value, mirror=mirror)
+
+        grand = self.live.is_grand
+        note_scores, perfects, max_combo, lowest_life, lowest_life_time, all_100 \
+            = self._simulate_internal(times=1, grand=grand, doublelife=doublelife, auto=True, time_offset=time_offset)
+
+        auto_score = int(note_scores.sum())
+
+        logger.debug("Tensor size: {}".format(self.notes_data.shape))
+        logger.debug("Appeal: {}".format(int(self.total_appeal)))
+        logger.debug("Support: {}".format(int(self.live.get_support())))
+        logger.debug("Support team: {}".format(self.live.print_support_team()))
+        logger.debug("Auto score: {}".format(auto_score))
+        logger.debug("Perfects/Misses: {}/{}".format(perfects, len(self.notes_data) - perfects))
+        logger.debug("Max Combo: {}".format(max_combo))
+        logger.debug("Lowest Life: {}".format(lowest_life))
+        logger.debug("Lowest Life Time: {}".format(lowest_life_time))
+        logger.debug("All 100: {}".format(all_100))
+
+        ret = AutoSimulationResult(
+            total_appeal=self.total_appeal,
+            total_life=self.live.get_life(),
+            score=auto_score,
+            perfects=perfects,
+            misses=len(self.notes_data) - perfects,
+            max_combo=max_combo,
+            lowest_life=lowest_life,
+            lowest_life_time=(lowest_life_time // 1000) / 1000,
+            all_100=all_100
+        )
+        return ret

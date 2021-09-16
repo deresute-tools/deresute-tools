@@ -295,10 +295,10 @@ class MainModel(QObject):
         if event.autoplay:
             logger.info("Simulation mode: Autoplay - {} - {}".format(event.short_uuid, event.unit))
             sim = Simulator(event.live, special_offset=0.075)
-            result = sim.simulate_auto(appeals=event.appeals, extra_bonus=event.extra_bonus, support=event.support,
-                                       special_option=event.special_option, special_value=event.special_value,
-                                       time_offset=event.autoplay_offset, mirror=event.mirror,
-                                       doublelife=event.doublelife)
+            result = sim.simulate(appeals=event.appeals, extra_bonus=event.extra_bonus, support=event.support,
+                                  special_option=event.special_option, special_value=event.special_value,
+                                  time_offset=event.autoplay_offset, mirror=event.mirror,
+                                  doublelife=event.doublelife, auto=True)
         else:
             if event.perfect_play:
                 logger.info("Simulation mode: Perfect - {} - {}".format(event.short_uuid, event.unit))
