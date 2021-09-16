@@ -1437,7 +1437,7 @@ class StateMachine:
         # If new skill is strictly after cached last skill, just replace it
         if len(self.last_activated_time) == 0 or self.last_activated_time[-1] < self.skill_times[0]:
             update_last_activated_skill(replace=True, skill_time=self.skill_times[0])
-        elif self.last_activated_time == self.skill_times[0]:
+        elif self.last_activated_time[-1] == self.skill_times[0]:
             # Else update taking skill index order into consideration
             update_last_activated_skill(replace=False, skill_time=self.skill_times[0])
 
