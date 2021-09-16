@@ -1356,6 +1356,8 @@ class StateMachine:
         for skill in skills_to_check:
             if skill.is_sparkle:
                 trimmed_life = self.life // 10
+                if trimmed_life < 0:
+                    trimmed_life = 0
                 if skill.values[0] == 1:
                     skill.v1 = self._sparkle_bonus_ssr[trimmed_life]
                 else:
