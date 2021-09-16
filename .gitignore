@@ -85,7 +85,7 @@ celerybeat-schedule
 .env
 .venv
 env/
-env38/
+env*/
 venv/
 ENV/
 env.bak/
