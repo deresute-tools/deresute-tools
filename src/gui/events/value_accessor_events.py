@@ -61,3 +61,18 @@ class GetTheoreticalMaxFlagEvent:
 class GetUnitLockingOptionsVisibilityEvent:
     def __init__(self):
         pass
+
+
+class GetEncoreAMRFlagEvent:
+    def __init__(self):
+        pass
+
+
+class GetEncoreMagicUnitFlagEvent:
+    def __init__(self):
+        pass
+
+
+class GetEncoreMagicMaxAggEvent:
+    def __init__(self):
+        pass

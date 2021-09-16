@@ -17,7 +17,8 @@ from gui.events.utils.eventbus import subscribe
 from gui.events.utils.wrappers import BaseSimulationResultWithUuid, YoinkResults
 from gui.events.value_accessor_events import GetAutoplayOffsetEvent, GetAutoplayFlagEvent, GetDoublelifeFlagEvent, \
     GetSupportEvent, GetAppealsEvent, GetCustomPotsEvent, GetPerfectPlayFlagEvent, GetMirrorFlagEvent, \
-    GetCustomBonusEvent, GetGrooveSongColor, GetSkillBoundaryEvent, GetTheoreticalMaxFlagEvent
+    GetCustomBonusEvent, GetGrooveSongColor, GetSkillBoundaryEvent, GetTheoreticalMaxFlagEvent, GetEncoreAMRFlagEvent, \
+    GetEncoreMagicUnitFlagEvent, GetEncoreMagicMaxAggEvent
 from gui.viewmodels.simulator.calculator import CalculatorModel, CalculatorView, CardsWithUnitUuidAndExtraData
 from gui.viewmodels.simulator.custom_bonus import CustomBonusView, CustomBonusModel
 from gui.viewmodels.simulator.custom_card import CustomCardView, CustomCardModel
@@ -177,7 +178,9 @@ class MainView:
         extra_bonus, special_option, special_value = eventbus.eventbus.post_and_get_first(GetCustomBonusEvent())
         left_inclusive, right_inclusive = eventbus.eventbus.post_and_get_first(GetSkillBoundaryEvent())
         theoretical_simulation = eventbus.eventbus.post_and_get_first(GetTheoreticalMaxFlagEvent())
-
+        force_encore_amr_cache_to_encore_unit = eventbus.eventbus.post_and_get_first(GetEncoreAMRFlagEvent())
+        force_encore_magic_to_encore_unit = eventbus.eventbus.post_and_get_first(GetEncoreMagicUnitFlagEvent())
+        allow_encore_magic_to_escape_max_agg = eventbus.eventbus.post_and_get_first(GetEncoreMagicMaxAggEvent())
 
         self.model.simulate_internal(
             perfect_play=perfect_play,
@@ -188,6 +191,9 @@ class MainView:
             special_option=special_option, special_value=special_value,
             mirror=mirror, autoplay=autoplay, autoplay_offset=autoplay_offset,
             doublelife=doublelife,
+            force_encore_amr_cache_to_encore_unit=force_encore_amr_cache_to_encore_unit,
+            force_encore_magic_to_encore_unit=force_encore_magic_to_encore_unit,
+            allow_encore_magic_to_escape_max_agg=allow_encore_magic_to_escape_max_agg,
             row=row
         )
 
@@ -205,9 +211,14 @@ class MainModel(QObject):
         self.process_simulation_results_signal.connect(lambda payload: self.process_results(payload))
         self.process_yoink_results_signal.connect(lambda payload: self._handle_yoink_done_signal(payload))
 
-    def simulate_internal(self, perfect_play, left_inclusive, right_inclusive, theoretical_simulation, score_id, diff_id, times, all_cards,
+    def simulate_internal(self, perfect_play, left_inclusive, right_inclusive, theoretical_simulation, score_id,
+                          diff_id, times, all_cards,
                           custom_pots, appeals, support, extra_bonus, special_option, special_value, mirror, autoplay,
-                          autoplay_offset, doublelife, row=None):
+                          autoplay_offset, doublelife,
+                          force_encore_amr_cache_to_encore_unit,
+                          force_encore_magic_to_encore_unit,
+                          allow_encore_magic_to_escape_max_agg,
+                          row=None):
         """
         :type all_cards: List[CardsWithUnitUuidAndExtraData]
         """
@@ -276,7 +287,11 @@ class MainModel(QObject):
                                 row is not None and theoretical_simulation, appeals, autoplay, autoplay_offset,
                                 doublelife, inner_extra_bonus, extra_return, live, mirror, perfect_play,
                                 results, inner_special_option, inner_special_value, support, times, unit,
-                                left_inclusive, right_inclusive, theoretical_simulation),
+                                left_inclusive, right_inclusive, theoretical_simulation,
+                                force_encore_amr_cache_to_encore_unit,
+                                force_encore_magic_to_encore_unit,
+                                allow_encore_magic_to_escape_max_agg
+                                ),
                 high_priority=True, asynchronous=True)
 
     @pyqtSlot(BaseSimulationResultWithUuid)
@@ -285,8 +300,8 @@ class MainModel(QObject):
         if payload.abuse_load:
             if not isinstance(payload.results, SimulationResult):
                 return
-            eventbus.eventbus.post(HookAbuseToChartViewerEvent(payload.results.max_theoretical_result.cards,
-                                                               payload.results.max_theoretical_result.abuse_df),
+            eventbus.eventbus.post(HookAbuseToChartViewerEvent(payload.cards,
+                                                               payload.results.abuse_data),
                                    asynchronous=False)
 
     @subscribe(SimulationEvent)
@@ -294,31 +309,33 @@ class MainModel(QObject):
         event.live.set_unit(event.unit)
         if event.autoplay:
             logger.info("Simulation mode: Autoplay - {} - {}".format(event.short_uuid, event.unit))
-            sim = Simulator(event.live, special_offset=0.075)
-            result = sim.simulate_auto(appeals=event.appeals, extra_bonus=event.extra_bonus, support=event.support,
-                                       special_option=event.special_option, special_value=event.special_value,
-                                       time_offset=event.autoplay_offset, mirror=event.mirror,
-                                       doublelife=event.doublelife)
+            sim = Simulator(event.live, special_offset=0.075,
+                            force_encore_amr_cache_to_encore_unit=event.force_encore_amr_cache_to_encore_unit,
+                            force_encore_magic_to_encore_unit=event.force_encore_magic_to_encore_unit,
+                            allow_encore_magic_to_escape_max_agg=event.allow_encore_magic_to_escape_max_agg,
+                            )
+            result = sim.simulate(appeals=event.appeals, extra_bonus=event.extra_bonus, support=event.support,
+                                  special_option=event.special_option, special_value=event.special_value,
+                                  time_offset=event.autoplay_offset, mirror=event.mirror,
+                                  doublelife=event.doublelife, auto=True)
         else:
             if event.perfect_play:
                 logger.info("Simulation mode: Perfect - {} - {}".format(event.short_uuid, event.unit))
             else:
                 logger.info("Simulation mode: Normal - {} - {}".format(event.short_uuid, event.unit))
-            sim = Simulator(event.live, left_inclusive=event.left_inclusive, right_inclusive=event.right_inclusive)
+            sim = Simulator(event.live, left_inclusive=event.left_inclusive, right_inclusive=event.right_inclusive,
+                            force_encore_amr_cache_to_encore_unit=event.force_encore_amr_cache_to_encore_unit,
+                            force_encore_magic_to_encore_unit=event.force_encore_magic_to_encore_unit,
+                            allow_encore_magic_to_escape_max_agg=event.allow_encore_magic_to_escape_max_agg,
+                            )
             result = sim.simulate(perfect_play=event.perfect_play,
                                   times=event.times, appeals=event.appeals, extra_bonus=event.extra_bonus,
                                   support=event.support,
                                   special_option=event.special_option, special_value=event.special_value,
-                                  doublelife=event.doublelife)
-            if event.theoretical_simulation:
-                result.max_theoretical_result = sim.simulate_theoretical_max(
-                    appeals=event.appeals,
-                    extra_bonus=event.extra_bonus,
-                    support=event.support,
-                    special_option=event.special_option,
-                    special_value=event.special_value,
-                    doublelife=event.doublelife)
-        self.process_simulation_results_signal.emit(BaseSimulationResultWithUuid(event.uuid, result, event.abuse_load))
+                                  doublelife=event.doublelife, abuse=event.theoretical_simulation,
+                                  output=event.theoretical_simulation)
+        self.process_simulation_results_signal.emit(
+            BaseSimulationResultWithUuid(event.uuid, event.unit.all_cards(), result, event.abuse_load))
 
     def handle_yoink_button(self):
         _, _, live_detail_id, song_name, diff_name = eventbus.eventbus.post_and_get_first(GetSongDetailsEvent())

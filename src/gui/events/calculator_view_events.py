@@ -10,7 +10,11 @@ class GetAllCardsEvent:
 class SimulationEvent:
     def __init__(self, uuid, short_uuid, abuse_load, appeals, autoplay, autoplay_offset, doublelife, extra_bonus,
                  extra_return, live, mirror, perfect_play, results, special_option, special_value,
-                 support, times, unit, left_inclusive, right_inclusive, theoretical_simulation=False):
+                 support, times, unit, left_inclusive, right_inclusive, theoretical_simulation=False,
+                 force_encore_amr_cache_to_encore_unit=False,
+                 force_encore_magic_to_encore_unit=False,
+                 allow_encore_magic_to_escape_max_agg=True
+                 ):
         self.uuid = uuid
         self.short_uuid = short_uuid
         self.abuse_load = abuse_load
@@ -32,6 +36,9 @@ class SimulationEvent:
         self.left_inclusive = left_inclusive
         self.right_inclusive = right_inclusive
         self.theoretical_simulation = theoretical_simulation
+        self.force_encore_amr_cache_to_encore_unit = force_encore_amr_cache_to_encore_unit
+        self.force_encore_magic_to_encore_unit = force_encore_magic_to_encore_unit
+        self.allow_encore_magic_to_escape_max_agg = allow_encore_magic_to_escape_max_agg
 
 
 class DisplaySimulationResultEvent:

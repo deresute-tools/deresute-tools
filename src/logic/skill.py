@@ -3,6 +3,7 @@ import numpy as np
 from db import db
 from static.color import Color
 from static.note_type import NoteType
+from static.skill import SKILL_BASE
 
 BOOST_TYPES = {20, 32, 33, 34, 38}
 COLOR_TARGETS = {21, 22, 23, 32, 33, 34}
@@ -15,7 +16,7 @@ class Skill:
     def __init__(self, color=Color.CUTE, duration=0, probability=0, interval=999,
                  values=None, v0=0, v1=0, v2=0, v3=0, offset=0,
                  boost=False, color_target=False, act=None, bonus_skill=2000, skill_type=None,
-                 min_requirements=None, max_requirements=None):
+                 min_requirements=None, max_requirements=None, life_requirement=0):
         if values is None and v0 == v1 == v2 == v3 == 0:
             raise ValueError("Invalid skill values", values, v0, v1, v2, v3)
 
@@ -36,6 +37,7 @@ class Skill:
         self.max_probability = probability
         self.interval = interval
         self.v0, self.v1, self.v2, self.v3 = tuple(values)
+        self.values = [self.v0, self.v1, self.v2, self.v3]
         self.offset = offset
         self.boost = boost
         self.color_target = color_target
@@ -43,14 +45,46 @@ class Skill:
         self.skill_type = skill_type
         self.min_requirements = min_requirements
         self.max_requirements = max_requirements
+        self.life_requirement = life_requirement
+        self.targets = self._generate_targets()
+        self.normalized = False
+        self.original_unit_idx = None
+
+    def set_original_unit_idx(self, idx):
+        self.original_unit_idx = idx
+
+    def _generate_targets(self):
+        if self.skill_type == 21 or self.skill_type == 32:
+            return [0]
+        if self.skill_type == 22 or self.skill_type == 33:
+            return [1]
+        if self.skill_type == 23 or self.skill_type == 34:
+            return [2]
+        return [0, 1, 2]
 
     @property
     def is_support(self):
         return self.skill_type in SUPPORT_TYPES
 
     @property
+    def is_guard(self):
+        return self.skill_type == 12
+
+    @property
+    def is_overload(self):
+        return self.skill_type == 14
+
+    @property
+    def is_cc(self):
+        return self.skill_type == 15
+
+    @property
     def is_encore(self):
         return self.skill_type == 16
+
+    @property
+    def is_focus(self):
+        return 21 <= self.skill_type <= 23
 
     @property
     def is_sparkle(self):
@@ -59,6 +93,10 @@ class Skill:
     @property
     def is_tuning(self):
         return self.skill_type == 31
+
+    @property
+    def is_motif(self):
+        return 35 <= self.skill_type <= 37
 
     @property
     def is_alternate(self):
@@ -75,10 +113,6 @@ class Skill:
     @property
     def is_mutual(self):
         return self.skill_type == 42
-
-    @property
-    def values(self):
-        return [self.v0, self.v1, self.v2, self.v3]
 
     @classmethod
     def _fetch_skill_data_from_db(cls, skill_id):
@@ -133,12 +167,6 @@ class Skill:
             values[2] = skill_values[1]
         elif skill_type == 17:  # Healer
             values[2] = skill_values[0]
-        elif skill_type == 39:
-            values[0] = 1
-            values[1] = skill_values[0]
-        elif skill_type == 42:
-            values[0] = skill_values[0]
-            values[1] = 1
         else:
             values = [skill_values[0], skill_values[1], skill_values[2], 0]
         return values
@@ -156,6 +184,8 @@ class Skill:
             max_requirements[skill_data['skill_trigger_value'] - 1] = 99
         elif skill_data['skill_trigger_type'] == 3:
             min_requirements = [1, 1, 1]
+
+        life_requirement = skill_data['skill_trigger_value'] if skill_data['skill_type'] == 14 else 0
 
         is_boost = skill_data['skill_type'] in BOOST_TYPES
         if is_boost:
@@ -176,10 +206,18 @@ class Skill:
             bonus_skill=bonus_skill,
             skill_type=skill_data['skill_type'],
             min_requirements=min_requirements,
-            max_requirements=max_requirements
+            max_requirements=max_requirements,
+            life_requirement=life_requirement
         )
 
     def __eq__(self, other):
         if other is None or not isinstance(other, Skill):
             return False
         return self.skill_type == other.skill_type and self.duration == other.duration and self.interval == other.interval
+
+    def __str__(self):
+        try:
+            return "{} {}/{}: {} {} {} {}".format(SKILL_BASE[self.skill_type]["name"], self.duration, self.interval,
+                                                  self.v0, self.v1, self.v2, self.v3)
+        except:
+            return None

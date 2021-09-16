@@ -8,7 +8,8 @@ from gui.events.utils import eventbus
 from gui.events.utils.eventbus import subscribe
 from gui.events.value_accessor_events import GetMirrorFlagEvent, GetPerfectPlayFlagEvent, GetCustomPotsEvent, \
     GetAppealsEvent, GetSupportEvent, GetDoublelifeFlagEvent, GetAutoplayFlagEvent, GetAutoplayOffsetEvent, \
-    GetSkillBoundaryEvent, GetTheoreticalMaxFlagEvent
+    GetSkillBoundaryEvent, GetTheoreticalMaxFlagEvent, GetEncoreAMRFlagEvent, GetEncoreMagicUnitFlagEvent, \
+    GetEncoreMagicMaxAggEvent
 
 
 class CustomSettingsView:
@@ -27,7 +28,13 @@ class CustomSettingsView:
         self.custom_support_checkbox = QtWidgets.QCheckBox("Support Appeal", self.main)
         self.custom_perfect_play_checkbox = QtWidgets.QCheckBox("Perfect Simulation", self.main)
         self.theoretical_max_checkbox = QtWidgets.QCheckBox("Theoretical Max", self.main)
-        self.theoretical_max_checkbox.setToolTip("Get the highest score theoretically possible. Will take some time.")
+        self.theoretical_max_checkbox.setToolTip("Get the highest score theoretically possible.")
+        self.encore_amr_checkbox = QtWidgets.QCheckBox("Option 1", self.main)
+        self.encore_amr_checkbox.setToolTip("Force encore copied Alt/Mutual/Ref to only use cache from encore's unit.")
+        self.encore_magic_unit_checkbox = QtWidgets.QCheckBox("Option 2", self.main)
+        self.encore_magic_unit_checkbox.setToolTip("Force encore copied Magic to only copy skills from encore's unit.")
+        self.encore_magic_agg_checkbox = QtWidgets.QCheckBox("Option 3", self.main)
+        self.encore_magic_agg_checkbox.setToolTip("Allow encore Magic to escape the max aggregation over boosters.")
         self.skill_boundary = QtWidgets.QComboBox(self.main)
         self.skill_boundary.setToolTip("Change the way skill detection works.")
         self.mirror_checkbox = QtWidgets.QCheckBox("Mirror", self.main)
@@ -68,6 +75,11 @@ class CustomSettingsView:
         self.layout.addWidget(self.custom_visual, 0, 2, 1, 1)
         self.layout.addWidget(self.custom_life, 0, 3, 1, 1)
         self.layout.addWidget(self.custom_skill, 0, 4, 1, 1)
+
+        self.layout.addWidget(self.encore_amr_checkbox, 0, 7, 1, 1)
+        self.layout.addWidget(self.encore_magic_unit_checkbox, 1, 7, 1, 1)
+        self.layout.addWidget(self.encore_magic_agg_checkbox, 2, 7, 1, 1)
+
         self.layout.setColumnStretch(0, 1)
         self.layout.setColumnStretch(1, 1)
         self.layout.setColumnStretch(2, 1)
@@ -180,6 +192,18 @@ class CustomSettingsModel:
     @subscribe(GetTheoreticalMaxFlagEvent)
     def get_theoretical_max_flag(self, event=None):
         return self.view.theoretical_max_checkbox.isChecked()
+
+    @subscribe(GetEncoreAMRFlagEvent)
+    def get_encore_amr_checkbox_flag(self, event=None):
+        return self.view.encore_amr_checkbox.isChecked()
+
+    @subscribe(GetEncoreMagicUnitFlagEvent)
+    def get_encore_magic_unit_checkbox_flag(self, event=None):
+        return self.view.encore_magic_unit_checkbox.isChecked()
+
+    @subscribe(GetEncoreMagicMaxAggEvent)
+    def get_encore_magic_agg_checkbox_flag(self, event=None):
+        return self.view.encore_magic_agg_checkbox.isChecked()
 
     @subscribe(GetSkillBoundaryEvent)
     def get_skill_boundary(self, event=None):

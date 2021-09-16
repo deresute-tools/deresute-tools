@@ -1,0 +1,70 @@
+Index: src/statemachine.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/statemachine.py b/src/statemachine.pyx
+rename from src/statemachine.py
+rename to src/statemachine.pyx
+--- a/src/statemachine.py	(revision 72ed932cc490e18e37c6e0d6f3401d639826329c)
++++ b/src/statemachine.pyx	(date 1631829144868)
+@@ -26,22 +26,22 @@
+ 
+ 
+ @cython.cclass
+-class UnitCacheBonus:
+-    tap: int
+-    flick: int
+-    longg: int
+-    slide: int
+-    combo: int
+-    ref_tap: int
+-    ref_flick: int
+-    ref_long: int
+-    ref_slide: int
+-    ref_combo: int
+-    alt_tap: int
+-    alt_flick: int
+-    alt_long: int
+-    alt_slide: int
+-    alt_combo: int
++cdef class UnitCacheBonus:
++    cdef public int tap
++    cdef public int flick
++    cdef public int longg
++    cdef public int slide
++    cdef public int combo
++    cdef public int ref_tap
++    cdef public int ref_flick
++    cdef public int ref_long
++    cdef public int ref_slide
++    cdef public int ref_combo
++    cdef public int alt_tap
++    cdef public int alt_flick
++    cdef public int alt_long
++    cdef public int alt_slide
++    cdef public int alt_combo
+ 
+     def __init__(self):
+         self.tap = 0
+diff --git a/src/logic/skill.py b/src/logic/skill.pyx
+rename from src/logic/skill.py
+rename to src/logic/skill.pyx
+diff --git a/src/logic/leader.py b/src/logic/leader.pyx
+rename from src/logic/leader.py
+rename to src/logic/leader.pyx
+diff --git a/src/logic/live.py b/src/logic/live.pyx
+rename from src/logic/live.py
+rename to src/logic/live.pyx
+diff --git a/src/logic/card.py b/src/logic/card.pyx
+rename from src/logic/card.py
+rename to src/logic/card.pyx
+diff --git a/src/logic/grandunit.py b/src/logic/grandunit.pyx
+rename from src/logic/grandunit.py
+rename to src/logic/grandunit.pyx
+diff --git a/src/logic/grandlive.py b/src/logic/grandlive.pyx
+rename from src/logic/grandlive.py
+rename to src/logic/grandlive.pyx
+diff --git a/src/logic/unit.py b/src/logic/unit.pyx
+rename from src/logic/unit.py
+rename to src/logic/unit.pyx

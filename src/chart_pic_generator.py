@@ -13,7 +13,9 @@ from logic.grandunit import GrandUnit
 from logic.live import fetch_chart, Live
 from logic.unit import Unit
 from settings import RHYTHM_ICONS_PATH, CHART_PICS_PATH
-from simulator import Simulator, MaxSimulationResult
+from simulator import Simulator, SimulationResult
+from statemachine import AbuseData
+from static.judgement import Judgement
 from static.note_type import NoteType
 from static.skill import SKILL_BASE
 from static.song_difficulty import Difficulty
@@ -241,7 +243,7 @@ class BaseChartPicGenerator(ABC):
                     sec - (sec // MAX_SECS_PER_GROUP + offset_group) * MAX_SECS_PER_GROUP) * SEC_HEIGHT
 
     # Lanes start from 0
-    def generate_note_objects(self, abuse_df=None):
+    def generate_note_objects(self, abuse_data: AbuseData = None):
         # Number of groups = ceil(last sec // MAX_SECS_PER_GROUP)
         self.last_sec_float = self.notes.sec.iloc[-1]
         self.last_sec = int(self.last_sec_float) + 1
@@ -256,11 +258,11 @@ class BaseChartPicGenerator(ABC):
                         row['type'] == 7 and self.grand)
                 if self.mirrored:
                     right_flick = not right_flick
-                if abuse_df is not None and _ in abuse_df.index:
-                    delta = abuse_df.loc[_, 'delta']
-                    early = abuse_df.loc[_, 'abuse_range_l']
-                    late = abuse_df.loc[_, 'abuse_range_r']
-                    great = abuse_df.loc[_, 'is_great']
+                if abuse_data is not None and abuse_data.score_delta[_] > 0:
+                    delta = abuse_data.score_delta[_]
+                    early = abuse_data.window_l[_] // 1E3
+                    late = abuse_data.window_r[_] // 1E3
+                    great = abuse_data.judgements[_] is Judgement.GREAT
                 else:
                     delta = 0
                     early = 0
@@ -414,10 +416,10 @@ class BaseChartPicGenerator(ABC):
                                 grouped_notes.iloc[:-1].T.to_dict().values()):
                     self._draw_group_line(l, r, group_idx)
 
-    def hook_abuse(self, all_cards, abuse_df):
+    def hook_abuse(self, all_cards, abuse_data):
         self.hook_cards(all_cards, False)
 
-        self.generate_note_objects(abuse_df)
+        self.generate_note_objects(abuse_data)
         for group_idx, qt_group in enumerate(self.note_groups):
             for note in qt_group:
                 self.draw_abuse(note, group_idx)
@@ -530,8 +532,8 @@ if __name__ == '__main__':
     live.set_music(score_id=637, difficulty=5)
     live.set_unit(unit)
     sim = Simulator(live)
-    res: MaxSimulationResult = sim.simulate_theoretical_max()
+    res: SimulationResult = sim.simulate(perfect_play=True, abuse=True)
     cpg = BaseChartPicGenerator.get_generator(637, Difficulty(5), main_window, mirrored=True)
     cpg.hook_cards(unit.all_cards())
-    cpg.hook_abuse(unit.all_cards(), res.abuse_df)
+    cpg.hook_abuse(unit.all_cards(), res.abuse_data)
     app.exec_()
