@@ -1495,7 +1495,7 @@ class StateMachine:
                 to_be_removed.append(skill)
                 continue
             if skill.is_focus:
-                if not self._check_focus_activation(unit_idx=self.skill_indices[0] // 5, skill=skill):
+                if not self._check_focus_activation(unit_idx=(self.skill_indices[0] - 1) // 5, skill=skill):
                     to_be_removed.append(skill)
                 continue
         for skill in to_be_removed:
