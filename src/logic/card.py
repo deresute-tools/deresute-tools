@@ -1,8 +1,12 @@
+import pyximport
+
 from db import db
 from logic.leader import Leader
 from logic.search import card_query
 from logic.skill import Skill
 from static.color import Color
+
+pyximport.install(language_level=3)
 
 
 class Card:

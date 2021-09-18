@@ -4,6 +4,7 @@ from collections import OrderedDict
 
 import numpy as np
 import pandas as pd
+import pyximport
 
 import customlogger as logger
 from db import db
@@ -15,6 +16,8 @@ from static.appeal_presets import APPEAL_PRESETS
 from static.color import Color
 from static.note_type import NoteType
 from static.song_difficulty import Difficulty
+
+pyximport.install(language_level=3)
 
 
 def classify_note(row):

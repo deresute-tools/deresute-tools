@@ -1,11 +1,14 @@
 from abc import ABC, abstractmethod
 
 import numpy as np
+import pyximport
 
 from db import db
 from exceptions import InvalidUnit
 from logic.card import Card
 from logic.search import card_query
+
+pyximport.install(language_level=3)
 
 
 class BaseUnit(ABC):
@@ -205,8 +208,10 @@ class Unit(BaseUnit):
         self.motif_visual_trimmed = self.motif_visual // 1000
 
         self._motif_values_wide = [_[0] for _ in
-                  db.masterdb.execute_and_fetchall("SELECT type_01_value FROM skill_motif_value_grand")]
-        self._motif_values_grand = [_[0] for _ in db.masterdb.execute_and_fetchall("SELECT type_01_value FROM skill_motif_value")]
+                                   db.masterdb.execute_and_fetchall(
+                                       "SELECT type_01_value FROM skill_motif_value_grand")]
+        self._motif_values_grand = [_[0] for _ in
+                                    db.masterdb.execute_and_fetchall("SELECT type_01_value FROM skill_motif_value")]
 
         if self.motif_vocal_trimmed >= len(self._motif_values_wide):
             self.motif_vocal_trimmed = len(self._motif_values_wide) - 1

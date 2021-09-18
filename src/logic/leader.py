@@ -1,6 +1,9 @@
 import numpy as np
+import pyximport
 
 from db import db
+
+pyximport.install(language_level=3)
 
 
 class Leader:

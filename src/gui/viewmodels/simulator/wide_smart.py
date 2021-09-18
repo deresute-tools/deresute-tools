@@ -18,7 +18,7 @@ from gui.events.utils.wrappers import BaseSimulationResultWithUuid, YoinkResults
 from gui.events.value_accessor_events import GetAutoplayOffsetEvent, GetAutoplayFlagEvent, GetDoublelifeFlagEvent, \
     GetSupportEvent, GetAppealsEvent, GetCustomPotsEvent, GetPerfectPlayFlagEvent, GetMirrorFlagEvent, \
     GetCustomBonusEvent, GetGrooveSongColor, GetSkillBoundaryEvent, GetTheoreticalMaxFlagEvent, GetEncoreAMRFlagEvent, \
-    GetEncoreMagicUnitFlagEvent, GetEncoreMagicMaxAggEvent
+    GetEncoreMagicUnitFlagEvent, GetEncoreMagicMaxAggEvent, GetAllowGreatEvent
 from gui.viewmodels.simulator.calculator import CalculatorModel, CalculatorView, CardsWithUnitUuidAndExtraData
 from gui.viewmodels.simulator.custom_bonus import CustomBonusView, CustomBonusModel
 from gui.viewmodels.simulator.custom_card import CustomCardView, CustomCardModel
@@ -48,13 +48,14 @@ class MainView:
         self._set_up_big_buttons()
         self._setup_custom_settings()
         self.bottom_row_layout.setStretch(0, 1)
-        self.bottom_row_layout.setStretch(1, 5)
-        self.calculator_and_custom_setting_layout.setStretch(0, 1)
+        self.bottom_row_layout.setStretch(1, 4)
         self.custom_appeal_and_support_layout = QtWidgets.QVBoxLayout()
         self._setup_custom_bonus()
         self._setup_custom_card_and_support()
         self._set_up_calculator()
         self.calculator_and_custom_setting_layout.addLayout(self.bottom_row_layout)
+        self.calculator_and_custom_setting_layout.setStretch(0, 1)
+        self.calculator_and_custom_setting_layout.setStretch(1, 0)
         self.main_layout.addLayout(self.calculator_and_custom_setting_layout)
         self.main_layout.addLayout(self.custom_appeal_and_support_layout)
         self.main_layout.setStretch(0, 1)
@@ -92,6 +93,7 @@ class MainView:
 
     def _set_up_calculator(self):
         self.calculator_tabs = QtWidgets.QTabWidget(self.widget)
+        self.calculator_tabs.setMinimumHeight(250)
         view_wide = CalculatorView(self.widget, self)
         view_grand = GrandCalculatorView(self.widget, self)
         model_wide = CalculatorModel(view_wide)
@@ -148,7 +150,7 @@ class MainView:
         self.custom_settings_view = CustomSettingsView(self.widget, self.model)
         self.custom_settings_model = CustomSettingsModel(self.custom_settings_view)
         self.custom_settings_view.set_model(self.custom_settings_model)
-        self.bottom_row_layout.addLayout(self.custom_settings_view.layout)
+        self.bottom_row_layout.addWidget(self.custom_settings_view.tab_widget)
 
     def get_current_model(self):
         return self.models[self.calculator_tabs.currentIndex()]
@@ -181,6 +183,7 @@ class MainView:
         force_encore_amr_cache_to_encore_unit = eventbus.eventbus.post_and_get_first(GetEncoreAMRFlagEvent())
         force_encore_magic_to_encore_unit = eventbus.eventbus.post_and_get_first(GetEncoreMagicUnitFlagEvent())
         allow_encore_magic_to_escape_max_agg = eventbus.eventbus.post_and_get_first(GetEncoreMagicMaxAggEvent())
+        allow_great = eventbus.eventbus.post_and_get_first(GetAllowGreatEvent())
 
         self.model.simulate_internal(
             perfect_play=perfect_play,
@@ -194,6 +197,7 @@ class MainView:
             force_encore_amr_cache_to_encore_unit=force_encore_amr_cache_to_encore_unit,
             force_encore_magic_to_encore_unit=force_encore_magic_to_encore_unit,
             allow_encore_magic_to_escape_max_agg=allow_encore_magic_to_escape_max_agg,
+            allow_great=allow_great,
             row=row
         )
 
@@ -213,11 +217,13 @@ class MainModel(QObject):
 
     def simulate_internal(self, perfect_play, left_inclusive, right_inclusive, theoretical_simulation, score_id,
                           diff_id, times, all_cards,
-                          custom_pots, appeals, support, extra_bonus, special_option, special_value, mirror, autoplay,
+                          custom_pots, appeals, support, extra_bonus, special_option, special_value, mirror,
+                          autoplay,
                           autoplay_offset, doublelife,
                           force_encore_amr_cache_to_encore_unit,
                           force_encore_magic_to_encore_unit,
                           allow_encore_magic_to_escape_max_agg,
+                          allow_great,
                           row=None):
         """
         :type all_cards: List[CardsWithUnitUuidAndExtraData]
@@ -290,7 +296,8 @@ class MainModel(QObject):
                                 left_inclusive, right_inclusive, theoretical_simulation,
                                 force_encore_amr_cache_to_encore_unit,
                                 force_encore_magic_to_encore_unit,
-                                allow_encore_magic_to_escape_max_agg
+                                allow_encore_magic_to_escape_max_agg,
+                                allow_great
                                 ),
                 high_priority=True, asynchronous=True)
 
@@ -317,6 +324,7 @@ class MainModel(QObject):
             result = sim.simulate(appeals=event.appeals, extra_bonus=event.extra_bonus, support=event.support,
                                   special_option=event.special_option, special_value=event.special_value,
                                   time_offset=event.autoplay_offset, mirror=event.mirror,
+                                  perfect_only=not event.allow_great,
                                   doublelife=event.doublelife, auto=True)
         else:
             if event.perfect_play:
@@ -333,6 +341,7 @@ class MainModel(QObject):
                                   support=event.support,
                                   special_option=event.special_option, special_value=event.special_value,
                                   doublelife=event.doublelife, abuse=event.theoretical_simulation,
+                                  perfect_only=not event.allow_great,
                                   output=event.theoretical_simulation)
         self.process_simulation_results_signal.emit(
             BaseSimulationResultWithUuid(event.uuid, event.unit.all_cards(), result, event.abuse_load))

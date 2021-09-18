@@ -1,7 +1,10 @@
 import numpy as np
+import pyximport
 
 from logic.grandunit import GrandUnit
 from logic.live import BaseLive, Live
+
+pyximport.install(language_level=3)
 
 
 class GrandLive(BaseLive):

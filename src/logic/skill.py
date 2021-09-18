@@ -1,10 +1,12 @@
 import numpy as np
+import pyximport
 
 from db import db
 from static.color import Color
 from static.note_type import NoteType
 from static.skill import SKILL_BASE
 
+pyximport.install(language_level=3)
 BOOST_TYPES = {20, 32, 33, 34, 38}
 COLOR_TARGETS = {21, 22, 23, 32, 33, 34}
 ACT_TYPES = {28: NoteType.LONG, 29: NoteType.FLICK, 30: NoteType.SLIDE}

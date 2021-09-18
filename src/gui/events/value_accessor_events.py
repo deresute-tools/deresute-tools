@@ -76,3 +76,8 @@ class GetEncoreMagicUnitFlagEvent:
 class GetEncoreMagicMaxAggEvent:
     def __init__(self):
         pass
+
+
+class GetAllowGreatEvent:
+    def __init__(self):
+        pass

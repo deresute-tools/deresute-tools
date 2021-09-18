@@ -1,5 +1,6 @@
 from PyQt5 import QtWidgets
 from PyQt5.QtGui import QIntValidator
+from PyQt5.QtWidgets import QSizePolicy
 
 import customlogger as logger
 from gui.events.chart_viewer_events import ToggleMirrorEvent
@@ -9,35 +10,46 @@ from gui.events.utils.eventbus import subscribe
 from gui.events.value_accessor_events import GetMirrorFlagEvent, GetPerfectPlayFlagEvent, GetCustomPotsEvent, \
     GetAppealsEvent, GetSupportEvent, GetDoublelifeFlagEvent, GetAutoplayFlagEvent, GetAutoplayOffsetEvent, \
     GetSkillBoundaryEvent, GetTheoreticalMaxFlagEvent, GetEncoreAMRFlagEvent, GetEncoreMagicUnitFlagEvent, \
-    GetEncoreMagicMaxAggEvent
+    GetEncoreMagicMaxAggEvent, GetAllowGreatEvent
 
 
 class CustomSettingsView:
     def __init__(self, main, main_model):
-        self.layout = QtWidgets.QGridLayout()
         self.main = main
         self.main_model = main_model
-        self._define_components()
-        self._setup_positions()
+        self._setup_tabs()
+        self._define_components_1()
+        self._setup_positions_1()
+        self._define_components_2()
+        self._setup_positions_2()
         self._hook_events()
 
-    def _define_components(self):
+    def _setup_tabs(self):
+        self.tab_widget = QtWidgets.QTabWidget()
+        self.tab_widget.setMaximumHeight(100)
+        self.tab_widget.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)
+        self.tab_widget.setTabPosition(QtWidgets.QTabWidget.East)
+        tab1 = QtWidgets.QFrame(self.main)
+        tab2 = QtWidgets.QFrame(self.main)
+        self.tab_widget.addTab(tab1, "Basic")
+        self.tab_widget.addTab(tab2, "Extra")
+        self.tab1_layout = QtWidgets.QGridLayout()
+        self.tab1_layout.setContentsMargins(5, 0, 0, 0)
+        self.tab1_layout.setVerticalSpacing(1)
+        tab1.setLayout(self.tab1_layout)
+        self.tab2_layout = QtWidgets.QGridLayout()
+        self.tab2_layout.setContentsMargins(5, 0, 0, 0)
+        self.tab2_layout.setVerticalSpacing(1)
+        tab2.setLayout(self.tab2_layout)
+
+    def _define_components_1(self):
         self.custom_potential_checkbox = QtWidgets.QCheckBox("Custom Potentials", self.main)
         self.custom_appeal_checkbox = QtWidgets.QCheckBox("Total Appeal", self.main)
         self.custom_appeal_checkbox.setToolTip("This option will ignore support appeal.")
         self.custom_support_checkbox = QtWidgets.QCheckBox("Support Appeal", self.main)
         self.custom_perfect_play_checkbox = QtWidgets.QCheckBox("Perfect Simulation", self.main)
-        self.theoretical_max_checkbox = QtWidgets.QCheckBox("Theoretical Max", self.main)
+        self.theoretical_max_checkbox = QtWidgets.QCheckBox("Theoretical Max Simulation", self.main)
         self.theoretical_max_checkbox.setToolTip("Get the highest score theoretically possible.")
-        self.encore_amr_checkbox = QtWidgets.QCheckBox("Option 1", self.main)
-        self.encore_amr_checkbox.setToolTip("Force encore copied Alt/Mutual/Ref to only use cache from encore's unit.")
-        self.encore_magic_unit_checkbox = QtWidgets.QCheckBox("Option 2", self.main)
-        self.encore_magic_unit_checkbox.setToolTip("Force encore copied Magic to only copy skills from encore's unit.")
-        self.encore_magic_agg_checkbox = QtWidgets.QCheckBox("Option 3", self.main)
-        self.encore_magic_agg_checkbox.setToolTip("Allow encore Magic to escape the max aggregation over boosters.")
-        self.skill_boundary = QtWidgets.QComboBox(self.main)
-        self.skill_boundary.setToolTip("Change the way skill detection works.")
-        self.mirror_checkbox = QtWidgets.QCheckBox("Mirror", self.main)
         self.doublelife_checkbox = QtWidgets.QCheckBox("2x Life Start", self.main)
         self.autoplay_mode_checkbox = QtWidgets.QCheckBox("Autoplay Mode", self.main)
         self.autoplay_offset_text = QtWidgets.QLineEdit(self.main)
@@ -55,38 +67,55 @@ class CustomSettingsView:
         self.custom_life = QtWidgets.QComboBox(self.main)
         self.custom_skill = QtWidgets.QComboBox(self.main)
         self._setup_valid_potential_values()
+
+    def _define_components_2(self):
+        self.encore_amr_checkbox = QtWidgets.QCheckBox("Disable Alt/Mutual/Ref smuggling", self.main)
+        self.encore_amr_checkbox.setToolTip("Force encore copied Alt/Mutual/Ref to only use cache from encore's unit.")
+        self.encore_magic_unit_checkbox = QtWidgets.QCheckBox("Disable Magic smuggling", self.main)
+        self.encore_magic_unit_checkbox.setToolTip("Force encore copied Magic to only copy skills from encore's unit.")
+        self.encore_magic_agg_checkbox = QtWidgets.QCheckBox("Encore Magic can reso multiple boosts", self.main)
+        self.encore_magic_agg_checkbox.setToolTip("Allow encore Magic to sum multiple skill boosts.")
+        self.mirror_checkbox = QtWidgets.QCheckBox("Mirror", self.main)
+        self.skill_boundary = QtWidgets.QComboBox(self.main)
+        self.skill_boundary.setToolTip("Change the way skill detection works.")
+        self.allow_great_checkbox = QtWidgets.QCheckBox("Allow GREATs in simulations", self.main)
+        self.allow_great_checkbox.setToolTip("Forced for theoretical max, ignored for perfect simulations.")
         self._setup_skill_boundaries()
 
-    def _setup_positions(self):
-        self.layout.addWidget(self.custom_perfect_play_checkbox, 1, 0, 1, 2)
-        self.layout.addWidget(self.mirror_checkbox, 1, 2, 1, 1)
-        self.layout.addWidget(self.custom_potential_checkbox, 1, 3, 1, 2)
-        self.layout.addWidget(self.theoretical_max_checkbox, 2, 0, 1, 2)
-        self.layout.addWidget(self.skill_boundary, 2, 2, 1, 1)
-        self.layout.addWidget(self.doublelife_checkbox, 2, 3, 1, 2)
-        self.layout.addWidget(self.custom_support_text, 0, 5, 1, 1)
-        self.layout.addWidget(self.custom_support_checkbox, 0, 6, 1, 1)
-        self.layout.addWidget(self.custom_appeal_text, 1, 5, 1, 1)
-        self.layout.addWidget(self.custom_appeal_checkbox, 1, 6, 1, 1)
-        self.layout.addWidget(self.autoplay_offset_text, 2, 5, 1, 1)
-        self.layout.addWidget(self.autoplay_mode_checkbox, 2, 6, 1, 1)
-        self.layout.addWidget(self.custom_vocal, 0, 0, 1, 1)
-        self.layout.addWidget(self.custom_dance, 0, 1, 1, 1)
-        self.layout.addWidget(self.custom_visual, 0, 2, 1, 1)
-        self.layout.addWidget(self.custom_life, 0, 3, 1, 1)
-        self.layout.addWidget(self.custom_skill, 0, 4, 1, 1)
+    def _setup_positions_1(self):
+        self.tab1_layout.addWidget(self.custom_perfect_play_checkbox, 1, 0, 1, 3)
+        self.tab1_layout.addWidget(self.theoretical_max_checkbox, 2, 0, 1, 3)
+        self.tab1_layout.addWidget(self.custom_potential_checkbox, 1, 3, 1, 2)
+        self.tab1_layout.addWidget(self.doublelife_checkbox, 2, 3, 1, 2)
+        self.tab1_layout.addWidget(self.custom_support_text, 0, 5, 1, 1)
+        self.tab1_layout.addWidget(self.custom_support_checkbox, 0, 6, 1, 1)
+        self.tab1_layout.addWidget(self.custom_appeal_text, 1, 5, 1, 1)
+        self.tab1_layout.addWidget(self.custom_appeal_checkbox, 1, 6, 1, 1)
+        self.tab1_layout.addWidget(self.autoplay_offset_text, 2, 5, 1, 1)
+        self.tab1_layout.addWidget(self.autoplay_mode_checkbox, 2, 6, 1, 1)
+        self.tab1_layout.addWidget(self.custom_vocal, 0, 0, 1, 1)
+        self.tab1_layout.addWidget(self.custom_dance, 0, 1, 1, 1)
+        self.tab1_layout.addWidget(self.custom_visual, 0, 2, 1, 1)
+        self.tab1_layout.addWidget(self.custom_life, 0, 3, 1, 1)
+        self.tab1_layout.addWidget(self.custom_skill, 0, 4, 1, 1)
 
-        self.layout.addWidget(self.encore_amr_checkbox, 0, 7, 1, 1)
-        self.layout.addWidget(self.encore_magic_unit_checkbox, 1, 7, 1, 1)
-        self.layout.addWidget(self.encore_magic_agg_checkbox, 2, 7, 1, 1)
+        self.tab1_layout.setColumnStretch(0, 1)
+        self.tab1_layout.setColumnStretch(1, 1)
+        self.tab1_layout.setColumnStretch(2, 1)
+        self.tab1_layout.setColumnStretch(3, 1)
+        self.tab1_layout.setColumnStretch(4, 1)
+        self.tab1_layout.setColumnStretch(5, 3)
+        self.tab1_layout.setColumnStretch(6, 1)
 
-        self.layout.setColumnStretch(0, 1)
-        self.layout.setColumnStretch(1, 1)
-        self.layout.setColumnStretch(2, 1)
-        self.layout.setColumnStretch(3, 1)
-        self.layout.setColumnStretch(4, 1)
-        self.layout.setColumnStretch(5, 2)
-        self.layout.setColumnStretch(6, 1)
+    def _setup_positions_2(self):
+        self.tab2_layout.addWidget(self.encore_amr_checkbox, 0, 0, 1, 1)
+        self.tab2_layout.addWidget(self.encore_magic_unit_checkbox, 1, 0, 1, 1)
+        self.tab2_layout.addWidget(self.encore_magic_agg_checkbox, 2, 0, 1, 1)
+
+        self.tab2_layout.addWidget(self.mirror_checkbox, 0, 1, 1, 1)
+        self.tab2_layout.addWidget(self.skill_boundary, 1, 1, 1, 1)
+        self.tab2_layout.addWidget(self.allow_great_checkbox, 2, 1, 1, 1)
+        self.tab2_layout.setColumnStretch(0, 1)
 
     def _setup_valid_potential_values(self):
         for key, combobox in zip(
@@ -214,6 +243,10 @@ class CustomSettingsModel:
         if self.view.skill_boundary.currentIndex() == 3:
             return True, True
         return False, False
+
+    @subscribe(GetAllowGreatEvent)
+    def get_allow_great_flag(self, event=None):
+        return self.view.allow_great_checkbox.isChecked()
 
     def hook_events(self):
         self.view.mirror_checkbox.toggled.connect(

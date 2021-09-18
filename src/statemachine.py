@@ -267,8 +267,6 @@ class StateMachine:
 
     def reset_machine(self, perfect_play=True, perfect_only=True, abuse=False, time_offset=0, special_offset=0,
                       auto=False):
-        if not perfect_only:
-            assert not perfect_play
 
         self.fail_simulate = not perfect_play
         self.perfect_only = perfect_only

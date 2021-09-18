@@ -2,6 +2,7 @@ import csv
 import time
 
 import numpy as np
+import pyximport
 
 import customlogger as logger
 from settings import ABUSE_CHARTS_PATH
@@ -10,6 +11,7 @@ from static.live_values import WEIGHT_RANGE, DIFF_MULTIPLIERS
 from static.note_type import NoteType
 from utils.storage import get_writer
 
+pyximport.install(language_level=3)
 SPECIAL_OFFSET = 0.075
 
 
@@ -273,10 +275,7 @@ class Simulator:
             impl.reset_machine(time_offset=time_offset, special_offset=self.special_offset, auto=True)
             return impl.simulate_impl_auto()
 
-        if not perfect_only:
-            assert fail_simulate
-
-        impl.reset_machine(perfect_play=True)
+        impl.reset_machine(perfect_play=True, perfect_only=True)
         perfect_score, perfect_score_array = impl.simulate_impl()
         logger.debug("Perfect scores: " + " ".join(map(str, impl.get_note_scores())))
         full_roll_chance = impl.get_full_roll_chance()
@@ -290,7 +289,7 @@ class Simulator:
         abuse_result_score = 0
         abuse_data: AbuseData = None
         if abuse:
-            impl.reset_machine(perfect_play=True, abuse=True)
+            impl.reset_machine(perfect_play=True, abuse=True, perfect_only=False)
             abuse_result_score, abuse_data = impl.simulate_impl(skip_activation_initialization=True)
             logger.debug("Total abuse: {}".format(int(abuse_result_score)))
             logger.debug("Abuse deltas: " + " ".join(map(str, abuse_data.score_delta)))

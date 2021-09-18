@@ -1,4 +1,8 @@
+import pyximport
+
 from logic.unit import Unit, BaseUnit
+
+pyximport.install(language_level=3)
 
 
 class GrandUnit(BaseUnit):
