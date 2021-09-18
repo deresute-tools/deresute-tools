@@ -163,9 +163,6 @@ class MainView:
 
     def simulate(self, row=None):
         score_id, diff_id, live_detail_id, _, _ = eventbus.eventbus.post_and_get_first(GetSongDetailsEvent())
-        if diff_id is None:
-            logger.info("No chart loaded")
-            return
         times = self.get_times()
         all_cards: List[CardsWithUnitUuidAndExtraData] = eventbus.eventbus.post_and_get_first(
             GetAllCardsEvent(self.get_current_model(), row), required_non_none=True)
@@ -257,8 +254,11 @@ class MainModel(QObject):
                     continue
                 live.set_music(score_id=extended_cards_data.score_id, difficulty=extended_cards_data.diff_id)
                 groove_song_color = extended_cards_data.groove_song_color
-            else:
+            elif diff_id is not None:
                 live.set_music(score_id=score_id, difficulty=diff_id)
+            else:
+                eventbus.eventbus.post_and_get_first(TurnOffRunningLabelFromUuidEvent(extended_cards_data.uuid))
+                continue
 
             # Negate custom_pots + load preset appeal bonus if defined, else ignore
             if extended_cards_data.lock_unit:
