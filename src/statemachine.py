@@ -655,8 +655,8 @@ class StateMachine:
                 self.delayed.pop(idx)
                 self.group_ids.pop(idx)
 
-    def _handle_long_break(self, neg_finish_pos):
-        if neg_finish_pos in self.being_held:
+    def _handle_long_break(self, neg_finish_pos, is_long_start=False):
+        if neg_finish_pos in self.being_held or is_long_start:
             for idx, check_note_idx in enumerate(self.note_idx_stack):
                 if self.finish_pos[check_note_idx] == -neg_finish_pos:
                     break
@@ -744,7 +744,8 @@ class StateMachine:
             combo_bonus = 0
             self.judgements[note_idx] = Judgement.MISS
             if note_type is NoteType.LONG:
-                self._handle_long_break(-finish_pos)
+                is_long_start = note_type is NoteType.LONG and -finish_pos not in self.being_held
+                self._handle_long_break(-finish_pos, is_long_start)
             if note_type is NoteType.SLIDE:
                 self._handle_slide_break(group_id)
             self.combo = 0
