@@ -1,16 +1,20 @@
+import pickle
+
 from PyQt5 import QtWidgets
 from PyQt5.QtGui import QIntValidator
 from PyQt5.QtWidgets import QSizePolicy
 
 import customlogger as logger
 from gui.events.chart_viewer_events import ToggleMirrorEvent
-from gui.events.state_change_events import AutoFlagChangeEvent, PostYoinkEvent
+from gui.events.state_change_events import AutoFlagChangeEvent, PostYoinkEvent, BackupFlagsEvent
 from gui.events.utils import eventbus
 from gui.events.utils.eventbus import subscribe
 from gui.events.value_accessor_events import GetMirrorFlagEvent, GetPerfectPlayFlagEvent, GetCustomPotsEvent, \
     GetAppealsEvent, GetSupportEvent, GetDoublelifeFlagEvent, GetAutoplayFlagEvent, GetAutoplayOffsetEvent, \
     GetSkillBoundaryEvent, GetTheoreticalMaxFlagEvent, GetEncoreAMRFlagEvent, GetEncoreMagicUnitFlagEvent, \
     GetEncoreMagicMaxAggEvent, GetAllowGreatEvent
+from settings import BACKUP_PATH
+from utils.storage import get_writer, get_reader
 
 
 class CustomSettingsView:
@@ -137,10 +141,27 @@ class CustomSettingsView:
     def set_model(self, model):
         self.model = model
         self.model.hook_events()
+        self._restore_from_backup()
 
     def _hook_events(self):
         self.autoplay_mode_checkbox.stateChanged.connect(
             lambda: eventbus.eventbus.post(AutoFlagChangeEvent(self.autoplay_mode_checkbox.isChecked())))
+
+    def _restore_from_backup(self):
+        try:
+            if not (BACKUP_PATH / "flags.bk").exists():
+                return
+            logger.info("Restoring last session")
+            backup = pickle.load(get_reader(BACKUP_PATH / "flags.bk"))
+        except:
+            logger.error("Failed to load units from last session")
+            return
+        self.encore_amr_checkbox.setChecked(backup["encore_amr_checkbox"])
+        self.encore_magic_unit_checkbox.setChecked(backup["encore_magic_unit_checkbox"])
+        self.encore_magic_agg_checkbox.setChecked(backup["encore_magic_agg_checkbox"])
+        self.mirror_checkbox.setChecked(backup["mirror_checkbox"])
+        self.allow_great_checkbox.setChecked(backup["allow_great_checkbox"])
+        self.skill_boundary.setCurrentIndex(backup["skill_boundary"])
 
 
 class CustomSettingsModel:
@@ -251,3 +272,20 @@ class CustomSettingsModel:
     def hook_events(self):
         self.view.mirror_checkbox.toggled.connect(
             lambda: eventbus.eventbus.post(ToggleMirrorEvent(self.view.mirror_checkbox.isChecked())))
+
+    @subscribe(BackupFlagsEvent)
+    def backup_flags(self, event=None):
+        logger.info("{} backing up configs...".format(type(self).__name__))
+        try:
+            backup = dict()
+
+            backup["encore_amr_checkbox"] = self.view.encore_amr_checkbox.isChecked()
+            backup["encore_magic_unit_checkbox"] = self.view.encore_magic_unit_checkbox.isChecked()
+            backup["encore_magic_agg_checkbox"] = self.view.encore_magic_agg_checkbox.isChecked()
+            backup["mirror_checkbox"] = self.view.mirror_checkbox.isChecked()
+            backup["allow_great_checkbox"] = self.view.allow_great_checkbox.isChecked()
+            backup["skill_boundary"] = self.view.skill_boundary.currentIndex()
+
+            pickle.dump(backup, get_writer(BACKUP_PATH / "flags.bk"))
+        except:
+            logger.error("Failed to back up configs")

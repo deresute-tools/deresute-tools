@@ -27,3 +27,8 @@ class InjectTextEvent:
 class ShutdownTriggeredEvent:
     def __init__(self):
         pass
+
+
+class BackupFlagsEvent:
+    def __init__(self):
+        pass

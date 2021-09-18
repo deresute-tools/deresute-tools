@@ -8,7 +8,7 @@ from chihiro import ROOT_DIR
 from gui.events.calculator_view_events import ToggleUnitLockingOptionsVisibilityEvent
 from gui.events.chart_viewer_events import PopupChartViewerEvent
 from gui.events.service.tips_refresher_service import kill_tip_refresher_service
-from gui.events.state_change_events import ShutdownTriggeredEvent
+from gui.events.state_change_events import ShutdownTriggeredEvent, BackupFlagsEvent
 from gui.events.utils import eventbus
 from gui.viewmodels.card import CardView, CardModel, IconLoaderView, IconLoaderModel
 from gui.viewmodels.potential import PotentialView, PotentialModel
@@ -39,6 +39,7 @@ class CustomMainWindow(QMainWindow):
         if QApplication.keyboardModifiers() == Qt.ControlModifier and key == Qt.Key_S:
             logger.info("User data backed up")
             eventbus.eventbus.post(ShutdownTriggeredEvent())
+            eventbus.eventbus.post(BackupFlagsEvent())
             unit_storage.clean_all_units(grand=False)
             for r_idx in range(self.ui.unit_view.widget.count()):
                 widget = self.ui.unit_view.widget.itemWidget(self.ui.unit_view.widget.item(r_idx))
@@ -47,6 +48,7 @@ class CustomMainWindow(QMainWindow):
 
     def closeEvent(self, event):
         eventbus.eventbus.post(ShutdownTriggeredEvent())
+        eventbus.eventbus.post(BackupFlagsEvent())
         event.accept()
 
 # noinspection PyAttributeOutsideInit
