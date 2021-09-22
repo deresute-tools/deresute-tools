@@ -393,6 +393,9 @@ class BaseChartPicGenerator(ABC):
                     continue
                 sync_pairs[note.sec].append(note)
             for values in sync_pairs.values():
+                # Skip in case of sync == 1 but only 1 value because this game has dumb codes
+                if len(values) != 2:
+                    continue
                 l = min(values[0].lane, values[1].lane)
                 r = max(values[0].lane, values[1].lane)
                 sec = values[0].sec
@@ -529,11 +532,11 @@ if __name__ == '__main__':
     main_window.show()
     unit = Unit.from_list([100936, 100708, 100914, 100584, 100456, 100964])
     live = Live()
-    live.set_music(score_id=637, difficulty=5)
+    live.set_music(score_id=19, difficulty=4)
     live.set_unit(unit)
     sim = Simulator(live)
-    res: SimulationResult = sim.simulate(perfect_play=True, abuse=True)
+    # res: SimulationResult = sim.simulate(perfect_play=True, abuse=True)
     cpg = BaseChartPicGenerator.get_generator(637, Difficulty(5), main_window, mirrored=True)
     cpg.hook_cards(unit.all_cards())
-    cpg.hook_abuse(unit.all_cards(), res.abuse_data)
+    # cpg.hook_abuse(unit.all_cards(), res.abuse_data)
     app.exec_()
