@@ -25,7 +25,9 @@ class SupportView:
         self.widget.setRowCount(10)
         self.widget.setColumnCount(5)
         self.widget.setVerticalScrollMode(1)  # Smooth scroll
-        self.widget.horizontalHeader().setSectionResizeMode(1)  # Not allow change icon column size
+        self.widget.setColumnWidth(0, 72)
+        self.widget.horizontalHeader().setSectionResizeMode(1)
+        self.widget.horizontalHeader().setSectionResizeMode(0, 2)  # Not allow change icon column size
         self.widget.setHorizontalHeaderLabels(["", "Vocal", "Dance", "Visual", "Total"])
         self.widget.verticalHeader().setDefaultSectionSize(72)
 
