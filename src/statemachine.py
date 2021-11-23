@@ -521,8 +521,6 @@ class StateMachine:
                 else:
                     self.handle_note()
 
-        # note_score = round(self.base_score * weight * (1 + combo_bonus / 100) * (1 + score_bonus / 100))
-
         self.np_score_bonuses = 1 + np.array(self.score_bonuses) / 100
         self.np_combo_bonuses = 1 + np.array(self.combo_bonuses) / 100
 
@@ -586,8 +584,6 @@ class StateMachine:
                     self.break_hold(temp)
                 else:
                     self.handle_note_auto()
-
-        # note_score = round(self.base_score * weight * (1 + combo_bonus / 100) * (1 + score_bonus / 100))
 
         self.np_score_bonuses = 1 + np.array(self.score_bonuses) / 100
         self.np_combo_bonuses = 1 + np.array(self.combo_bonuses) / 100
@@ -1010,8 +1006,11 @@ class StateMachine:
 
     def _helper_evaluate_alt_mutual_ref(self, special_note_types):
         for idx, skills in self.skill_queue.items():
-            unit_idx = (idx - 1) // 5
             for skill in skills:
+                if self.force_encore_amr_cache_to_encore_unit:
+                    unit_idx = (idx - 1) // 5
+                else:
+                    unit_idx = skill.original_unit_idx
                 if skill.is_alternate:
                     skill.v1 = skill.values[0] - 100
                     skill.v0 = self.unit_caches[unit_idx].alt_tap
@@ -1289,7 +1288,7 @@ class StateMachine:
         return self.cache_score_bonus, self.cache_combo_bonus
 
     def _expand_magic(self):
-        skill = self.reference_skills[self.skill_indices[0]]
+        skill = copy.deepcopy(self.reference_skills[self.skill_indices[0]])
         if skill.is_magic or \
                 (skill.is_encore and self.skill_queue[self.skill_indices[0]].is_magic):
             if skill.is_magic or self.force_encore_magic_to_encore_unit:
@@ -1316,7 +1315,7 @@ class StateMachine:
                         continue
                     # Or the skill for encore to copy is magic as well, skip
                     # Do not allow magic-encore-magic
-                    copied_skill = self.reference_skills[copied_skill]
+                    copied_skill = copy.deepcopy(self.reference_skills[copied_skill])
                     if copied_skill.is_magic:
                         continue
                     # Else let magic copy the encored skill instead
@@ -1418,7 +1417,7 @@ class StateMachine:
 
         # If skill is still not queued after self._expand_magic and self._expand_encore
         if self.skill_indices[0] not in self.skill_queue:
-            self.skill_queue[self.skill_indices[0]] = self.reference_skills[self.skill_indices[0]]
+            self.skill_queue[self.skill_indices[0]] = copy.deepcopy(self.reference_skills[self.skill_indices[0]])
 
         # Pop deactivation out if skill cannot activate
         if not self._can_activate():
