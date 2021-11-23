@@ -1381,9 +1381,9 @@ class StateMachine:
         for skill in skills_to_check:
             if skill.is_alternate or skill.is_mutual or skill.is_refrain:
                 if self.force_encore_amr_cache_to_encore_unit:
-                    unit_idx = skill.original_unit_idx
-                else:
                     unit_idx = (self.skill_indices[0] - 1) // 5
+                else:
+                    unit_idx = skill.original_unit_idx
                 self.unit_caches[unit_idx].update_AMR(skill)
 
     def _helper_get_current_skills(self):
@@ -1464,13 +1464,18 @@ class StateMachine:
         """
         Checks if a (list of) queued skill(s) can activate or not.
         """
-        unit_idx = (self.skill_indices[0] - 1) // 5
         skills_to_check = self.skill_queue[self.skill_indices[0]]
         if isinstance(skills_to_check, Skill):
             skills_to_check = [skills_to_check]
         has_failed = False
         to_be_removed = list()
         for skill in skills_to_check:
+
+            if self.force_encore_amr_cache_to_encore_unit:
+                unit_idx = (self.skill_indices[0] - 1) // 5
+            else:
+                unit_idx = skill.original_unit_idx
+
             if has_failed and skill.is_overload:
                 to_be_removed.append(skill)
                 continue
