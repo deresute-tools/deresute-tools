@@ -113,7 +113,15 @@ SKILL_BASE = {1: "Cute Voice",
               116: "World Level",
               117: "Cinderella Wish",
               118: "Cinderella Bless",
-              120: "Cute Duet Step&Make",
+              119: "Cute Duet Voice&Step",
+              120: "Cute Duet Step&Makeup",
+              121: "Cute Duet Makeup&Voice",  # Speculative
+              122: "Cool Duet Voice&Step",  # Speculative
+              123: "Cool Duet Step&Makeup",
+              124: "Cool Duet Makeup&Voice",
+              125: "Passion Duet Voice&Step",
+              126: "Passion Duet Step&Makeup",  # Speculative
+              127: "Passion Duet Makeup&Voice"  # Speculative
               }
 
 logger.debug("Creating chihiro.leader_keywords...")
