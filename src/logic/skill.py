@@ -165,7 +165,7 @@ class Skill:
             values[1] = skill_values[0]
             values[3] = 2
         elif skill_type == 24:  # All-round
-            values[0] = skill_values[0]
+            values[1] = skill_values[0]
             values[2] = skill_values[1]
         elif skill_type == 17:  # Healer
             values[2] = skill_values[0]
