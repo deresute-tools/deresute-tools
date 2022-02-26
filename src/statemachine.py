@@ -377,13 +377,17 @@ class StateMachine:
         # Abuse should be the last stage of a simulation pipeline
         assert len(self.checkpoints) == len(self.notes_data)
 
-        def get_range(note_type_internal, checkpoint_internal):
+        def get_range(note_type_internal, special_note_types_internal, checkpoint_internal):
             if note_type_internal == NoteType.TAP:
                 l_g = -GREAT_TAP_RANGE[self.live.difficulty]
                 l_p = -PERFECT_TAP_RANGE[self.live.difficulty]
                 r_g = GREAT_TAP_RANGE[self.live.difficulty]
                 r_p = PERFECT_TAP_RANGE[self.live.difficulty]
                 return (l_g, r_g), (l_g, l_p, r_p, r_g)
+            elif NoteType.FLICK in special_note_types_internal and NoteType.SLIDE in special_note_types_internal:
+                l_p = -150000
+                r_p = 150000
+                return (l_p, r_p), (l_p, r_p)
             elif note_type_internal == NoteType.FLICK or note_type_internal == NoteType.LONG:
                 l_g = -180000
                 l_p = -150000
@@ -407,7 +411,7 @@ class StateMachine:
                 self.checkpoints[:],
                 self.weights[:]
         ):
-            boundaries, deltas = get_range(note_type, checkpoint)
+            boundaries, deltas = get_range(note_type, special_note_types, checkpoint)
             for delta in deltas:
                 dummy_range = [delta]
                 if self.has_cc and delta != 0:
@@ -721,8 +725,7 @@ class StateMachine:
                 self.being_held.pop(-finish_pos)
 
             if note_type is NoteType.SLIDE:
-                grand_support_retain_bug = self.grand and finish_pos + status > 10
-                self.being_held[group_id] = grand_support_retain_bug
+                self.being_held[group_id] = False
 
         # If not covered but checkpoint bug and not yet delayed, queue to try again later
         elif checkpoint_bug and not delayed:
@@ -816,7 +819,7 @@ class StateMachine:
         self.combos.append(self.combo)
         score_bonus, combo_bonus = self.evaluate_bonuses(self.special_note_types[note_idx])
         if self.fail_simulate and not self.perfect_only:
-            self.judgements.append(self.evaluate_judgement(note_delta, note_type))
+            self.judgements.append(self.evaluate_judgement(note_delta, note_type, self.special_note_types[note_idx]))
         else:
             self.judgements.append(Judgement.PERFECT)
         self.score_bonuses.append(score_bonus)
@@ -843,12 +846,14 @@ class StateMachine:
         score_bonus, combo_bonus = self.evaluate_bonuses(special_note_types, skip_healing=is_abuse,
                                                          fixed_life=cached_life)
         self.judgements.append(
-            self.evaluate_judgement(note_delta, note_type, abuse_check=True, is_checkpoint=is_checkpoint))
+            self.evaluate_judgement(note_delta, note_type, special_note_types,
+                                    abuse_check=True, is_checkpoint=is_checkpoint))
         self.score_bonuses.append(score_bonus)
         self.combo_bonuses.append(combo_bonus)
         self.has_skill_change = False
 
-    def evaluate_judgement(self, note_delta, note_type, abuse_check=False, is_checkpoint=False) -> Judgement:
+    def evaluate_judgement(self, note_delta, note_type, special_note_types,
+                           abuse_check=False, is_checkpoint=False) -> Judgement:
         def check_cc():
             for _, skills in self.skill_queue.items():
                 if isinstance(skills, Skill) and skills.is_cc:
@@ -865,6 +870,11 @@ class StateMachine:
                 r_g = GREAT_TAP_RANGE[self.live.difficulty]
                 l_p = PERFECT_TAP_RANGE[self.live.difficulty]
                 r_p = PERFECT_TAP_RANGE[self.live.difficulty]
+            elif NoteType.FLICK in special_note_types and NoteType.SLIDE in special_note_types:
+                l_g = 0
+                r_g = 0
+                l_p = 150000
+                r_p = 150000
             elif note_type == NoteType.FLICK or note_type == NoteType.LONG:
                 l_g = 180000
                 r_g = 180000
