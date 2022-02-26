@@ -725,8 +725,7 @@ class StateMachine:
                 self.being_held.pop(-finish_pos)
 
             if note_type is NoteType.SLIDE:
-                grand_support_retain_bug = self.grand and finish_pos + status > 10
-                self.being_held[group_id] = grand_support_retain_bug
+                self.being_held[group_id] = False
 
         # If not covered but checkpoint bug and not yet delayed, queue to try again later
         elif checkpoint_bug and not delayed:
