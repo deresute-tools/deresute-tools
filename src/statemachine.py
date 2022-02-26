@@ -385,7 +385,7 @@ class StateMachine:
                 r_p = PERFECT_TAP_RANGE[self.live.difficulty]
                 return (l_g, r_g), (l_g, l_p, r_p, r_g)
             elif NoteType.FLICK in special_note_types_internal and NoteType.SLIDE in special_note_types_internal:
-                l_p = 150000
+                l_p = -150000
                 r_p = 150000
                 return (l_p, r_p), (l_p, r_p)
             elif note_type_internal == NoteType.FLICK or note_type_internal == NoteType.LONG:
