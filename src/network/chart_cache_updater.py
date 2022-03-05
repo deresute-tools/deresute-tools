@@ -18,6 +18,7 @@ BLACKLIST = "1901,1902,1903,1904,90001"
 
 def _check_remote_cache(url):
     initialize_score_db()
+    return
     response = requests.get(url)
     if response.status_code == 404:
         logger.debug("No remote live detail cache found at {}".format(url))
@@ -148,6 +149,7 @@ def _get_carnival_set_list():
         ret_dict[live_id] = "carnival" + RANK_STRING[rank] + str(booth_id)
     return ret_dict
 
+
 def _get_special_keys(song_id):
     if 3200 > song_id > 3000:
         return "solo"
@@ -218,7 +220,15 @@ def initialize_score_db():
             Tap INTEGER NOT NULL,
             Long INTEGER NOT NULL,
             Flick INTEGER NOT NULL,
-            Slide INTEGER NOT NULL
+            Slide INTEGER NOT NULL,
+            Timer_7h REAL NOT NULL,
+            Timer_9h REAL NOT NULL,
+            Timer_11h REAL NOT NULL,
+            Timer_12m REAL NOT NULL,
+            Timer_6m REAL NOT NULL,
+            Timer_9m REAL NOT NULL,
+            Timer_11m REAL NOT NULL,
+            Timer_13h REAL NOT NULL
         )
     """)
     db.cachedb.commit()
@@ -236,8 +246,9 @@ def has_cached_live_details():
 def _insert_into_live_detail_cache(hashable):
     db.cachedb.execute("""
             INSERT OR IGNORE INTO live_detail_cache( live_detail_id, live_id, sort, color, performers, special_keys,
-             jp_name, name, difficulty, level, duration, Tap, Long, Flick, Slide)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+             jp_name, name, difficulty, level, duration, Tap, Long, Flick, Slide,
+             Timer_7h, Timer_9h, Timer_11h, Timer_12m, Timer_6m, Timer_9m, Timer_11m, Timer_13h)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, [
         hashable["live_detail_id"],
         hashable["live_id"],
@@ -254,6 +265,14 @@ def _insert_into_live_detail_cache(hashable):
         hashable["Long"],
         hashable["Flick"],
         hashable["Slide"],
+        hashable["Timer_7h"],
+        hashable["Timer_9h"],
+        hashable["Timer_11h"],
+        hashable["Timer_12m"],
+        hashable["Timer_6m"],
+        hashable["Timer_9m"],
+        hashable["Timer_11m"],
+        hashable["Timer_13h"]
     ])
 
 
@@ -269,6 +288,36 @@ def _overwrite_song_name(expanded_song_list):
             live_detail_id,
         ])
     db.cachedb.commit()
+
+
+timers = [(7, 4.5, 'h'), (9, 6, 'h'), (11, 7.5, 'h'), (12, 7.5, 'm'),
+          (6, 4.5, 'm'), (9, 7.5, 'm'), (11, 9, 'm'), (13, 9, 'h')]
+
+
+def get_note_score(timer, note_count, last_note_time):
+    def _get_note_score(note):
+        if (note.sec >= timer[0] and note.sec % timer[0] < timer[1]
+                and note.sec // timer[0] * timer[0] <= last_note_time - 3):
+            combo = note.name + 1
+            if combo >= note_count * 9 // 10:
+                return 2.
+            elif combo >= note_count * 8 // 10:
+                return 1.7
+            elif combo >= note_count * 7 // 10:
+                return 1.5
+            elif combo >= note_count // 2:
+                return 1.4
+            elif combo >= note_count // 4:
+                return 1.3
+            elif combo >= note_count // 10:
+                return 1.2
+            elif combo >= note_count // 20:
+                return 1.1
+            else:
+                return 1.
+        else:
+            return 0.
+    return _get_note_score
 
 
 def update_cache_scores():
@@ -304,6 +353,10 @@ def update_cache_scores():
             else:
                 live_data[key_str] = 0
         live_data['difficulty'] = live_data['diff']
+        for timer in timers:
+            live_data['Timer_{}{}'.format(timer[0], timer[2])] = notes_data.apply(
+                get_note_score(timer, len(notes_data), notes_data.iloc[-1]['sec']), axis=1
+            ).sum() / (1.41 * len(notes_data))
         _insert_into_live_detail_cache(live_data)
     _overwrite_song_name(expanded_song_list)
     db.cachedb.commit()

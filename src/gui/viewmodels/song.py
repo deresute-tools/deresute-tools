@@ -1,3 +1,4 @@
+from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt, QMimeData
 from PyQt5.QtGui import QDrag
 from PyQt5.QtWidgets import QTableWidget, QAbstractItemView, QTableWidgetItem, QApplication
@@ -22,7 +23,10 @@ class SongViewWidget(QTableWidget):
 
     def mousePressEvent(self, event):
         if event.button() == Qt.RightButton:
-            self.song_view.toggle_percentage()
+            if self.song_view.shifting:
+                self.song_view.toggle_timers()
+            else:
+                self.song_view.toggle_percentage()
             return
         if event.button() == Qt.LeftButton:
             self.drag_start_position = event.pos()
@@ -44,6 +48,13 @@ class SongViewWidget(QTableWidget):
         drag.setMimeData(mimedata)
         drag.exec_(Qt.CopyAction | Qt.MoveAction)
 
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Shift:
+            self.song_view.shifting = True
+
+    def keyReleaseEvent(self, event):
+        if event.key() == Qt.Key_Shift:
+            self.song_view.shifting = False
 
 class SongView:
     def __init__(self, main):
@@ -56,9 +67,12 @@ class SongView:
         self.widget.setDragEnabled(True)
         self.widget.setSelectionMode(QAbstractItemView.SingleSelection)
         self.widget.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.widget.setToolTip("Right click to show percentage.")
+        self.widget.setToolTip("Right click to toggle note types between number and percentage.\n"
+                               "Shift-right click to toggle timer percentages")
         self.model = False
         self.percentage = False
+        self.timers = False
+        self.shifting = False
         self.chart_viewer = None
 
     def set_model(self, model):
@@ -79,7 +93,8 @@ class SongView:
 
     def load_data(self, data):
         DATA_COLS = ["LDID", "LiveID", "DifficultyInt", "ID", "Name", "Color", "Difficulty", "Level", "Duration (s)",
-                     "Note Count", "Tap", "Long", "Flick", "Slide", "Tap %", "Long %", "Flick %", "Slide %"]
+                     "Note Count", "7h %", "9h %", "11h %", "12m %", "6m %", "9m %", "11m %", "13h %",
+                     "Tap", "Long", "Flick", "Slide", "Tap %", "Long %", "Flick %", "Slide %"]
         self.widget.setColumnCount(len(DATA_COLS))
         self.widget.setRowCount(len(data))
         self.widget.setHorizontalHeaderLabels(DATA_COLS)
@@ -99,28 +114,39 @@ class SongView:
         self.widget.setSortingEnabled(True)
         self.widget.sortItems(3, Qt.AscendingOrder)
         self.toggle_percentage(change=False)
+        self.toggle_timers(change=False)
         self.toggle_auto_resize(True)
+
+    def toggle_timers(self, change=True):
+        if change:
+            self.timers = not self.timers
+        if self.timers:
+            for r_idx in range(10, 18):
+                self.widget.setColumnHidden(r_idx, False)
+        else:
+            for r_idx in range(10, 18):
+                self.widget.setColumnHidden(r_idx, True)
 
     def toggle_percentage(self, change=True):
         if change:
             self.percentage = not self.percentage
         if not self.percentage:
-            for r_idx in range(14, 18):
+            for r_idx in range(22, 26):
                 self.widget.setColumnHidden(r_idx, True)
-            for r_idx in range(10, 14):
+            for r_idx in range(18, 22):
                 self.widget.setColumnHidden(r_idx, False)
         else:
-            for r_idx in range(14, 18):
+            for r_idx in range(22, 26):
                 self.widget.setColumnHidden(r_idx, False)
-            for r_idx in range(10, 14):
+            for r_idx in range(18, 22):
                 self.widget.setColumnHidden(r_idx, True)
 
     def toggle_auto_resize(self, on=False):
         if on:
-            self.widget.horizontalHeader().setSectionResizeMode(3)  # Auto fit
-            self.widget.horizontalHeader().setSectionResizeMode(4, 1)  # Auto fit
+            self.widget.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
+            self.widget.horizontalHeader().setSectionResizeMode(4, QtWidgets.QHeaderView.Interactive)
         else:
-            self.widget.horizontalHeader().setSectionResizeMode(0)  # Resize
+            self.widget.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Interactive)
 
 
 class SongModel:
@@ -142,6 +168,14 @@ class SongModel:
                             ldc.level as Level,
                             ldc.duration as Duration,
                             CAST(ldc.Tap + ldc.Long + ldc.Flick + ldc.Slide AS INTEGER) as Notes,
+                            ldc.Timer_7h as Timer7h,
+                            ldc.Timer_9h as Timer9h,
+                            ldc.Timer_11h as Timer11h,
+                            ldc.Timer_12m as Timer12m,
+                            ldc.Timer_6m as Timer6m,
+                            ldc.Timer_9m as Timer9m, 
+                            ldc.Timer_11m as Timer11m,
+                            ldc.Timer_13h as Timer13h,
                             ldc.Tap as Tap,
                             ldc.Long as Long,
                             ldc.Flick as Flick,
@@ -165,6 +199,7 @@ class SongModel:
         data = [
             _ for _ in data if _['DifficultyInt'] != 5 or _['LiveID'] not in to_be_hidden
         ]
+        timers = ['7h', '9h', '11h', '12m', '6m', '9m', '11m', '13h']
         for _ in data:
             _['Color'] = Color(_['Color'] - 1).name
             _['Difficulty'] = Difficulty(_['Difficulty']).name
@@ -173,6 +208,9 @@ class SongModel:
             _['LongPct'] = "{:05.2f}%".format(_['Long'] / _['Notes'] * 100)
             _['FlickPct'] = "{:05.2f}%".format(_['Flick'] / _['Notes'] * 100)
             _['SlidePct'] = "{:05.2f}%".format(_['Slide'] / _['Notes'] * 100)
+            for timer in timers:
+                key = 'Timer' + timer
+                _[key] = "{:05.2f}%".format(_[key] * 100)
         self.view.load_data(data)
 
     @subscribe(GetSongDetailsEvent)
