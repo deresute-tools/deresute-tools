@@ -101,7 +101,7 @@ class SongView:
         self.widget.setSortingEnabled(True)
         for r_idx, card_data in enumerate(data):
             for c_idx, (key, value) in enumerate(card_data.items()):
-                if isinstance(value, int) and 13 >= c_idx >= 7 or c_idx == 1:
+                if isinstance(value, int) and 21 >= c_idx >= 7 or c_idx == 1:
                     item = NumericalTableWidgetItem(value)
                 elif value is None:
                     item = QTableWidgetItem("")
