@@ -3,12 +3,13 @@ import sqlite3
 from collections import OrderedDict, defaultdict
 from io import StringIO
 
+import numpy as np
 import pandas as pd
 import requests
 
 import customlogger as logger
 from db import db
-from logic.live import classify_note
+from logic.live import classify_note_vectorized
 from network import meta_updater
 from settings import REMOTE_TRANSLATED_SONG_URL, REMOTE_CACHE_SCORES_URL, MUSICSCORES_PATH
 from static.note_type import NoteType
@@ -18,7 +19,6 @@ BLACKLIST = "1901,1902,1903,1904,90001"
 
 def _check_remote_cache(url):
     initialize_score_db()
-    return
     response = requests.get(url)
     if response.status_code == 404:
         logger.debug("No remote live detail cache found at {}".format(url))
@@ -294,35 +294,13 @@ timers = [(7, 4.5, 'h'), (9, 6, 'h'), (11, 7.5, 'h'), (12, 7.5, 'm'),
           (6, 4.5, 'm'), (9, 7.5, 'm'), (11, 9, 'm'), (13, 9, 'h')]
 
 
-def get_note_score(timer, note_count, last_note_time):
-    def _get_note_score(note):
-        if (note.sec >= timer[0] and note.sec % timer[0] < timer[1]
-                and note.sec // timer[0] * timer[0] <= last_note_time - 3):
-            combo = note.name + 1
-            if combo >= note_count * 9 // 10:
-                return 2.
-            elif combo >= note_count * 8 // 10:
-                return 1.7
-            elif combo >= note_count * 7 // 10:
-                return 1.5
-            elif combo >= note_count // 2:
-                return 1.4
-            elif combo >= note_count // 4:
-                return 1.3
-            elif combo >= note_count // 10:
-                return 1.2
-            elif combo >= note_count // 20:
-                return 1.1
-            else:
-                return 1.
-        else:
-            return 0.
-    return _get_note_score
+def is_active(time, period, duration, last_note):
+    return (time > period) & (time % period < duration) & (time // period * period <= last_note - 3)
 
 
 def update_cache_scores():
     if not has_cached_live_details():
-        _check_remote_cache(REMOTE_CACHE_SCORES_URL)
+        initialize_score_db()
     song_list = _get_song_list()
     expanded_song_list = _expand_song_list(song_list)
     cached_live_detail_ids = {_[0] for _ in
@@ -344,7 +322,7 @@ def update_cache_scores():
         notes_data = pd.read_csv(StringIO(score.decode()))
         live_data["duration"] = notes_data.iloc[-1]['sec']
         notes_data = notes_data[notes_data["type"] < 10].reset_index(drop=True)
-        notes_data['note_type'] = notes_data.apply(classify_note, axis=1)
+        notes_data['note_type'] = classify_note_vectorized(notes_data)
         note_count = dict(notes_data['note_type'].value_counts())
         for note_type in NoteType:
             key_str = note_type.name.capitalize()
@@ -353,10 +331,22 @@ def update_cache_scores():
             else:
                 live_data[key_str] = 0
         live_data['difficulty'] = live_data['diff']
+        total_notes = len(notes_data)
+        combo_thresholds = np.array([
+            1,
+            total_notes // 20,
+            total_notes // 10,
+            total_notes // 4,
+            total_notes // 2,
+            total_notes * 7 // 10,
+            total_notes * 8 // 10,
+            total_notes * 9 // 10,
+            total_notes + 1
+        ])
         for timer in timers:
-            live_data['Timer_{}{}'.format(timer[0], timer[2])] = notes_data.apply(
-                get_note_score(timer, len(notes_data), notes_data.iloc[-1]['sec']), axis=1
-            ).sum() / (1.41 * len(notes_data))
+            live_data['Timer_{}{}'.format(timer[0], timer[2])] = np.repeat(
+                [1., 1.1, 1.2, 1.3, 1.4, 1.5, 1.7, 2.], combo_thresholds[1:] - combo_thresholds[:-1]
+            )[is_active(notes_data['sec'], timer[0], timer[1], notes_data.iloc[-1]['sec'])].sum() / (1.41 * total_notes)
         _insert_into_live_detail_cache(live_data)
     _overwrite_song_name(expanded_song_list)
     db.cachedb.commit()
