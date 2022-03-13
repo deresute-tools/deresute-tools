@@ -68,7 +68,7 @@ class SongView:
         self.widget.setSelectionMode(QAbstractItemView.SingleSelection)
         self.widget.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.widget.setToolTip("Right click to toggle note types between number and percentage.\n"
-                               "Shift-right click to toggle timer percentages")
+                               "Shift-right click to toggle timer percentages.")
         self.model = False
         self.percentage = False
         self.timers = False

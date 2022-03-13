@@ -12,6 +12,8 @@ COLOR_TARGETS = {21, 22, 23, 32, 33, 34}
 ACT_TYPES = {28: NoteType.LONG, 29: NoteType.FLICK, 30: NoteType.SLIDE}
 SUPPORT_TYPES = {5, 6, 7}
 COMBO_SUPPORT_TYPES = {9, 14}
+COMMON_TIMERS = [(7, 4.5, 'h'), (9, 6, 'h'), (11, 7.5, 'h'), (12, 7.5, 'm'),
+                 (6, 4.5, 'm'), (9, 7.5, 'm'), (11, 9, 'm'), (13, 9, 'h')]
 
 
 class Skill:
