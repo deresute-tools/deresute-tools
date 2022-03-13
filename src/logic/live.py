@@ -37,6 +37,13 @@ def classify_note(row):
         return NoteType.SLIDE
 
 
+def classify_note_vectorized(row):
+    return np.choose(row.type - 3, [
+        np.choose(row.status == 0, [NoteType.FLICK, np.choose(
+            row.type - 1, [NoteType.TAP, NoteType.LONG, NoteType.SLIDE], mode="clip")]),
+        NoteType.TAP, NoteType.SLIDE, NoteType.FLICK, NoteType.FLICK], mode="clip")
+
+
 def get_score_color(score_id):
     color = db.masterdb.execute_and_fetchall("SELECT live_data.type FROM live_data WHERE live_data.id = ?",
                                              [score_id])

@@ -3,14 +3,17 @@ import sqlite3
 from collections import OrderedDict, defaultdict
 from io import StringIO
 
+import numpy as np
 import pandas as pd
 import requests
 
 import customlogger as logger
 from db import db
-from logic.live import classify_note
+from logic.live import classify_note_vectorized
+from logic.skill import COMMON_TIMERS
 from network import meta_updater
 from settings import REMOTE_TRANSLATED_SONG_URL, REMOTE_CACHE_SCORES_URL, MUSICSCORES_PATH
+from static.live_values import WEIGHT_RANGE
 from static.note_type import NoteType
 
 BLACKLIST = "1901,1902,1903,1904,90001"
@@ -148,6 +151,7 @@ def _get_carnival_set_list():
         ret_dict[live_id] = "carnival" + RANK_STRING[rank] + str(booth_id)
     return ret_dict
 
+
 def _get_special_keys(song_id):
     if 3200 > song_id > 3000:
         return "solo"
@@ -218,7 +222,15 @@ def initialize_score_db():
             Tap INTEGER NOT NULL,
             Long INTEGER NOT NULL,
             Flick INTEGER NOT NULL,
-            Slide INTEGER NOT NULL
+            Slide INTEGER NOT NULL,
+            Timer_7h REAL NOT NULL,
+            Timer_9h REAL NOT NULL,
+            Timer_11h REAL NOT NULL,
+            Timer_12m REAL NOT NULL,
+            Timer_6m REAL NOT NULL,
+            Timer_9m REAL NOT NULL,
+            Timer_11m REAL NOT NULL,
+            Timer_13h REAL NOT NULL
         )
     """)
     db.cachedb.commit()
@@ -236,8 +248,9 @@ def has_cached_live_details():
 def _insert_into_live_detail_cache(hashable):
     db.cachedb.execute("""
             INSERT OR IGNORE INTO live_detail_cache( live_detail_id, live_id, sort, color, performers, special_keys,
-             jp_name, name, difficulty, level, duration, Tap, Long, Flick, Slide)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+             jp_name, name, difficulty, level, duration, Tap, Long, Flick, Slide,
+             Timer_7h, Timer_9h, Timer_11h, Timer_12m, Timer_6m, Timer_9m, Timer_11m, Timer_13h)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, [
         hashable["live_detail_id"],
         hashable["live_id"],
@@ -254,6 +267,14 @@ def _insert_into_live_detail_cache(hashable):
         hashable["Long"],
         hashable["Flick"],
         hashable["Slide"],
+        hashable["Timer_7h"],
+        hashable["Timer_9h"],
+        hashable["Timer_11h"],
+        hashable["Timer_12m"],
+        hashable["Timer_6m"],
+        hashable["Timer_9m"],
+        hashable["Timer_11m"],
+        hashable["Timer_13h"]
     ])
 
 
@@ -271,9 +292,13 @@ def _overwrite_song_name(expanded_song_list):
     db.cachedb.commit()
 
 
+def _is_active(time, interval, duration, last_note):
+    return (time > interval) & (time % interval < duration) & (time // interval * interval <= last_note - 3)
+
+
 def update_cache_scores():
     if not has_cached_live_details():
-        _check_remote_cache(REMOTE_CACHE_SCORES_URL)
+        initialize_score_db()
     song_list = _get_song_list()
     expanded_song_list = _expand_song_list(song_list)
     cached_live_detail_ids = {_[0] for _ in
@@ -295,7 +320,7 @@ def update_cache_scores():
         notes_data = pd.read_csv(StringIO(score.decode()))
         live_data["duration"] = notes_data.iloc[-1]['sec']
         notes_data = notes_data[notes_data["type"] < 10].reset_index(drop=True)
-        notes_data['note_type'] = notes_data.apply(classify_note, axis=1)
+        notes_data['note_type'] = classify_note_vectorized(notes_data)
         note_count = dict(notes_data['note_type'].value_counts())
         for note_type in NoteType:
             key_str = note_type.name.capitalize()
@@ -304,6 +329,15 @@ def update_cache_scores():
             else:
                 live_data[key_str] = 0
         live_data['difficulty'] = live_data['diff']
+        total_notes = len(notes_data)
+        combo_thresholds = (total_notes * WEIGHT_RANGE[:, 0] / 100).astype(int)
+        # Correct for deresute's rounding method
+        combo_thresholds[1:-1] -= 1
+        for timer in COMMON_TIMERS:
+            live_data['Timer_{}{}'.format(timer[0], timer[2])] = np.repeat(
+                WEIGHT_RANGE[:, 1], combo_thresholds[1:] - combo_thresholds[:-1]
+            )[_is_active(notes_data['sec'], timer[0], timer[1], notes_data.iloc[-1]['sec'])].sum() / (
+                    ((WEIGHT_RANGE[1:, 0] - WEIGHT_RANGE[:-1, 0]) * WEIGHT_RANGE[:-1, 1]).sum() / 100 * total_notes)
         _insert_into_live_detail_cache(live_data)
     _overwrite_song_name(expanded_song_list)
     db.cachedb.commit()
