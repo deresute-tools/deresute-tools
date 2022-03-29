@@ -335,7 +335,7 @@ def update_cache_scores():
         combo_thresholds[1:-1] -= 1
         for timer in COMMON_TIMERS:
             live_data['Timer_{}{}'.format(timer[0], timer[2])] = np.repeat(
-                WEIGHT_RANGE[:, 1], combo_thresholds[1:] - combo_thresholds[:-1]
+                WEIGHT_RANGE[:-1, 1], combo_thresholds[1:] - combo_thresholds[:-1]
             )[_is_active(notes_data['sec'], timer[0], timer[1], notes_data.iloc[-1]['sec'])].sum() / (
                     ((WEIGHT_RANGE[1:, 0] - WEIGHT_RANGE[:-1, 0]) * WEIGHT_RANGE[:-1, 1]).sum() / 100 * total_notes)
         _insert_into_live_detail_cache(live_data)
