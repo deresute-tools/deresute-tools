@@ -38,9 +38,10 @@ def classify_note(row):
 
 
 def classify_note_vectorized(row):
-    return np.choose(row.type - 3, [
+    rowtype = row.type.astype(np.int32) # to prevent crashing in 32-bit python
+    return np.choose(rowtype - 3, [
         np.choose(row.status == 0, [NoteType.FLICK, np.choose(
-            row.type - 1, [NoteType.TAP, NoteType.LONG, NoteType.SLIDE], mode="clip")]),
+            rowtype - 1, [NoteType.TAP, NoteType.LONG, NoteType.SLIDE], mode="clip")]),
         NoteType.TAP, NoteType.SLIDE, NoteType.FLICK, NoteType.FLICK], mode="clip")
 
 
