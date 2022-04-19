@@ -293,7 +293,7 @@ def _overwrite_song_name(expanded_song_list):
 
 
 def _is_active(time, interval, duration, last_note):
-    return (time > interval) & (time % interval < duration) & (time // interval * interval <= last_note - 3)
+    return (time > interval) & (time % interval > 0) & (time % interval <= duration) & (time // interval * interval <= last_note - 3)
 
 
 def update_cache_scores():
@@ -333,11 +333,11 @@ def update_cache_scores():
         combo_thresholds = (total_notes * WEIGHT_RANGE[:, 0] / 100).astype(int)
         # Correct for deresute's rounding method
         combo_thresholds[1:-1] -= 1
+        multipliers = np.repeat(WEIGHT_RANGE[:-1, 1], combo_thresholds[1:] - combo_thresholds[:-1])
         for timer in COMMON_TIMERS:
-            live_data['Timer_{}{}'.format(timer[0], timer[2])] = np.repeat(
-                WEIGHT_RANGE[:-1, 1], combo_thresholds[1:] - combo_thresholds[:-1]
-            )[_is_active(notes_data['sec'], timer[0], timer[1], notes_data.iloc[-1]['sec'])].sum() / (
-                    ((WEIGHT_RANGE[1:, 0] - WEIGHT_RANGE[:-1, 0]) * WEIGHT_RANGE[:-1, 1]).sum() / 100 * total_notes)
+            live_data['Timer_{}{}'.format(timer[0], timer[2])] = multipliers[
+                _is_active(notes_data['sec'], timer[0], timer[1], notes_data.iloc[-1]['sec'])
+            ].sum() / multipliers.sum()
         _insert_into_live_detail_cache(live_data)
     _overwrite_song_name(expanded_song_list)
     db.cachedb.commit()
