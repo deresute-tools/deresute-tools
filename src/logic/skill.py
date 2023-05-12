@@ -118,6 +118,10 @@ class Skill:
     def is_mutual(self):
         return self.skill_type == 42
 
+    @property
+    def is_overdrive(self):
+        return self.skill_type == 43
+
     @classmethod
     def _fetch_skill_data_from_db(cls, skill_id):
         return db.masterdb.execute_and_fetchone(
@@ -166,7 +170,8 @@ class Skill:
         elif skill_type == 31:  # Tuning
             values[1] = skill_values[0]
             values[3] = 2
-        elif skill_type == 24:  # All-round
+        elif (skill_type == 24  # All-round
+                or skill_type == 43):  # Overdrive
             values[1] = skill_values[0]
             values[2] = skill_values[1]
         elif skill_type == 17:  # Healer
