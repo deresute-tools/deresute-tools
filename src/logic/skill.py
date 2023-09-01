@@ -122,22 +122,41 @@ class Skill:
     def is_overdrive(self):
         return self.skill_type == 43
 
+    @property
+    def is_spike(self):
+        return self.skill_type == 44
+
     @classmethod
     def _fetch_skill_data_from_db(cls, skill_id):
-        return db.masterdb.execute_and_fetchone(
-            """
-            SELECT skill_data.*,
-                card_data.attribute,
-                probability_type.probability_max,
-                available_time_type.available_time_max
-            FROM card_data, skill_data, probability_type, available_time_type
-            WHERE skill_data.id = ? AND 
-                card_data.skill_id = ? AND 
-                probability_type.probability_type = skill_data.probability_type AND
-                available_time_type.available_time_type = skill_data.available_time_type
-            """,
-            params=[skill_id, skill_id],
-            out_dict=True)
+        if skill_id > 5000000:
+            return db.masterdb.execute_and_fetchone(
+                """
+                SELECT skill_data.*,
+                    4 attribute,
+                    probability_type.probability_max,
+                    available_time_type.available_time_max
+                FROM skill_data, probability_type, available_time_type
+                WHERE skill_data.id = ? AND 
+                    probability_type.probability_type = skill_data.probability_type AND
+                    available_time_type.available_time_type = skill_data.available_time_type
+                """,
+                params=[skill_id],
+                out_dict=True)
+        else:
+            return db.masterdb.execute_and_fetchone(
+                """
+                SELECT skill_data.*,
+                    card_data.attribute,
+                    probability_type.probability_max,
+                    available_time_type.available_time_max
+                FROM card_data, skill_data, probability_type, available_time_type
+                WHERE skill_data.id = ? AND 
+                    card_data.skill_id = ? AND 
+                    probability_type.probability_type = skill_data.probability_type AND
+                    available_time_type.available_time_type = skill_data.available_time_type
+                """,
+                params=[skill_id, skill_id],
+                out_dict=True)
 
     @classmethod
     def _fetch_boost_value_from_db(cls, skill_value):
@@ -170,8 +189,7 @@ class Skill:
         elif skill_type == 31:  # Tuning
             values[1] = skill_values[0]
             values[3] = 2
-        elif (skill_type == 24  # All-round
-                or skill_type == 43):  # Overdrive
+        elif skill_type in (24, 43):  # All-round, Overdrive
             values[1] = skill_values[0]
             values[2] = skill_values[1]
         elif skill_type == 17:  # Healer

@@ -10,6 +10,7 @@ class Difficulty(Enum):
     PRO = 3
     MASTER = 4
     MPLUS = 5
+    WITCH = 6
     LEGACY = 101
     LIGHT = 11
     TRICK = 12
@@ -24,6 +25,7 @@ FLICK_DRAIN = {
     Difficulty.PRO: 8,
     Difficulty.MASTER: 10,
     Difficulty.MPLUS: 10,
+    Difficulty.WITCH: 10,
     Difficulty.LEGACY: 10,
     Difficulty.PIANO: 10,
     Difficulty.FORTE: 10,
@@ -37,6 +39,7 @@ NONFLICK_DRAIN = {
     Difficulty.PRO: 15,
     Difficulty.MASTER: 20,
     Difficulty.MPLUS: 20,
+    Difficulty.WITCH: 20,
     Difficulty.LEGACY: 20,
     Difficulty.PIANO: 10,
     Difficulty.FORTE: 10,
@@ -50,6 +53,7 @@ GREAT_TAP_RANGE = {
     Difficulty.PRO: 90000,
     Difficulty.MASTER: 80000,
     Difficulty.MPLUS: 80000,
+    Difficulty.WITCH: 80000,
     Difficulty.LEGACY: 80000,
     Difficulty.PIANO: 80000,
     Difficulty.FORTE: 80000,
@@ -63,6 +67,7 @@ PERFECT_TAP_RANGE = {
     Difficulty.PRO: 70000,
     Difficulty.MASTER: 60000,
     Difficulty.MPLUS: 60000,
+    Difficulty.WITCH: 60000,
     Difficulty.LEGACY: 60000,
     Difficulty.PIANO: 60000,
     Difficulty.FORTE: 60000,

@@ -113,7 +113,7 @@ def convert_id_to_short_name(query):
         query_res = db.cachedb.execute_and_fetchone("""
                 SELECT card_short_name FROM card_name_cache WHERE card_id IN (?);
             """, [token])
-        query_res = query_res[0]
+        query_res = query_res[0] if query_res is not None else "MyCard"
         results.append(query_res)
     return results
 

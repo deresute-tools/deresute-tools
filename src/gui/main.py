@@ -100,6 +100,7 @@ class UiMainWindow:
         self.import_text = QLineEdit(self.main)
         self.import_text.setPlaceholderText("Input user ID (9 digits, e.g. 123456789)")
         self.import_text.setValidator(QIntValidator(0, 999999999, None))  # Only number allowed
+        self.calculator_view.setUserID(self.import_text)
         self.import_button = QPushButton("Import from ID", self.main)
         self.import_button.pressed.connect(lambda: self.import_from_id(self.import_text.text()))
         self.import_layout.addWidget(self.import_text)

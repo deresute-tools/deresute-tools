@@ -21,10 +21,20 @@ from static.skill import SKILL_BASE
 from static.song_difficulty import Difficulty
 from utils import storage
 
+_QFont = QFont
+
+
+def QFont():
+    qf = _QFont('Sans Serif')
+    qf.setStyleHint(_QFont.SansSerif)
+    return qf
+
+
 SEC_HEIGHT = 500
 X_MARGIN = 100
 Y_MARGIN = 70
 RIGHT_MARGIN = 0
+LEFT_MARGIN = 50
 MAX_Y = 5000
 MAX_SECS_PER_GROUP = (MAX_Y - Y_MARGIN * 2) // SEC_HEIGHT
 
@@ -74,8 +84,10 @@ class ChartPicNote:
             note_file_prefix = "slide"
         elif self.note_type == NoteType.FLICK and self.right_flick:
             note_file_prefix = "flickr"
-        else:
+        elif self.note_type == NoteType.FLICK and not self.right_flick:
             note_file_prefix = "flickl"
+        else:
+            note_file_prefix = "damage"
         if self.grand:
             note_file_prefix = "g" + note_file_prefix
             self.note_pic = ChartPicNote.get_grand_note(note_file_prefix, self.span, False)
@@ -102,16 +114,16 @@ class ChartPicNote:
         w = span * LANE_DISTANCE_GRAND
         if tiny:
             w = w * 0.75
-        res = QImage(l.width()
-                     + r.width()
-                     + w,
-                     l.height(),
+        res = QImage(int(l.width()
+                         + r.width()
+                         + w),
+                     int(l.height()),
                      QImage.Format_ARGB32)
         res.fill(qRgba(0, 0, 0, 0))
         painter = QPainter(res)
         painter.drawImage(QPoint(0, 0), l)
         painter.drawImage(QRectF(l.width(), 0, w, m.height()), m, QRectF(0, 0, m.width(), m.height()))
-        painter.drawImage(QPoint(l.width() + w, 0), r)
+        painter.drawImage(QPoint(int(l.width() + w), 0), r)
         return res
 
 
@@ -134,8 +146,8 @@ class DraggableQScrollArea(QScrollArea):
         delta = event.pos() - self.drag_start_position
         if delta.manhattanLength() < QApplication.startDragDistance():
             return
-        self.verticalScrollBar().setValue(self.original_y - delta.y() * 1.5)
-        self.horizontalScrollBar().setValue(self.original_x - delta.x() * 1.5)
+        self.verticalScrollBar().setValue(int(self.original_y - delta.y() * 1.5))
+        self.horizontalScrollBar().setValue(int(self.original_x - delta.x() * 1.5))
 
 
 class BaseChartPicGenerator(ABC):
@@ -213,7 +225,8 @@ class BaseChartPicGenerator(ABC):
 
     def initialize_ui(self):
         self.y_total = MAX_SECS_PER_GROUP * SEC_HEIGHT + 2 * Y_MARGIN
-        self.x_total = (2 * X_MARGIN + (self.lane_count - 1) * self.LANE_DISTANCE) * self.n_groups + RIGHT_MARGIN
+        self.x_total = LEFT_MARGIN + (
+                2 * X_MARGIN + (self.lane_count - 1) * self.LANE_DISTANCE) * self.n_groups + RIGHT_MARGIN
 
         self.label = QLabel()
         self.label.setAlignment(Qt.AlignBottom)
@@ -232,15 +245,15 @@ class BaseChartPicGenerator(ABC):
         self.x_max = min(MAX_WINDOW_WIDTH, self.x_total + 20)
 
     def get_x(self, lane, group):
-        return X_MARGIN + lane * self.LANE_DISTANCE + (
-                2 * X_MARGIN + (self.lane_count - 1) * self.LANE_DISTANCE) * group
+        return int(LEFT_MARGIN + X_MARGIN + lane * self.LANE_DISTANCE + (
+                2 * X_MARGIN + (self.lane_count - 1) * self.LANE_DISTANCE) * group)
 
     def get_y(self, sec, group=None, offset_group=0):
         if group is not None:
-            return self.y_total - Y_MARGIN - (sec - group * MAX_SECS_PER_GROUP) * SEC_HEIGHT
+            return int(self.y_total - Y_MARGIN - (sec - group * MAX_SECS_PER_GROUP) * SEC_HEIGHT)
         else:
-            return self.y_total - Y_MARGIN - (
-                    sec - (sec // MAX_SECS_PER_GROUP + offset_group) * MAX_SECS_PER_GROUP) * SEC_HEIGHT
+            return int(self.y_total - Y_MARGIN - (
+                    sec - (sec // MAX_SECS_PER_GROUP + offset_group) * MAX_SECS_PER_GROUP) * SEC_HEIGHT)
 
     # Lanes start from 0
     def generate_note_objects(self, abuse_data: AbuseData = None):
@@ -338,10 +351,10 @@ class BaseChartPicGenerator(ABC):
                         draw_card_idx -= 5
                 x = self.get_x(draw_card_idx, group)
                 y = self.get_y(right, group)
-                self.p.drawRect(x - self.SKILL_PAINT_WIDTH // 2,
-                                y,
+                self.p.drawRect(int(x - self.SKILL_PAINT_WIDTH // 2),
+                                int(y),
                                 self.SKILL_PAINT_WIDTH,
-                                duration * SEC_HEIGHT)
+                                int(duration * SEC_HEIGHT))
                 skill_time += 1
 
     def draw_grid_and_secs(self):
@@ -369,8 +382,9 @@ class BaseChartPicGenerator(ABC):
                     self.p.setPen(horizontal_grid_light_pen)
                 y = self.get_y(sec, group=0)
                 self.p.drawLine(self.get_x(0, group), y, self.get_x(self.lane_count - 1, group), y)
-                self.p.drawText(QRect(self.get_x(0, group) - 111, y - 25, 70, 50), Qt.AlignRight,
-                                str(sec + MAX_SECS_PER_GROUP * group))
+                tm = sec + MAX_SECS_PER_GROUP * group
+                self.p.drawText(QRect(self.get_x(0, group) - 111, y - 25, 70, 100), Qt.AlignRight,
+                                "{}:{:0>2}\n{}".format(tm // 60, tm % 60, self.notes[self.notes['sec'] <= tm].shape[0]))
 
     @abstractmethod
     def draw_notes(self):

@@ -58,12 +58,12 @@ class CustomSettingsView:
         self.autoplay_mode_checkbox = QtWidgets.QCheckBox("Autoplay Mode", self.main)
         self.autoplay_offset_text = QtWidgets.QLineEdit(self.main)
         self.autoplay_offset_text.setPlaceholderText("Autoplay offset")
-        self.autoplay_offset_text.setValidator(QIntValidator(0, 1E3, None))  # Only number allowed
+        self.autoplay_offset_text.setValidator(QIntValidator(0, int(1E3), None))  # Only number allowed
         self.custom_appeal_text = QtWidgets.QLineEdit(self.main)
-        self.custom_appeal_text.setValidator(QIntValidator(0, 1E6, None))  # Only number allowed
+        self.custom_appeal_text.setValidator(QIntValidator(0, int(1E6), None))  # Only number allowed
         self.custom_appeal_text.setPlaceholderText("Total appeals")
         self.custom_support_text = QtWidgets.QLineEdit(self.main)
-        self.custom_support_text.setValidator(QIntValidator(0, 1E6, None))  # Only number allowed
+        self.custom_support_text.setValidator(QIntValidator(0, int(1E6), None))  # Only number allowed
         self.custom_support_text.setPlaceholderText("Support appeals")
         self.custom_vocal = QtWidgets.QComboBox(self.main)
         self.custom_dance = QtWidgets.QComboBox(self.main)

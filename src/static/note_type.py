@@ -6,3 +6,4 @@ class NoteType(Enum):
     LONG = 1
     FLICK = 2
     SLIDE = 3
+    DAMAGE = 4

@@ -42,6 +42,9 @@ class MainView:
     def set_model(self, model):
         self.model = model
 
+    def setUserID(self, import_text):
+        self.import_text = import_text
+
     def setup(self):
         self.calculator_and_custom_setting_layout = QtWidgets.QVBoxLayout()
         self.bottom_row_layout = QtWidgets.QHBoxLayout()
@@ -112,23 +115,29 @@ class MainView:
         try:
             self.add_button.pressed.disconnect()
             self.yoink_button.pressed.disconnect()
+            self.yoink_button2.pressed.disconnect()
             self.permute_button.pressed.disconnect()
         except TypeError:
             pass
         self.add_button.pressed.connect(
             lambda: eventbus.eventbus.post(AddEmptyUnitEvent(self.models[self.calculator_tabs.currentIndex()])))
-        self.yoink_button.pressed.connect(lambda: self.model.handle_yoink_button())
+        self.yoink_button.pressed.connect(lambda: self.model.handle_yoink_button(rank=self.get_yoink_rank()))
+        self.yoink_button2.pressed.connect(lambda: self.model.handle_yoink_button(player_id=self.import_text.text()))
         self.permute_button.pressed.connect(lambda: self.views[1].permute_units())
 
     def _set_up_big_buttons(self):
         self.button_layout = QtWidgets.QGridLayout()
         self.big_button = QtWidgets.QPushButton("Run", self.widget)
         self.add_button = QtWidgets.QPushButton("Add Empty Unit", self.widget)
-        self.yoink_button = QtWidgets.QPushButton("Yoink #1 Unit", self.widget)
+        self.yoink_button = QtWidgets.QPushButton("Yoink #", self.widget)
+        self.yoink_button2 = QtWidgets.QPushButton("Yoink ID", self.widget)
         self.permute_button = QtWidgets.QPushButton("Permute Units", self.widget)
         self.times_text = QtWidgets.QLineEdit(self.widget)
         self.times_text.setValidator(QIntValidator(0, 100, None))  # Only number allowed
         self.times_text.setText("10")
+        self.rank_text = QtWidgets.QLineEdit(self.widget)
+        self.rank_text.setValidator(QIntValidator(1, 100, None))  # Only number allowed
+        self.rank_text.setText("1")
         self.times_label = QtWidgets.QLabel("times", self.widget)
 
         font = self.big_button.font()
@@ -138,12 +147,14 @@ class MainView:
 
         self.big_button.pressed.connect(lambda: self.simulate())
 
-        self.button_layout.addWidget(self.big_button, 0, 0, 2, 2)
-        self.button_layout.addWidget(self.times_text, 2, 0, 1, 1)
-        self.button_layout.addWidget(self.times_label, 2, 1, 1, 1)
-        self.button_layout.addWidget(self.add_button, 0, 2, 1, 1)
-        self.button_layout.addWidget(self.yoink_button, 1, 2, 1, 1)
-        self.button_layout.addWidget(self.permute_button, 2, 2, 1, 1)
+        self.button_layout.addWidget(self.big_button, 0, 0, 8, 2)
+        self.button_layout.addWidget(self.times_text, 8, 0, 4, 1)
+        self.button_layout.addWidget(self.times_label, 8, 1, 4, 1)
+        self.button_layout.addWidget(self.add_button, 0, 2, 3, 2)
+        self.button_layout.addWidget(self.yoink_button, 3, 2, 3, 1)
+        self.button_layout.addWidget(self.rank_text, 3, 3, 3, 1)
+        self.button_layout.addWidget(self.yoink_button2, 6, 2, 3, 2)
+        self.button_layout.addWidget(self.permute_button, 9, 2, 3, 2)
         self.bottom_row_layout.addLayout(self.button_layout)
 
     def _setup_custom_settings(self):
@@ -160,6 +171,12 @@ class MainView:
             return 10
         else:
             return int(self.times_text.text())
+
+    def get_yoink_rank(self):
+        if self.rank_text.text() == "" or self.rank_text.text() == "1":
+            return 1
+        else:
+            return int(self.rank_text.text())
 
     def simulate(self, row=None):
         score_id, diff_id, live_detail_id, _, _ = eventbus.eventbus.post_and_get_first(GetSongDetailsEvent())
@@ -346,15 +363,21 @@ class MainModel(QObject):
         self.process_simulation_results_signal.emit(
             BaseSimulationResultWithUuid(event.uuid, event.unit.all_cards(), result, event.abuse_load))
 
-    def handle_yoink_button(self):
+    def handle_yoink_button(self, rank=1, player_id=None):
         _, _, live_detail_id, song_name, diff_name = eventbus.eventbus.post_and_get_first(GetSongDetailsEvent())
         if live_detail_id is None:
             return
 
         self.view.yoink_button.setEnabled(False)
+        self.view.yoink_button2.setEnabled(False)
         self.view.yoink_button.setText("Yoinking...")
-        eventbus.eventbus.post(InjectTextEvent("Yoinking the top team for {} - {}".format(song_name, diff_name)))
-        eventbus.eventbus.post(YoinkUnitEvent(live_detail_id), asynchronous=True)
+        self.view.yoink_button2.setText("Yoinking...")
+        if player_id is None:
+            eventbus.eventbus.post(InjectTextEvent("Yoinking team #{} for {} - {}".format(rank, song_name, diff_name)))
+        else:
+            eventbus.eventbus.post(
+                InjectTextEvent("Yoinking the team of {} for {} - {}".format(player_id, song_name, diff_name)))
+        eventbus.eventbus.post(YoinkUnitEvent(live_detail_id, rank, player_id), asynchronous=True)
 
     @pyqtSlot(YoinkResults)
     def _handle_yoink_done_signal(self, payload: YoinkResults):
@@ -364,13 +387,15 @@ class MainModel(QObject):
             else:
                 self.view.views[0].add_unit(payload.cards)
             eventbus.eventbus.post(PostYoinkEvent(payload.support))
-        self.view.yoink_button.setText("Yoink #1 Unit")
+        self.view.yoink_button.setText("Yoink #")
+        self.view.yoink_button2.setText("Yoink ID")
         self.view.yoink_button.setEnabled(True)
+        self.view.yoink_button2.setEnabled(True)
 
     @subscribe(YoinkUnitEvent)
     def _handle_yoink_signal(self, event):
         try:
-            cards, support = get_top_build(event.live_detail_id)
+            cards, support = get_top_build(event.live_detail_id, event.rank, event.player_id)
             eventbus.eventbus.post(InjectTextEvent("Yoinked successfully", 2))
         except:
             cards, support = None, None

@@ -45,7 +45,7 @@ class Card:
         return cls.from_id(card_id[0], *args, **kwargs)
 
     @classmethod
-    def from_id(cls, card_id, custom_pots=None):
+    def from_id(cls, card_id, custom_pots=None, custom_info=None):
         if card_id is None:
             return None
         if custom_pots:
@@ -56,6 +56,21 @@ class Card:
             """.format("card_data"),
             params=[card_id],
             out_dict=True)
+        if custom_info is not None:
+            card_id = custom_info["image_card_id"]
+            for params in ["vocal", "dance", "visual", "life"]:
+                value = custom_info["{}_pt".format(params)]
+                if value:
+                    growth_param = db.masterdb.execute_and_fetchone(
+                    """
+                    SELECT add_{} FROM {} where point = ?
+                    """.format(params, "card_data_custom_growth_param"),
+                    params=[value],
+                    out_dict=True)
+                    card_data["{}_max".format("hp" if params == "life" else params)] += growth_param["add_{}".format(params)]
+            card_data["chara_id"] = custom_info["chara_id"]
+            card_data["skill_id"] = custom_info["skill_id"]
+            card_data["leader_skill_id"] = custom_info["leader_skill_id"]
 
         bonuses = [card_data['bonus_vocal'], card_data['bonus_visual'], card_data['bonus_dance'],
                    card_data['bonus_hp'], 0]
@@ -76,10 +91,13 @@ class Card:
                     SELECT value_rare_{} FROM potential_value_{} WHERE potential_level = ?
                 """.format(rarity, key), [potentials[idx]])[0]
 
-        owned = db.cachedb.execute_and_fetchall("""
-                            SELECT number FROM owned_card WHERE card_id = ?
-                        """, [card_id])[0][0]
-        if owned == 0:
+        if custom_info is None:
+            owned = db.cachedb.execute_and_fetchall("""
+                                SELECT number FROM owned_card WHERE card_id = ?
+                            """, [card_id])[0][0]
+            if owned == 0:
+                owned = 1
+        else:
             owned = 1
 
         return cls(vo=card_data['vocal_max'] + bonuses[0],

@@ -67,6 +67,7 @@ def _get_song_list():
                                 difficulty_3    AS d3,
                                 difficulty_4    AS d4,
                                 difficulty_5    AS d5,
+                                difficulty_6    AS d6,
                                 difficulty_11   AS d11,
                                 difficulty_12   AS d12,
                                 difficulty_21   AS d21,
@@ -177,7 +178,7 @@ def _merge_live_list(live_list):
             event = live_list[0]
     res_dict = OrderedDict()
     res_dict['diff'] = list()
-    for diff in ["d1", "d2", "d3", "d4", "d5", "d11", "d12", "d21", "d22", "d101"]:
+    for diff in ["d1", "d2", "d3", "d4", "d5", "d6", "d11", "d12", "d21", "d22", "d101"]:
         if release[diff] == 0:
             live_detail_id = event[diff]
             live_id = event['id']
@@ -319,7 +320,12 @@ def update_cache_scores():
                 continue
         notes_data = pd.read_csv(StringIO(score.decode()))
         live_data["duration"] = notes_data.iloc[-1]['sec']
-        notes_data = notes_data[notes_data["type"] < 10].reset_index(drop=True)
+        if live_data["diff"] == 6:
+            notes_data = notes_data[
+                (notes_data["type"] < 8) & ((notes_data["visible"].isna()) | (notes_data["visible"] >= 0))].reset_index(
+                drop=True)
+        else:
+            notes_data = notes_data[notes_data["type"] < 8].reset_index(drop=True)
         notes_data['note_type'] = classify_note_vectorized(notes_data)
         note_count = dict(notes_data['note_type'].value_counts())
         for note_type in NoteType:

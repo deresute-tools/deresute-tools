@@ -49,7 +49,7 @@ class CustomCardTable(QTableWidget):
         painter.drawPixmap(0, 0, card_img)
         painter.end()
         drag.setPixmap(pixmap)
-        drag.setHotSpot(QPoint(card_img.size().width() / 2, card_img.size().height() / 2))
+        drag.setHotSpot(QPoint(int(card_img.size().width() / 2), int(card_img.size().height() / 2)))
         drag.setMimeData(mimedata)
         drag.exec_(Qt.CopyAction | Qt.MoveAction)
 
