@@ -122,6 +122,8 @@ SKILL_BASE = {1: "Cute Voice",
               125: "Passion Duet Voice&Step",
               126: "Passion Duet Step&Make",
               127: "Passion Duet Make&Voice",
+              128: "Tricolor Unison",
+              129: "Tricolor Unison",
               }
 
 logger.debug("Creating chihiro.leader_keywords...")

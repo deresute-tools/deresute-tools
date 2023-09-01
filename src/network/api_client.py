@@ -30,8 +30,8 @@ def get_cards(game_id):
 
 
 @remove_temp
-def get_top_build(live_detail_id):
-    subprocess.call(list(map(str, [TOOL_EXE, "build", live_detail_id, TEMP_PATH])))
+def get_top_build(live_detail_id, rank, player_id):
+    subprocess.call(list(map(str, [TOOL_EXE, "build", live_detail_id, rank, "" if player_id is None else player_id, TEMP_PATH])))
     if not os.path.exists(TEMP_PATH):
         return
     with open(TEMP_PATH) as fr:
@@ -44,7 +44,7 @@ def get_top_build(live_detail_id):
                 _['potential_param_2'],
                 _['potential_param_4'],
                 _['potential_param_5']
-            ))
+            ), custom_info=_["custom_info"] if "custom_info" in _ else None)
             for _ in build['member_list']
         ]
         if len(build['supporter']) > 0:
@@ -55,6 +55,6 @@ def get_top_build(live_detail_id):
                     build['supporter']['potential_param_2'],
                     build['supporter']['potential_param_4'],
                     build['supporter']['potential_param_5']
-                ))
+                ), custom_info=build['supporter']["custom_info"] if "custom_info" in build['supporter'] else None)
             )
         return cards, support

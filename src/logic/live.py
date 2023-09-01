@@ -143,6 +143,8 @@ class BaseLive(ABC):
             self.set_music(music_name, difficulty)
         if unit is not None:
             self.set_unit(unit)
+        if self.unit is not None and self.color is not None:
+            self.unit.skill_check(self.color)
 
     def get_support(self):
         if self.support is not None:

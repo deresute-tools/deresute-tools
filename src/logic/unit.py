@@ -7,6 +7,7 @@ from db import db
 from exceptions import InvalidUnit
 from logic.card import Card
 from logic.search import card_query
+from static.color import Color
 
 pyximport.install(language_level=3)
 
@@ -58,7 +59,6 @@ class Unit(BaseUnit):
             self.resonance = resonance
         else:
             self.resonance = self._resonance_check()
-        self._skill_check()
 
     @classmethod
     def from_query(cls, query, custom_pots=None):
@@ -138,7 +138,8 @@ class Unit(BaseUnit):
                     and np.less_equal(colors, card.leader.max_requirements).all():
                 bonuses_to_add = card.leader.bonuses
                 # Unison and correct song color
-                if card.leader.unison and song_color == card.color:
+                if card.leader.unison and song_color == card.color\
+                        or card.leader.tricolor_unison and song_color == Color.ALL:
                     bonuses_to_add = card.leader.song_bonuses
                 # Duet and wrong song color
                 if card.leader.duet and song_color != card.color:
@@ -162,7 +163,7 @@ class Unit(BaseUnit):
             return bonuses, fan
         return bonuses
 
-    def _skill_check(self):
+    def skill_check(self, song_color=None):
         colors = np.zeros(3)
         for card in self._cards:
             if card is None:
@@ -174,9 +175,13 @@ class Unit(BaseUnit):
                 continue
             card.skill.probability = card.skill.cached_probability
             if np.greater_equal(colors, card.skill.min_requirements).all() \
-                    and np.less_equal(colors, card.skill.max_requirements).all():
+                    and np.less_equal(colors, card.skill.max_requirements).all() \
+                    and self._verify_song_color_requirement(card, song_color):
                 continue
             card.skill.probability = 0
+
+    def _verify_song_color_requirement(self, card: Card, song_color: Color):
+        return card.skill.song_color_requirement is None or song_color == card.skill.song_color_requirement
 
     def _resonance_check(self):
         skills = {_card.skill.skill_type for _card in self._cards if _card is not None}

@@ -20,7 +20,7 @@ class Skill:
     def __init__(self, color=Color.CUTE, duration=0, probability=0, interval=999,
                  values=None, v0=0, v1=0, v2=0, v3=0, offset=0,
                  boost=False, color_target=False, act=None, bonus_skill=2000, skill_type=None,
-                 min_requirements=None, max_requirements=None, life_requirement=0):
+                 min_requirements=None, max_requirements=None, life_requirement=0, song_color_requirement=None):
         if values is None and v0 == v1 == v2 == v3 == 0:
             raise ValueError("Invalid skill values", values, v0, v1, v2, v3)
 
@@ -49,6 +49,7 @@ class Skill:
         self.skill_type = skill_type
         self.min_requirements = min_requirements
         self.max_requirements = max_requirements
+        self.song_color_requirement = song_color_requirement
         self.life_requirement = life_requirement
         self.targets = self._generate_targets()
         self.normalized = False
@@ -204,15 +205,19 @@ class Skill:
             return cls(values=[0, 0, 0, 0])  # Default skill that has 0 duration
         skill_data = cls._fetch_skill_data_from_db(skill_id)
 
-        min_requirements, max_requirements = None, None
+        min_requirements, max_requirements, song_color_requirement = None, None, None
         if skill_data['skill_trigger_type'] == 2:
             min_requirements = np.array([0, 0, 0])
             max_requirements = np.array([0, 0, 0])
             max_requirements[skill_data['skill_trigger_value'] - 1] = 99
         elif skill_data['skill_trigger_type'] == 3:
             min_requirements = [1, 1, 1]
+        elif skill_data['skill_trigger_type'] == 5:
+            min_requirements = [1, 1, 1]
+            song_color_requirement = Color.ALL
 
-        life_requirement = skill_data['skill_trigger_value'] if skill_data['skill_type'] == 14 else 0
+        life_requirement = skill_data['skill_trigger_value'] if skill_data['skill_type'] == 14 or skill_data[
+            'skill_type'] == 44 else 0
 
         is_boost = skill_data['skill_type'] in BOOST_TYPES
         if is_boost:
@@ -234,7 +239,8 @@ class Skill:
             skill_type=skill_data['skill_type'],
             min_requirements=min_requirements,
             max_requirements=max_requirements,
-            life_requirement=life_requirement
+            life_requirement=life_requirement,
+            song_color_requirement=song_color_requirement
         )
 
     def __eq__(self, other):

@@ -8,7 +8,7 @@ pyximport.install(language_level=3)
 
 class Leader:
     def __init__(self, bonuses=np.zeros((5, 3)), song_bonuses=None, min_requirements=None, max_requirements=None,
-                 resonance=False, unison=False, bless=False, duet=False, fan=0):
+                 resonance=False, unison=False, tricolor_unison=False, bless=False, duet=False, fan=0):
         assert isinstance(bonuses, np.ndarray)
         assert bonuses.shape == (5, 3)
         if min_requirements is not None:
@@ -28,6 +28,7 @@ class Leader:
         self.min_requirements = min_requirements
         self.max_requirements = max_requirements
         self.unison = unison
+        self.tricolor_unison = tricolor_unison
         self.duet = duet
         self.fan = fan
 
@@ -76,9 +77,13 @@ class Leader:
             fan = 0
 
         is_unison = 10 < leader_data["target_attribute_2"] < 14
+        is_tricolor_unison = leader_data["target_attribute_2"] == 14
         if is_unison:
             song_bonuses = np.zeros((5, 3))
             song_bonuses[0:3, leader_data["target_attribute"] - 1] += leader_data["up_value_2"]
+        elif is_tricolor_unison:
+            song_bonuses = np.zeros((5, 3))
+            song_bonuses[0:3, 0:3] += leader_data["up_value_2"]
         else:
             song_bonuses = None
 
@@ -109,6 +114,7 @@ class Leader:
             min_requirements=min_requirements,
             max_requirements=max_requirements,
             unison=is_unison,
+            tricolor_unison=is_tricolor_unison,
             bless=is_bless,
             duet=is_duet,
             fan=fan,

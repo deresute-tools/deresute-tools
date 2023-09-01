@@ -1504,7 +1504,7 @@ class StateMachine:
             if has_failed and skill.is_ol:
                 to_be_removed.append(skill)
                 continue
-            if not has_failed and skill.is_ol:
+            if not has_failed and (skill.is_ol or skill.is_spike):
                 has_failed = self._handle_ol_drain(skill.life_requirement)
                 if has_failed:
                     to_be_removed.append(skill)
