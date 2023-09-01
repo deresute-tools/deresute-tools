@@ -75,7 +75,7 @@ class Skill:
         return self.skill_type == 12
 
     @property
-    def is_overload(self):
+    def is_ol(self):
         return self.skill_type == 14
 
     @property
@@ -119,7 +119,7 @@ class Skill:
         return self.skill_type == 42
 
     @property
-    def is_overdrive(self):
+    def is_od(self):
         return self.skill_type == 43
 
     @property

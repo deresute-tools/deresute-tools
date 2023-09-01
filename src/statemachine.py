@@ -252,6 +252,14 @@ class StateMachine:
             card.skill.is_cc
             for card in self.live.unit.all_cards()
         ])
+        self.has_od = any([
+            card.skill.is_od
+            for card in self.live.unit.all_cards()
+        ])
+        self.has_ol = any([
+            card.skill.is_ol
+            for card in self.live.unit.all_cards()
+        ])
 
         # Abuse stuff
         self.abuse = False
@@ -854,16 +862,20 @@ class StateMachine:
 
     def evaluate_judgement(self, note_delta, note_type, special_note_types,
                            abuse_check=False, is_checkpoint=False) -> Judgement:
-        def check_cc():
+        def check_skill(func):
             for _, skills in self.skill_queue.items():
-                if isinstance(skills, Skill) and skills.is_cc:
+                if isinstance(skills, Skill) and func(skills):
                     return True
                 for skill in skills:
-                    if skill.is_cc:
+                    if func(skill):
                         return True
             return False
 
-        has_cc = self.has_cc and check_cc()
+        has_cc = self.has_cc and check_skill(lambda skill: skill.is_cc)
+        has_od = self.has_od and check_skill(lambda skill: skill.is_od)
+        # Short circuit OL check if not dealing with OD
+        # Just ignore the other cases of combo saving skills since they are not meta
+        has_ol = has_od and self.has_ol and check_skill(lambda skill: skill.is_ol)
         if abuse_check:
             if note_type == NoteType.TAP:
                 l_g = GREAT_TAP_RANGE[self.live.difficulty]
@@ -899,7 +911,10 @@ class StateMachine:
                 return Judgement.PERFECT
             if note_type == NoteType.TAP or note_type == NoteType.FLICK or note_type == NoteType.LONG:
                 if -inner_l_g <= note_delta < -inner_l_p or inner_r_p < note_delta <= inner_r_g:
-                    return Judgement.GREAT
+                    if has_od and not has_ol:
+                        return Judgement.MISS
+                    else:
+                        return Judgement.GREAT
             return Judgement.MISS
         else:
             if note_type == NoteType.TAP:
@@ -1486,10 +1501,10 @@ class StateMachine:
             else:
                 unit_idx = skill.original_unit_idx
 
-            if has_failed and skill.is_overload:
+            if has_failed and skill.is_ol:
                 to_be_removed.append(skill)
                 continue
-            if not has_failed and skill.is_overload:
+            if not has_failed and skill.is_ol:
                 has_failed = self._handle_ol_drain(skill.life_requirement)
                 if has_failed:
                     to_be_removed.append(skill)
