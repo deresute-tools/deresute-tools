@@ -31,10 +31,15 @@ def update_musicscores():
         logger.debug("manifest.db not found, updating metadata")
         meta_updater.update_database()
     with db.CustomDB(meta_updater.get_manifestdb_path()) as manifest_conn:
-        all_musicscores = manifest_conn.execute_and_fetchall(
+        all_musicscores_3digits = manifest_conn.execute_and_fetchall(
             """
             SELECT name,hash FROM manifests WHERE (name LIKE "musicscores\_m___.bdb" ESCAPE '\\')
             """)
+        all_musicscores_4digits = manifest_conn.execute_and_fetchall(
+            """
+            SELECT name,hash FROM manifests WHERE (name LIKE "musicscores\_m____.bdb" ESCAPE '\\')
+            """)
+        all_musicscores = all_musicscores_3digits + all_musicscores_4digits
         all_musicscores = {_[0].split(".")[0]: _[1] for _ in all_musicscores}
 
     if not _score_cache_db_exists():
